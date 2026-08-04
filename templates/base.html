@@ -314,7 +314,7 @@
 'financeiro.financeiro_contas_caixa',
 'nova_conta_caixa',
 'editar_conta_caixa',
-'financeiro_movimentacoes_caixa',
+'financeiro.financeiro_movimentacoes_caixa',
 'financeiro_conciliacao_caixa',
 'financeiro_conciliacao_caixa_acao',
 'baixar_titulo_financeiro',
@@ -638,8 +638,8 @@
 
 
 
-                                <a class="nav-link {% if endpoint == 'financeiro_movimentacoes_caixa' %}active{% endif %}"
-                                   href="{{ url_for('financeiro_movimentacoes_caixa') }}">
+                                <a class="nav-link {% if endpoint == 'financeiro.financeiro_movimentacoes_caixa' %}active{% endif %}"
+                                   href="{{ url_for('financeiro.financeiro_movimentacoes_caixa') }}">
                                     <i class="fa-solid fa-right-left me-2"></i>
                                     Movimentações Caixa
                                 </a>
