@@ -1,0 +1,113 @@
+﻿dominio;rota;metodos;funcao;linha_inicial;linha_final;templates;tabelas;endpoints_referenciados;autenticacao_indicio;risco_inicial
+Administração e acessos;/;GET;dashboard;2293;2630;dashboard.html;arquivos_sistema, auditoria_financeira, empresas, lancamentos_ajudantes, motorista_notas_fiscais, pessoas, rotas, titulos_financeiros, usuarios;financeiro_nfs_motoristas, logout, relatorios_financeiro, rotas_divergencias, terminal_base_qrcode;Sim;Médio
+Administração e acessos;/pessoas/editar/<int:id>;GET, POST;editar_pessoa;4695;4975;editar_pessoa.html;empresas, pessoas, usuarios;editar_pessoa, logout, visualizar_pessoas;Sim;Alto
+Administração e acessos;/configuracao/usuarios/criar;GET, POST;criar_usuario;7465;7594;criar_usuario.html;bases_operacionais, empresas, pessoas, usuarios;criar_usuario, visualizar_usuarios;Sim;Alto
+Administração e acessos;/configuracao/usuarios/editar/<int:id>;GET, POST;editar_usuario;7600;7804;editar_usuario.html;bases_operacionais, empresas, pessoas, usuarios;editar_usuario, visualizar_usuarios;Sim;Alto
+Administração e acessos;/configuracao/usuarios;GET;visualizar_usuarios;7810;7907;visualizar_usuarios.html;bases_operacionais, empresas, pessoas, usuarios;dashboard;Sim;Médio
+Administração e acessos;/usuarios/alternar_status/<int:id>;POST;alternar_status_usuario;7913;7984;;usuarios;logout, visualizar_usuarios;Sim;Alto
+Administração e acessos;/configuracoes/perfil-acesso;GET;perfil_acesso;8310;8472;perfil_acesso.html;auditoria_permissoes, empresas, perfil_permissoes, perfis_acesso, sistema_menus, usuario_empresas_acesso, usuario_permissoes, usuarios;dashboard;Sim;Médio
+Administração e acessos;/configuracoes/perfis/novo;GET, POST;novo_perfil_acesso_empresa;8497;8552;perfil_acesso_form.html;empresas, perfis_acesso;editar_permissoes_perfil_acesso, novo_perfil_acesso_empresa, perfil_acesso;Sim;Alto
+Administração e acessos;/configuracoes/perfis/<int:perfil_id>/permissoes;GET, POST;editar_permissoes_perfil_acesso;8558;8620;perfil_permissoes_editar.html;perfil_permissoes, perfis_acesso, permitido;editar_permissoes_perfil_acesso, perfil_acesso;Sim;Alto
+Administração e acessos;/configuracoes/menus-modulos;GET;gerenciar_menus_modulos;8765;8785;gerenciar_menus_modulos.html;;perfil_acesso;Sim;Baixo
+Administração e acessos;/configuracoes/menus/novo;GET, POST;novo_menu_sistema;8893;8945;menu_sistema_form.html;modulo_id, perfil_permissoes, permitido, sistema_menus;gerenciar_menus_modulos, novo_menu_sistema, perfil_acesso;Sim;Alto
+Administração e acessos;/configuracoes/menus/<int:menu_id>/editar;GET, POST;editar_menu_sistema;8951;8994;menu_sistema_form.html;sistema_menus;gerenciar_menus_modulos, perfil_acesso;Sim;Alto
+Administração e acessos;/financeiro/historico-estornos;GET;historico_estornos;9271;9315;historico_estornos.html;historico_operacoes, notas_fiscais, pessoas, rotas, usuarios;;Sim;Médio
+Administração e acessos;/financeiro/pagamentos-ajudante/historico;GET;historico_pagamentos_ajudante;9816;9878;historico_pagamentos_ajudante.html;historico_ajudante_pagamentos, pessoas, usuarios;logout;Sim;Médio
+Administração e acessos;/empresas;GET;visualizar_empresas;9887;9947;visualizar_empresas.html;empresas, pessoas, rotas, usuarios;;Sim;Médio
+Administração e acessos;/financeiro/nfs-motoristas/<int:id>;GET;detalhes_nf_motorista;10531;10648;detalhes_nf_motorista.html;empresas, motorista_nf_rotas, motorista_notas_fiscais, pessoas, rotas, titulos_financeiros, usuarios;financeiro_nfs_motoristas, logout, relatorios_financeiro;Sim;Médio
+Administração e acessos;/operacao/relatorio-escala-base/exportar-excel;GET;exportar_relatorio_operacional_escala_base_excel;15705;16223;;auditoria_checkin_base, auditoria_supervisor, bases_operacionais, empresas, escala_motorista, fila_cancelados_base, pessoas, usuarios;logout, relatorio_operacional_escala_base;Sim;Médio
+Administração e acessos;/operacao/auditoria-supervisor;GET;visualizar_auditoria_supervisor;16647;16714;auditoria_supervisor.html;auditoria_supervisor, pessoas, usuarios;dashboard;Sim;Médio
+Administração e acessos;/operacao/motoristas/<int:motorista_id>/historico;GET;historico_motorista_detalhe;17912;18106;historico_motorista_detalhe.html;auditoria_checkin_base, bases_operacionais, ciencia_escala_motorista, empresas, escala_motorista, fila_cancelados_base, justificativas_ausencia_motorista, motorista_notas_fiscais, pessoas, rotas, usuarios;historico_motoristas;Sim;Médio
+Administração e acessos;/financeiro/auditoria;GET;financeiro_auditoria;19674;19826;financeiro_auditoria.html;auditoria_financeira, empresas, pessoas, usuarios;financeiro_dashboard, logout;Sim;Médio
+Administração e acessos;/financeiro/titulos/<int:id>;GET;detalhes_titulo_financeiro;20864;20971;financeiro_titulo_detalhes.html;contas_caixa, empresas, movimentacoes_caixa, pessoas, titulos_financeiros, titulos_financeiros_vinculos, usuarios;financeiro_titulos;Sim;Médio
+Administração e acessos;/financeiro/movimentacoes-caixa;GET;financeiro_movimentacoes_caixa;21958;22097;financeiro_movimentacoes_caixa.html;contas_caixa, empresas, movimentacoes_caixa, pessoas, titulos_financeiros, usuarios;financeiro_titulos;Sim;Médio
+Administração e acessos;/financeiro/conciliacao-caixa;GET;financeiro_conciliacao_caixa;22104;22291;financeiro_conciliacao_caixa.html;contas_caixa, empresas, movimentacoes_caixa, pessoas, titulos_financeiros, usuarios;financeiro_dashboard;Sim;Médio
+Arquivos e integrações;/arquivos/visualizar/<int:arquivo_id>;GET;visualizar_arquivo_sistema;1784;1882;;arquivos_sistema;dashboard, portal_motorista, terminal_base_qrcode;Sim;Médio
+Arquivos e integrações;/arquivos/local/<path:caminho>;GET;visualizar_upload_local;1887;1921;;;dashboard;Sim;Baixo
+Autenticação;/login;GET, POST;login;2047;2217;login.html;empresas, perfis_acesso, pessoas, usuarios;login, logout, portal_motorista, terminal_base_qrcode;Sim;Alto
+Autenticação;/logout;GET;logout;2281;2284;;;login;Não identificado;Baixo
+Empresas e bases;/portal-motorista/minhas-rotas;GET;minhas_rotas_motorista;2916;3064;minhas_rotas_motorista.html;empresas, pessoas, rotas;portal_motorista;Sim;Médio
+Empresas e bases;/portal-motorista/enviar-nf;GET, POST;enviar_nf_motorista;3320;3721;enviar_nf_motorista.html;empresas, motorista_nf_rotas, motorista_notas_fiscais, pessoas, rotas;enviar_nf_motorista, logout, portal_motorista;Sim;Alto
+Empresas e bases;/pessoas/cadastro;GET, POST;cadastro_pessoa;4355;4560;cadastro_pessoa.html;empresas, pessoas;cadastro_pessoa, logout, visualizar_pessoas;Sim;Alto
+Empresas e bases;/pessoas/visualizar;GET;visualizar_pessoas;4566;4689;visualizar_pessoas.html;empresas, pessoas;logout;Sim;Médio
+Empresas e bases;/api/pessoas/buscar;GET;api_buscar_pessoas;5037;5135;;empresas, pessoas;;Sim;Médio
+Empresas e bases;/movimentacao/visualizar;GET;visualizar_rotas;5402;5632;visualizar_rotas.html;empresas, pessoas, rotas;dashboard, logout;Sim;Médio
+Empresas e bases;/movimentacao/rotas/divergencias;GET;divergencias_rotas_motoristas;5639;5762;rotas_divergencias.html;empresas, pessoas, rotas, rotas_divergencias_motorista;logout, visualizar_rotas;Sim;Médio
+Empresas e bases;/empresas/cadastro;GET, POST;cadastro_empresa;9956;10067;cadastro_empresa.html;empresas;cadastro_empresa, visualizar_empresas;Sim;Alto
+Empresas e bases;/empresas/editar/<int:id>;GET, POST;editar_empresa;10076;10242;editar_empresa.html;empresas;editar_empresa, visualizar_empresas;Sim;Alto
+Empresas e bases;/financeiro/nfs-motoristas;GET;financeiro_nfs_motoristas;10316;10525;financeiro_nfs_motoristas.html;empresas, motorista_nf_rotas, motorista_notas_fiscais, pessoas, rotas, titulos_financeiros;dashboard, logout;Sim;Médio
+Empresas e bases;/portal-motorista/solicitar-pagamento-sem-nf;GET, POST;solicitar_pagamento_sem_nf_motorista;10764;10962;solicitar_pagamento_sem_nf_motorista.html;empresas, motorista_nf_rotas, motorista_notas_fiscais, pessoas, rotas;logout, portal_motorista, solicitar_pagamento_sem_nf_motorista;Sim;Alto
+Empresas e bases;/operacao/bases-operacionais;GET;visualizar_bases_operacionais;11943;12037;visualizar_bases_operacionais.html;bases_operacionais, empresas;dashboard, logout;Sim;Médio
+Empresas e bases;/operacao/bases-operacionais/cadastro;GET, POST;cadastro_base_operacional;12043;12170;cadastro_base_operacional.html;bases_operacionais, empresas;cadastro_base_operacional, logout, visualizar_bases_operacionais;Sim;Alto
+Empresas e bases;/operacao/bases-operacionais/editar/<int:id>;GET, POST;editar_base_operacional;12176;12301;editar_base_operacional.html;bases_operacionais;editar_base_operacional, logout, visualizar_bases_operacionais;Sim;Alto
+Empresas e bases;/operacao/escala-motoristas;GET, POST;escala_motoristas;12650;12937;escala_motoristas.html;empresas, escala_motorista, status_escala;escala_motoristas, logout;Sim;Alto
+Empresas e bases;/portal-motorista/minha-semana;GET, POST;minha_semana_motorista;13794;14409;minha_semana_motorista.html;bases_operacionais, ciencia_escala_motorista, data_ciencia, escala_motorista, fila_cancelados_base, justificativas_ausencia_motorista, motivo;logout, minha_semana_motorista;Sim;Alto
+Empresas e bases;/terminal-base/qrcode;GET;terminal_base_qrcode;14567;14626;terminal_base_qrcode.html;bases_operacionais;logout;Sim;Médio
+Empresas e bases;/terminal-base/qrcode/atualizar;GET;terminal_base_qrcode_atualizar;14632;14694;;bases_operacionais;;Sim;Baixo
+Empresas e bases;/operacao/auditoria-checkin-base;GET;auditoria_checkin_base;14765;14899;auditoria_checkin_base.html;auditoria_checkin_base, base_qr_tokens, bases_operacionais, escala_motorista, pessoas;dashboard, escala_motoristas, logout;Sim;Médio
+Empresas e bases;/operacao/mapa-checkins;GET;mapa_checkins;14905;15100;mapa_checkins.html;auditoria_checkin_base, bases_operacionais, escala_motorista, pessoas;auditoria_checkin_base, dashboard, logout;Sim;Médio
+Empresas e bases;/operacao/auditoria-checkin-base/exportar-csv;GET;exportar_auditoria_checkin_base_csv;15106;15193;;auditoria_checkin_base, bases_operacionais, pessoas;auditoria_checkin_base, logout;Sim;Médio
+Empresas e bases;/operacao/relatorio-escala-base;GET;relatorio_operacional_escala_base;15202;15596;relatorio_operacional_escala_base.html;auditoria_checkin_base, bases_operacionais, escala_motorista, fila_cancelados_base, pessoas;dashboard, logout;Sim;Médio
+Empresas e bases;/operacao/relatorio-escala-base/exportar-csv;GET;exportar_relatorio_operacional_escala_base_csv;15602;15699;;bases_operacionais, escala_motorista, fila_cancelados_base, pessoas;logout, relatorio_operacional_escala_base;Sim;Médio
+Empresas e bases;/operacao/relatorio-escala-base/exportar-pdf;GET;exportar_relatorio_operacional_escala_base_pdf;16230;16641;;auditoria_checkin_base, bases_operacionais, empresas, escala_motorista, fila_cancelados_base, pessoas;logout, relatorio_operacional_escala_base;Sim;Médio
+Empresas e bases;/operacao/central-pendencias;GET;central_pendencias_operacao;17164;17556;central_pendencias_operacao.html;auditoria_checkin_base, base_qr_tokens, bases_operacionais, ciencia_escala_motorista, disponibilidade_motorista, escala_motorista, fila_cancelados_base, justificativas_ausencia_motorista, pessoas;dashboard, logout;Sim;Médio
+Empresas e bases;/financeiro/configuracoes;GET, POST;financeiro_configuracoes;18881;18988;financeiro_configuracoes.html;empresas, historico_operacoes;financeiro_configuracoes, financeiro_titulos, logout;Sim;Alto
+Empresas e bases;/configuracoes/operacional-motorista;GET, POST;configuracoes_operacionais_motorista;18994;19123;configuracoes_operacionais_motorista.html;configuracoes_disponibilidade, configuracoes_escala_motorista, empresas, historico_operacoes;configuracoes_operacionais_motorista, dashboard, logout;Sim;Alto
+Empresas e bases;/relatorios;GET;relatorios_central;19311;19388;relatorios_central.html;arquivos_sistema, auditoria_financeira, empresas, rotas, titulos_financeiros;dashboard, logout;Sim;Médio
+Empresas e bases;/relatorios/financeiro;GET;relatorios_financeiro;19394;19531;relatorios_financeiro.html;contas_caixa, empresas, pessoas, titulos_financeiros;logout, relatorios_central;Sim;Médio
+Empresas e bases;/financeiro/dashboard;GET;financeiro_dashboard;19832;20151;financeiro_dashboard.html;contas_caixa, empresas, movimentacoes_caixa, pessoas, titulos_financeiros;financeiro_titulos, logout;Sim;Médio
+Empresas e bases;/financeiro/titulos;GET;financeiro_titulos;20157;20377;financeiro_titulos.html;contas_caixa, empresas, pessoas, titulos_financeiros;dashboard, logout;Sim;Médio
+Empresas e bases;/financeiro/titulos/novo;GET, POST;novo_titulo_financeiro;20383;20600;financeiro_titulo_form.html;contas_caixa, empresas, pessoas, titulos_financeiros;detalhes_titulo_financeiro, financeiro_titulos, logout, novo_titulo_financeiro;Sim;Alto
+Empresas e bases;/financeiro/contas-caixa/nova;GET, POST;nova_conta_caixa;22477;22555;financeiro_conta_caixa_form.html;contas_caixa, empresas;financeiro_contas_caixa, nova_conta_caixa;Sim;Alto
+Escalas e disponibilidade;/operacao/fila-cancelados/<int:fila_id>/atribuir-rota;POST;atribuir_rota_extra_fila_cancelado;13579;13584;;;;Sim;Baixo
+Escalas e disponibilidade;/operacao/fila-cancelados/<int:fila_id>/dispensar;POST;dispensar_fila_cancelado;13590;13595;;;;Sim;Baixo
+Financeiro;/relatorios/financeiro/exportar-csv;GET;relatorios_financeiro_exportar_csv;19570;19594;;;relatorios_financeiro;Sim;Baixo
+Financeiro;/relatorios/financeiro/exportar-excel;GET;relatorios_financeiro_exportar_excel;19600;19664;;;relatorios_financeiro;Sim;Baixo
+Financeiro;/financeiro/titulos/<int:id>/cancelar;POST;cancelar_titulo_financeiro;20976;21043;;titulos_financeiros;detalhes_titulo_financeiro, financeiro_titulos;Sim;Alto
+Financeiro;/financeiro/titulos/<int:id>/baixar;POST;baixar_titulo_financeiro;21051;21307;;contas_caixa, movimentacoes_caixa, titulos_financeiros;detalhes_titulo_financeiro, financeiro_titulos;Sim;Alto
+Financeiro;/financeiro/titulos/<int:id>/estornar;POST;estornar_baixa_titulo_financeiro;21508;21780;;historico_operacoes, movimentacoes_caixa, titulos_financeiros;detalhes_titulo_financeiro, financeiro_titulos;Sim;Alto
+Financeiro;/financeiro/titulos/<int:id>/tratativa-pos-estorno;POST;tratar_pos_estorno_titulo_financeiro;21790;21951;;historico_operacoes, titulos_financeiros;detalhes_titulo_financeiro, financeiro_titulos;Sim;Alto
+Financeiro;/financeiro/conciliacao-caixa/acao;POST;financeiro_conciliacao_caixa_acao;22297;22420;;movimentacoes_caixa;financeiro_conciliacao_caixa;Sim;Alto
+Financeiro;/financeiro/contas-caixa;GET;financeiro_contas_caixa;22425;22471;financeiro_contas_caixa.html;;;Sim;Baixo
+Financeiro;/financeiro/contas-caixa/<int:id>/editar;GET, POST;editar_conta_caixa;22561;22653;financeiro_conta_caixa_form.html;contas_caixa;editar_conta_caixa, financeiro_contas_caixa;Sim;Alto
+Motoristas;/portal-motorista/minhas-rotas/<int:rota_id>/confirmar;POST;confirmar_rota_motorista;3070;3151;;rotas;minhas_rotas_motorista, portal_motorista;Sim;Alto
+Motoristas;/portal-motorista/minhas-rotas/<int:rota_id>/divergencia;POST;apontar_divergencia_rota_motorista;3157;3266;;rotas, rotas_divergencias_motorista;minhas_rotas_motorista, portal_motorista;Sim;Alto
+Motoristas;/portal-motorista/minhas-nfs;GET;minhas_nfs_motorista;3844;3921;minhas_nfs_motorista.html;motorista_nf_rotas, motorista_notas_fiscais, rotas;logout, portal_motorista;Sim;Médio
+Motoristas;/portal-motorista/nfs/<int:nf_id>/danfse;GET;visualizar_danfse_nf;3925;3956;visualizar_danfse_nf.html;;baixar_xml_nf_original, portal_motorista;Sim;Baixo
+Motoristas;/portal-motorista/nfs/<int:nf_id>/xml-original;GET;baixar_xml_nf_original;3961;3991;;;portal_motorista;Sim;Baixo
+Motoristas;/financeiro/nfs-motoristas/<int:id>/aprovar;POST;aprovar_documento_motorista;4037;4161;;motorista_nf_rotas, motorista_notas_fiscais, rotas;detalhes_nf_motorista, financeiro_nfs_motoristas, logout;Sim;Alto
+Motoristas;/financeiro/nfs-motoristas/<int:id>/recusar;POST;recusar_documento_motorista;4167;4349;;motorista_nf_rotas, motorista_notas_fiscais, rotas;detalhes_nf_motorista, financeiro_nfs_motoristas, logout;Sim;Alto
+Motoristas;/movimentacao/rotas/divergencias/<int:divergencia_id>/tratar;POST;tratar_divergencia_rota_motorista;5768;5882;;rotas, rotas_divergencias_motorista;divergencias_rotas_motoristas, logout;Sim;Alto
+Motoristas;/movimentacao/rotas/<int:id>/bloquear-motorista;POST;bloquear_rota_motorista;6139;6221;;rotas;logout, visualizar_rotas;Sim;Alto
+Motoristas;/financeiro/nfs-motoristas/<int:id>/marcar-analise;POST;marcar_nf_motorista_em_analise;10654;10753;;motorista_nf_rotas, motorista_notas_fiscais, rotas;detalhes_nf_motorista, financeiro_nfs_motoristas, logout;Sim;Alto
+Motoristas;/financeiro/nfs-motoristas/<int:id>/reverter-aprovacao;POST;reverter_aprovacao_documento_motorista;10975;11126;;motorista_nf_rotas, motorista_notas_fiscais, rotas;detalhes_nf_motorista, financeiro_nfs_motoristas, logout;Sim;Alto
+Motoristas;/financeiro/nfs-motoristas/<int:id>/confirmar-pagamento;POST;confirmar_pagamento_documento_motorista;11135;11288;;motorista_nf_rotas, motorista_notas_fiscais, rotas;detalhes_nf_motorista, financeiro_nfs_motoristas, logout;Sim;Alto
+Motoristas;/financeiro/nfs-motoristas/<int:id>/estornar-pagamento;POST;estornar_pagamento_documento_motorista;11294;11453;;motorista_nf_rotas, motorista_notas_fiscais, rotas;detalhes_nf_motorista, financeiro_nfs_motoristas, logout;Sim;Alto
+Motoristas;/portal-motorista/disponibilidade;GET, POST;disponibilidade_motorista;11622;11816;disponibilidade_motorista.html;disponibilidade_motorista, status_disponibilidade;disponibilidade_motorista, logout, portal_motorista;Sim;Alto
+Motoristas;/financeiro/nfs-motoristas/<int:id>/solicitar-pagamento;POST;solicitar_pagamento_nf_motorista;18316;18397;;motorista_notas_fiscais;detalhes_nf_motorista, detalhes_titulo_financeiro, financeiro_nfs_motoristas, logout;Sim;Alto
+Outros;/inicio;GET;inicio_sem_modulos;1982;2043;;;;Sim;Baixo
+Outros;/configuracoes/modulos/novo;GET, POST;novo_modulo_sistema;8791;8825;modulo_sistema_form.html;nome, sistema_modulos;gerenciar_menus_modulos, novo_modulo_sistema, perfil_acesso;Sim;Alto
+Outros;/configuracoes/modulos/<int:modulo_id>/editar;GET, POST;editar_modulo_sistema;8831;8864;modulo_sistema_form.html;sistema_modulos;gerenciar_menus_modulos, perfil_acesso;Sim;Alto
+Pessoas e cadastros;/portal-motorista;GET;portal_motorista;2636;2851;portal_motorista.html;pessoas, rotas;dashboard, logout;Sim;Médio
+Pessoas e cadastros;/portal-motorista/nfs/<int:id>/xml;GET;visualizar_xml_nf_motorista;3749;3838;;motorista_notas_fiscais, pessoas;dashboard, detalhes_nf_motorista, minhas_nfs_motorista, portal_motorista, terminal_base_qrcode;Sim;Médio
+Pessoas e cadastros;/pessoas/excluir/<int:id>;POST;excluir_pessoa;4981;5032;;pessoas;logout, visualizar_pessoas;Sim;Alto
+Pessoas e cadastros;/movimentacao/lancar;GET, POST;lancar_rota;5144;5316;lancar_rota.html;pessoas, rotas;dashboard, lancar_rota, logout, visualizar_rotas;Sim;Alto
+Pessoas e cadastros;/movimentacao/editar/<int:id>;GET, POST;editar_rota;6227;6447;editar_rota.html;pessoas, rotas;editar_rota, logout, visualizar_rotas;Sim;Alto
+Pessoas e cadastros;/rotas/lancamento-ajudante;GET, POST;lancamento_ajudante;6537;6751;lancamento_ajudante.html;lancamento_ajudante_rotas, lancamentos_ajudantes, pessoas, rotas;dashboard, lancamento_ajudante, logout;Sim;Alto
+Pessoas e cadastros;/faturamento;GET;faturamento;6760;6848;faturamento.html;nota_fiscal_rotas, notas_fiscais, pessoas, rotas;;Sim;Médio
+Pessoas e cadastros;/processar-faturamento;POST;processar_faturamento;6854;7127;;historico_operacoes, nota_fiscal_rotas, notas_fiscais, pessoas, rotas;faturamento, logout;Sim;Alto
+Pessoas e cadastros;/financeiro/recebimento;GET;recebimento;7177;7244;recebimento.html;nota_fiscal_rotas, notas_fiscais, pessoas, rotas;logout;Sim;Médio
+Pessoas e cadastros;/financeiro/pagamentos-ajudante;GET;pagamentos_ajudante;9326;9433;pagamentos_ajudante.html;lancamento_ajudante_rotas, lancamentos_ajudantes, pessoas;logout;Sim;Médio
+Pessoas e cadastros;/financeiro/pagamentos-ajudante/baixar/<int:lancamento_id>;POST;baixar_pagamento_ajudante;9439;9551;;historico_ajudante_pagamentos, lancamento_ajudante_rotas, lancamentos_ajudantes, pessoas;logout, pagamentos_ajudante;Sim;Alto
+Pessoas e cadastros;/financeiro/pagamentos-ajudante/estornar-baixa/<int:lancamento_id>;POST;estornar_baixa_pagamento_ajudante;9557;9669;;historico_ajudante_pagamentos, lancamento_ajudante_rotas, lancamentos_ajudantes, pessoas;logout, pagamentos_ajudante;Sim;Alto
+Pessoas e cadastros;/financeiro/pagamentos-ajudante/estornar-lancamento/<int:lancamento_id>;POST;estornar_lancamento_ajudante;9675;9810;;historico_ajudante_pagamentos, lancamento_ajudante_rotas, lancamentos_ajudantes, pessoas;logout, pagamentos_ajudante;Sim;Alto
+Pessoas e cadastros;/operacao/score-motoristas;GET;score_motoristas;16723;17155;score_motoristas.html;auditoria_checkin_base, ciencia_escala_motorista, disponibilidade_motorista, escala_motorista, fila_cancelados_base, pessoas;dashboard, logout;Sim;Médio
+Pessoas e cadastros;/operacao/justificativas-ausencia/<int:justificativa_id>/analisar;POST;analisar_justificativa_ausencia;17562;17691;;escala_motorista, justificativas_ausencia_motorista, pessoas;central_pendencias_operacao, logout;Sim;Alto
+Pessoas e cadastros;/operacao/historico-motoristas;GET;historico_motoristas;17702;17906;historico_motoristas.html;auditoria_checkin_base, escala_motorista, fila_cancelados_base, justificativas_ausencia_motorista, pessoas;dashboard, logout;Sim;Médio
+Rotas e divergências;/movimentacao/rotas/<int:id>/liberar-nf;POST;liberar_rota_para_nf;5888;5970;;rotas;logout, visualizar_rotas;Sim;Alto
+Rotas e divergências;/movimentacao/rotas/liberar-em-massa-nf;POST;liberar_rotas_em_massa_para_nf;5976;6133;;rotas;logout, visualizar_rotas;Sim;Alto
+Rotas e divergências;/movimentacao/excluir/<int:id>;POST;excluir_rota;6453;6528;;lancamento_ajudante_rotas, nota_fiscal_rotas, rotas;logout, visualizar_rotas;Sim;Alto
+Rotas e divergências;/faturamento/contingencia/<int:id>;POST;contingencia_quitar_rota;7133;7168;;rotas;faturamento;Sim;Médio
+Rotas e divergências;/financeiro/recebimento/confirmar/<int:id>;POST;confirmar_recebimento;7254;7349;;historico_operacoes, nota_fiscal_rotas, notas_fiscais, rotas;logout, recebimento;Sim;Alto
+Rotas e divergências;/faturamento/estornar/<int:nota_id>;POST;estornar_faturamento;9028;9155;;historico_operacoes, nota_fiscal_rotas, notas_fiscais, rotas;faturamento;Sim;Alto
+Rotas e divergências;/financeiro/recebimento/estornar/<int:nota_id>;POST;estornar_recebimento;9166;9262;;historico_operacoes, nota_fiscal_rotas, notas_fiscais, rotas;recebimento;Sim;Alto

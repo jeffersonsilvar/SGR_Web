@@ -39,6 +39,8 @@ Plataforma web multiempresa disponibilizada por assinatura para centralização 
 - [Limitações técnicas atuais](#limitações-técnicas-atuais)
 - [Plano de evolução técnica](#plano-de-evolução-técnica)
 - [Documentação funcional](#documentação-funcional)
+- [Mapeamento das rotas Flask](docs/arquitetura/MAPEAMENTO_ROTAS.md)
+- [Inventário das rotas em CSV](docs/arquitetura/MAPEAMENTO_ROTAS.csv)
 - [Status do projeto](#status-do-projeto)
 - [Autor](#autor)
 
