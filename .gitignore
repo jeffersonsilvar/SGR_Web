@@ -53,4 +53,5 @@ sgr_web.sql
 coverage.xml
 htmlcov/
 .pytest_cache/
+*.blueprint-backup
 
