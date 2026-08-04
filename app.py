@@ -1065,7 +1065,7 @@ MENU_SISTEMA_PADRAO = [
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_dashboard', 'Dashboard Financeiro', 'financeiro_dashboard', 'fa-solid fa-chart-line', 10, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_titulos', 'Títulos Financeiros', 'financeiro_titulos', 'fa-solid fa-list-check', 20, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_contas_caixa', 'Contas Caixa', 'financeiro.financeiro_contas_caixa', 'fa-solid fa-building-columns', 30, ['Administrador', 'Financeiro']),
-    ('FINANCEIRO', 'gestao_financeira', 'financeiro_movimentacoes_caixa', 'Movimentações Caixa', 'financeiro_movimentacoes_caixa', 'fa-solid fa-right-left', 40, ['Administrador', 'Financeiro']),
+    ('FINANCEIRO', 'gestao_financeira', 'financeiro.financeiro_movimentacoes_caixa', 'Movimentações Caixa', 'financeiro.financeiro_movimentacoes_caixa', 'fa-solid fa-right-left', 40, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_conciliacao_caixa', 'Conciliação de Caixa', 'financeiro_conciliacao_caixa', 'fa-solid fa-scale-balanced', 50, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_configuracoes', 'Configurações Financeiras', 'financeiro_configuracoes', 'fa-solid fa-gear', 60, ['Administrador']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_auditoria', 'Auditoria Financeira', 'financeiro_auditoria', 'fa-solid fa-shield-halved', 70, ['Administrador', 'Financeiro']),
@@ -21977,152 +21977,6 @@ def tratar_pos_estorno_titulo_financeiro(id):
 
 
 
-@app.route('/financeiro/movimentacoes-caixa', methods=['GET'])
-@login_required
-@perfis_permitidos('Administrador', 'Operacional', 'Financeiro', 'Consulta')
-def financeiro_movimentacoes_caixa():
-    usuario_logado = session.get('usuario_nome', 'Usuário')
-    empresa_logada_id = session.get('empresa_id')
-    is_super_admin = usuario_eh_super_admin_global()
-
-    conta_caixa_id = (request.args.get('conta_caixa_id') or '').strip()
-    tipo_movimentacao = (request.args.get('tipo_movimentacao') or '').strip()
-    data_inicio = (request.args.get('data_inicio') or '').strip()
-    data_fim = (request.args.get('data_fim') or '').strip()
-    pesquisa = (request.args.get('pesquisa') or '').strip()
-    empresa_id_filtro = (request.args.get('empresa_id') or '').strip()
-
-    con = obter_conexao()
-    if con is None:
-        flash("Erro de conexão com o banco de dados.", "danger")
-        return redirect(url_for('financeiro_titulos'))
-
-    cur = con.cursor(dictionary=True)
-    try:
-        query = """
-            SELECT m.*,
-                   cx.nome_conta AS conta_caixa_nome,
-                   t.numero_documento,
-                   t.descricao AS titulo_descricao,
-                   t.tipo_titulo,
-                   p.nome_completo AS pessoa_nome,
-                   e.nome_fantasia AS empresa_nome,
-                   e.razao_social AS empresa_razao_social,
-                   u.login AS usuario_login
-            FROM movimentacoes_caixa m
-            INNER JOIN contas_caixa cx ON cx.id = m.conta_caixa_id AND cx.empresa_id = m.empresa_id
-            LEFT JOIN titulos_financeiros t ON t.id = m.titulo_financeiro_id AND t.empresa_id = m.empresa_id
-            LEFT JOIN pessoas p ON p.id = t.pessoa_id AND p.empresa_id = t.empresa_id
-            LEFT JOIN empresas e ON e.id = m.empresa_id
-            LEFT JOIN usuarios u ON u.id = m.usuario_criacao_id
-            WHERE 1 = 1
-        """
-        params = []
-
-        if is_super_admin:
-            if empresa_id_filtro and empresa_id_filtro.isdigit():
-                query += " AND m.empresa_id = %s"
-                params.append(int(empresa_id_filtro))
-        else:
-            query += " AND m.empresa_id = %s"
-            params.append(empresa_logada_id)
-
-        if conta_caixa_id and conta_caixa_id.isdigit():
-            query += " AND m.conta_caixa_id = %s"
-            params.append(int(conta_caixa_id))
-
-        if tipo_movimentacao in ['ENTRADA', 'SAIDA']:
-            query += " AND m.tipo_movimentacao = %s"
-            params.append(tipo_movimentacao)
-
-        if data_inicio:
-            query += " AND m.data_movimentacao >= %s"
-            params.append(data_inicio)
-
-        if data_fim:
-            query += " AND m.data_movimentacao <= %s"
-            params.append(data_fim)
-
-        if pesquisa:
-            query += """
-                AND (
-                    m.historico LIKE %s
-                    OR m.observacao LIKE %s
-                    OR t.numero_documento LIKE %s
-                    OR t.descricao LIKE %s
-                    OR p.nome_completo LIKE %s
-                )
-            """
-            termo = f"%{pesquisa}%"
-            params.extend([termo, termo, termo, termo, termo])
-
-        query += " ORDER BY m.data_movimentacao DESC, m.id DESC"
-        cur.execute(query, params)
-        movimentacoes = cur.fetchall()
-
-        resumo = {
-            'entradas': Decimal('0.00'),
-            'saidas': Decimal('0.00'),
-            'estornos': Decimal('0.00'),
-            'saldo_movimentado': Decimal('0.00'),
-            'total': len(movimentacoes)
-        }
-        for mov in movimentacoes:
-            valor = converter_decimal(mov.get('valor_movimentacao'))
-            status_mov = str(mov.get('status_movimentacao') or 'Ativa')
-            eh_estorno = bool(mov.get('estorno_de_movimentacao_id')) or status_mov == 'Estorno'
-
-            # Entradas/Saídas gerenciais contam apenas movimentações operacionais ativas.
-            # Estornos ficam em card separado para não parecer entrada operacional real.
-            if eh_estorno:
-                resumo['estornos'] += valor
-            elif status_mov != 'Estornada':
-                if mov.get('tipo_movimentacao') == 'ENTRADA':
-                    resumo['entradas'] += valor
-                elif mov.get('tipo_movimentacao') == 'SAIDA':
-                    resumo['saidas'] += valor
-
-            # Saldo movimentado é contábil: considera saída original e movimentação inversa.
-            if mov.get('tipo_movimentacao') == 'ENTRADA':
-                resumo['saldo_movimentado'] += valor
-            elif mov.get('tipo_movimentacao') == 'SAIDA':
-                resumo['saldo_movimentado'] -= valor
-
-        contas_caixa = carregar_contas_caixa_financeiro(empresa_logada_id, is_super_admin, somente_ativas=False)
-        empresas = carregar_empresas_ativas() if is_super_admin else []
-
-    except Exception as e:
-        print(f"Erro ao carregar movimentações de caixa: {e}")
-        flash(f"Erro técnico ao carregar movimentações de caixa: {e}", "danger")
-        movimentacoes = []
-        resumo = {'entradas': 0, 'saidas': 0, 'saldo_movimentado': 0, 'total': 0}
-        contas_caixa = []
-        empresas = []
-    finally:
-        fechar_cursor_conexao(cur, con)
-
-    filtros = {
-        'conta_caixa_id': conta_caixa_id,
-        'tipo_movimentacao': tipo_movimentacao,
-        'data_inicio': data_inicio,
-        'data_fim': data_fim,
-        'pesquisa': pesquisa,
-        'empresa_id': empresa_id_filtro
-    }
-
-    return render_template(
-        'financeiro_movimentacoes_caixa.html',
-        usuario_logado=usuario_logado,
-        movimentacoes=movimentacoes,
-        resumo=resumo,
-        contas_caixa=contas_caixa,
-        empresas=empresas,
-        filtros=filtros,
-        is_super_admin=is_super_admin
-    )
-
-
-
 @app.route('/financeiro/conciliacao-caixa', methods=['GET'])
 @login_required
 @perfis_permitidos('Administrador', 'Operacional', 'Financeiro', 'Consulta')
@@ -22640,6 +22494,7 @@ financeiro_services = {
     "calcular_saldo_conta_caixa": calcular_saldo_conta_caixa,
     "converter_decimal": converter_decimal,
     "fechar_cursor_conexao": fechar_cursor_conexao,
+    "carregar_empresas_ativas": carregar_empresas_ativas,
 }
 
 app.extensions["financeiro_services"] = financeiro_services
