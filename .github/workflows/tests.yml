@@ -1,0 +1,38 @@
+name: Testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Executar testes
+        env:
+          SECRET_KEY: chave-exclusiva-para-testes
+          MYSQL_HOST: localhost
+          MYSQL_PORT: "3306"
+          MYSQL_USER: usuario_teste
+          MYSQL_PASSWORD: senha_teste
+          MYSQL_DATABASE: sgr_web_teste
+          GOOGLE_DRIVE_ENABLED: "false"
+        run: pytest
