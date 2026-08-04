@@ -477,6 +477,180 @@ Elas não representam um procedimento de instalação para empresas clientes.
 
 ---
 
+
+## Visão do produto
+
+O SGR Web organiza a jornada operacional e financeira de empresas de logística em um único ambiente.
+
+A plataforma integra:
+
+- cadastro de empresas, bases, motoristas, prestadores e ajudantes;
+- escalas e disponibilidade;
+- lançamento e acompanhamento de rotas;
+- check-in na base;
+- tratamento de cancelamentos e divergências;
+- score operacional dos motoristas;
+- envio e validação de notas fiscais;
+- geração de títulos financeiros;
+- pagamentos, caixa e conciliação;
+- relatórios, históricos e auditorias;
+- usuários, perfis e permissões.
+
+A proposta é reduzir controles paralelos e oferecer uma visão consolidada da operação, respeitando os acessos de cada perfil.
+
+---
+
+## Fluxo operacional
+
+```mermaid
+flowchart LR
+    A[Motorista informa disponibilidade]
+    --> B[Supervisor organiza a escala]
+    --> C[Motorista é escalado ou cancelado]
+    --> D[Check-in e confirmação de presença]
+    --> E[Rota é lançada]
+    --> F[Motorista acompanha e valida a rota]
+    --> G{Existe divergência?}
+    G -- Sim --> H[Central de divergências]
+    G -- Não --> I[Rota liberada para NFSe]
+    H --> I
+    I --> J[Motorista envia a nota fiscal]
+    J --> K[Financeiro valida o documento]
+    K --> L[Título financeiro é gerado]
+    L --> M[Pagamento e baixa]
+    M --> N[Relatórios e auditoria]
+```
+
+### Jornada da empresa
+
+1. Configura empresas, bases, usuários e permissões.
+2. Organiza escalas e disponibilidade.
+3. Lança e acompanha rotas.
+4. Trata cancelamentos, presença e divergências.
+5. Valida documentos e notas fiscais.
+6. Gera títulos, pagamentos e conciliações.
+7. Acompanha indicadores, relatórios e auditorias.
+
+### Jornada do prestador
+
+1. Informa disponibilidade.
+2. Consulta a escala.
+3. Realiza check-in quando aplicável.
+4. Acompanha as rotas lançadas.
+5. Contesta divergências.
+6. Envia NFSe.
+7. Consulta documentos, títulos e pagamentos.
+
+---
+
+## Módulos do sistema
+
+### Operação logística
+
+- bases operacionais;
+- escala de motoristas;
+- lançamento de rotas;
+- visualização e liberação de rotas;
+- fila de cancelados;
+- check-in;
+- central de pendências;
+- divergências;
+- score operacional;
+- histórico de motoristas;
+- lançamento de ajudantes.
+
+### Portal do motorista
+
+- disponibilidade;
+- escalas;
+- check-in;
+- consulta de rotas;
+- divergências;
+- envio de NFSe;
+- acompanhamento de documentos;
+- consulta de pagamentos.
+
+### Gestão financeira
+
+- dashboard financeiro;
+- títulos a pagar e a receber;
+- contas caixa;
+- movimentações;
+- conciliação;
+- documentos dos motoristas;
+- validação de NFSe;
+- pagamentos de ajudantes;
+- faturamento por XML;
+- auditoria financeira.
+
+### Relatórios e governança
+
+- dashboard executivo;
+- central gerencial;
+- relatório financeiro;
+- relatório operacional;
+- auditoria de supervisor;
+- auditoria de check-in;
+- históricos de pagamentos e estornos;
+- mapa de check-ins.
+
+### Administração e acessos
+
+- usuários;
+- perfis;
+- permissões;
+- menus dinâmicos;
+- empresas liberadas;
+- configurações do Portal do Motorista.
+
+---
+
+## Galeria do produto
+
+As imagens abaixo utilizam ambiente e dados de demonstração. Informações pessoais, credenciais, documentos e valores reais não são publicados.
+
+### Acesso ao sistema
+
+![Tela de login do SGR Web](docs/assets/screenshots/login.png)
+
+### Dashboard executivo
+
+![Dashboard executivo](docs/assets/screenshots/dashboard_executivo.png)
+
+### Escala de motoristas
+
+![Escala de motoristas](docs/assets/screenshots/escala_motoristas.png)
+
+### Gestão de rotas
+
+![Visualização de rotas](docs/assets/screenshots/visualizar_rotas.png)
+
+### Score operacional
+
+![Score dos motoristas](docs/assets/screenshots/score_motoristas.png)
+
+### Central de pendências
+
+![Central de pendências](docs/assets/screenshots/central_pendencias.png)
+
+### Central de relatórios
+
+![Central de relatórios gerenciais](docs/assets/screenshots/central_relatorios.png)
+
+### Dashboard financeiro
+
+![Dashboard financeiro](docs/assets/screenshots/dashboard_financeiro.png)
+
+### Títulos financeiros
+
+![Títulos financeiros](docs/assets/screenshots/titulos_financeiros.png)
+
+### Permissões e menus
+
+![Permissões e menus dinâmicos](docs/assets/screenshots/permissoes_menus.png)
+
+---
+
 ## Tecnologias
 
 ### Backend
