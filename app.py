@@ -8700,10 +8700,38 @@ def garantir_schema_menus_modulos(cur):
         print(f"[Menus] Falha ao marcar restrições globais: {e}")
 
 
-def endpoint_existe_no_app(endpoint):
-    if not endpoint:
-        return False
-    return endpoint in app.view_functions
+def endpoint_existe_no_app(endpoint, rota_url=None):
+    """Valida endpoints tradicionais e endpoints registrados por Blueprints.
+
+    Também aceita a URL cadastrada como alternativa de validação. Isso evita
+    falsos negativos durante a migração gradual do monólito para Blueprints.
+    """
+    endpoint_normalizado = (endpoint or '').strip()
+    rota_normalizada = (rota_url or '').strip()
+
+    if endpoint_normalizado:
+        # Verificação principal: nome exato registrado pelo Flask.
+        if endpoint_normalizado in app.view_functions:
+            return True
+
+        # Compatibilidade temporária com cadastros antigos sem o namespace
+        # do Blueprint. Só considera válido quando existe uma única ocorrência.
+        sufixo = f".{endpoint_normalizado}"
+        correspondencias = [
+            nome
+            for nome in app.view_functions
+            if nome.endswith(sufixo)
+        ]
+        if len(correspondencias) == 1:
+            return True
+
+    # Validação complementar pela URL pública cadastrada no menu.
+    if rota_normalizada:
+        for regra in app.url_map.iter_rules():
+            if regra.rule == rota_normalizada:
+                return True
+
+    return False
 
 
 def listar_modulos_sistema(cur):
@@ -8729,7 +8757,7 @@ def listar_menus_sistema(cur):
     """)
     rows = cur.fetchall()
     for r in rows:
-        r['endpoint_existe'] = endpoint_existe_no_app(r.get('endpoint'))
+        r['endpoint_existe'] = endpoint_existe_no_app(r.get('endpoint'), r.get('rota_url'))
     return rows
 
 
@@ -8744,7 +8772,7 @@ def buscar_menu_sistema(cur, menu_id):
     cur.execute("SELECT * FROM sistema_menus WHERE id=%s LIMIT 1", (menu_id,))
     row = cur.fetchone()
     if row:
-        row['endpoint_existe'] = endpoint_existe_no_app(row.get('endpoint'))
+        row['endpoint_existe'] = endpoint_existe_no_app(row.get('endpoint'), row.get('rota_url'))
     return row
 
 
@@ -8914,8 +8942,8 @@ def novo_menu_sistema():
             exige_empresa = 1 if request.form.get('exige_empresa') == '1' else 0
             somente_super_admin = 1 if request.form.get('somente_super_admin') == '1' else 0
             somente_suporte = 1 if request.form.get('somente_suporte') == '1' else 0
-            if endpoint and endpoint not in app.view_functions:
-                flash('Atenção: endpoint informado ainda não existe no app.py. O menu foi salvo, mas confira a rota antes de liberar.', 'warning')
+            if endpoint and not endpoint_existe_no_app(endpoint, rota_url):
+                flash('Atenção: o endpoint informado ainda não está registrado na aplicação Flask. O menu foi salvo, mas confira a rota antes de liberar.', 'warning')
             if not titulo or not codigo or not grupo_menu:
                 flash('Informe título, código e grupo do menu.', 'warning')
                 return redirect(url_for('novo_menu_sistema'))
@@ -8975,8 +9003,8 @@ def editar_menu_sistema(menu_id):
             exige_empresa = 1 if request.form.get('exige_empresa') == '1' else 0
             somente_super_admin = 1 if request.form.get('somente_super_admin') == '1' else 0
             somente_suporte = 1 if request.form.get('somente_suporte') == '1' else 0
-            if endpoint and endpoint not in app.view_functions:
-                flash('Atenção: endpoint informado ainda não existe no app.py.', 'warning')
+            if endpoint and not endpoint_existe_no_app(endpoint, rota_url):
+                flash('Atenção: o endpoint informado ainda não está registrado na aplicação Flask.', 'warning')
             cur.execute("""
                 UPDATE sistema_menus
                    SET modulo_id=%s, menu_pai_id=%s, grupo_menu=%s, codigo=%s, titulo=%s, descricao=%s, endpoint=%s, rota_url=%s,
@@ -8987,7 +9015,7 @@ def editar_menu_sistema(menu_id):
             registrar_auditoria_permissao_segura('EDITAR_MENU_SISTEMA', 'sistema_menus', menu_id, json.dumps({'codigo':codigo,'titulo':titulo,'endpoint':endpoint}, ensure_ascii=False), None, None)
             flash('Menu atualizado com sucesso.', 'success')
             return redirect(url_for('gerenciar_menus_modulos'))
-        return render_template('menu_sistema_form.html', menu=menu, modulos=modulos, menus_pai=menus_pai, endpoint_existe=endpoint_existe_no_app(menu.get('endpoint')))
+        return render_template('menu_sistema_form.html', menu=menu, modulos=modulos, menus_pai=menus_pai, endpoint_existe=endpoint_existe_no_app(menu.get('endpoint'), menu.get('rota_url')))
     except Exception as e:
         con.rollback(); flash(f'Erro ao editar menu: {e}', 'danger'); return redirect(url_for('gerenciar_menus_modulos'))
     finally:
