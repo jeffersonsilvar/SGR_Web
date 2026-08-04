@@ -1064,7 +1064,7 @@ MENU_SISTEMA_PADRAO = [
     ('FINANCEIRO', None, 'gestao_financeira', 'Gestão Financeira', None, 'fa-solid fa-sack-dollar', 10, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_dashboard', 'Dashboard Financeiro', 'financeiro_dashboard', 'fa-solid fa-chart-line', 10, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_titulos', 'Títulos Financeiros', 'financeiro_titulos', 'fa-solid fa-list-check', 20, ['Administrador', 'Financeiro']),
-    ('FINANCEIRO', 'gestao_financeira', 'financeiro_contas_caixa', 'Contas Caixa', 'financeiro_contas_caixa', 'fa-solid fa-building-columns', 30, ['Administrador', 'Financeiro']),
+    ('FINANCEIRO', 'gestao_financeira', 'financeiro_contas_caixa', 'Contas Caixa', 'financeiro.financeiro_contas_caixa', 'fa-solid fa-building-columns', 30, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_movimentacoes_caixa', 'Movimentações Caixa', 'financeiro_movimentacoes_caixa', 'fa-solid fa-right-left', 40, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_conciliacao_caixa', 'Conciliação de Caixa', 'financeiro_conciliacao_caixa', 'fa-solid fa-scale-balanced', 50, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_configuracoes', 'Configurações Financeiras', 'financeiro_configuracoes', 'fa-solid fa-gear', 60, ['Administrador']),
@@ -22419,58 +22419,6 @@ def financeiro_conciliacao_caixa_acao():
 
     return redirect(url_for('financeiro_conciliacao_caixa', **redirect_params))
 
-@app.route('/financeiro/contas-caixa', methods=['GET'])
-@login_required
-@perfis_permitidos('Administrador', 'Operacional', 'Financeiro', 'Consulta')
-def financeiro_contas_caixa():
-    usuario_logado = session.get('usuario_nome', 'Usuário')
-    empresa_logada_id = session.get('empresa_id')
-    is_super_admin = usuario_eh_super_admin_global()
-
-    contas = carregar_contas_caixa_financeiro(empresa_logada_id, is_super_admin, somente_ativas=False)
-
-    # Bloco 5: calcula saldo atual considerando movimentações de caixa.
-    con_saldo = obter_conexao()
-    if con_saldo is not None:
-        cur_saldo = con_saldo.cursor(dictionary=True)
-        try:
-            for conta in contas:
-                saldo_info = calcular_saldo_conta_caixa(cur_saldo, conta['id'], conta['empresa_id'])
-                conta['saldo_atual'] = (saldo_info or {}).get('saldo_atual', converter_decimal(conta.get('saldo_inicial')))
-        except Exception as e:
-            print(f"Erro ao calcular saldos das contas caixa: {e}")
-            for conta in contas:
-                conta['saldo_atual'] = converter_decimal(conta.get('saldo_inicial'))
-        finally:
-            fechar_cursor_conexao(cur_saldo, con_saldo)
-    else:
-        for conta in contas:
-            conta['saldo_atual'] = converter_decimal(conta.get('saldo_inicial'))
-
-    resumo = {
-        'ativas': 0,
-        'inativas': 0,
-        'saldo_inicial_total': Decimal('0.00'),
-        'saldo_atual_total': Decimal('0.00'),
-        'total': len(contas)
-    }
-    for conta in contas:
-        if conta.get('status_conta') == 'Ativa':
-            resumo['ativas'] += 1
-        else:
-            resumo['inativas'] += 1
-        resumo['saldo_inicial_total'] += converter_decimal(conta.get('saldo_inicial'))
-        resumo['saldo_atual_total'] += converter_decimal(conta.get('saldo_atual'))
-
-    return render_template(
-        'financeiro_contas_caixa.html',
-        usuario_logado=usuario_logado,
-        contas=contas,
-        resumo=resumo,
-        is_super_admin=is_super_admin
-    )
-
-
 @app.route('/financeiro/contas-caixa/nova', methods=['GET', 'POST'])
 @login_required
 @perfis_permitidos('Administrador', 'Operacional', 'Financeiro')
@@ -22506,7 +22454,7 @@ def nova_conta_caixa():
         con = obter_conexao()
         if con is None:
             flash("Erro de conexão com o banco de dados.", "danger")
-            return redirect(url_for('financeiro_contas_caixa'))
+            return redirect(url_for('financeiro.financeiro_contas_caixa'))
 
         cur = con.cursor(dictionary=True)
         try:
@@ -22535,7 +22483,7 @@ def nova_conta_caixa():
             ))
             con.commit()
             flash("Conta caixa criada com sucesso.", "success")
-            return redirect(url_for('financeiro_contas_caixa'))
+            return redirect(url_for('financeiro.financeiro_contas_caixa'))
         except Exception as e:
             con.rollback()
             print(f"Erro ao criar conta caixa: {e}")
@@ -22566,7 +22514,7 @@ def editar_conta_caixa(id):
     con = obter_conexao()
     if con is None:
         flash("Erro de conexão com o banco de dados.", "danger")
-        return redirect(url_for('financeiro_contas_caixa'))
+        return redirect(url_for('financeiro.financeiro_contas_caixa'))
 
     cur = con.cursor(dictionary=True)
     try:
@@ -22581,7 +22529,7 @@ def editar_conta_caixa(id):
 
         if not conta:
             flash("Conta caixa não encontrada ou não pertence à empresa logada.", "danger")
-            return redirect(url_for('financeiro_contas_caixa'))
+            return redirect(url_for('financeiro.financeiro_contas_caixa'))
 
         if request.method == 'POST':
             nome_conta = (request.form.get('nome_conta') or '').strip()
@@ -22632,13 +22580,13 @@ def editar_conta_caixa(id):
             ))
             con.commit()
             flash("Conta caixa atualizada com sucesso.", "success")
-            return redirect(url_for('financeiro_contas_caixa'))
+            return redirect(url_for('financeiro.financeiro_contas_caixa'))
 
     except Exception as e:
         con.rollback()
         print(f"Erro ao editar conta caixa: {e}")
         flash(f"Erro técnico ao editar conta caixa: {e}", "danger")
-        return redirect(url_for('financeiro_contas_caixa'))
+        return redirect(url_for('financeiro.financeiro_contas_caixa'))
     finally:
         fechar_cursor_conexao(cur, con)
 
@@ -22651,6 +22599,26 @@ def editar_conta_caixa(id):
         tipos_conta=financeiro_base_tipos_conta_caixa(),
         is_super_admin=is_super_admin
     )
+
+
+# ==========================================================
+# BLUEPRINT PILOTO — FINANCEIRO / CONTAS CAIXA
+# ==========================================================
+from app_modules.financeiro import criar_financeiro_blueprint
+
+financeiro_services = {
+    "login_required": login_required,
+    "perfis_permitidos": perfis_permitidos,
+    "usuario_eh_super_admin_global": usuario_eh_super_admin_global,
+    "carregar_contas_caixa_financeiro": carregar_contas_caixa_financeiro,
+    "obter_conexao": obter_conexao,
+    "calcular_saldo_conta_caixa": calcular_saldo_conta_caixa,
+    "converter_decimal": converter_decimal,
+    "fechar_cursor_conexao": fechar_cursor_conexao,
+}
+
+app.extensions["financeiro_services"] = financeiro_services
+app.register_blueprint(criar_financeiro_blueprint(financeiro_services))
 
 
 if __name__ == '__main__':
