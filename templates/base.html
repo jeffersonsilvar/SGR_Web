@@ -311,7 +311,7 @@
 'novo_titulo_financeiro',
 'detalhes_titulo_financeiro',
 'cancelar_titulo_financeiro',
-'financeiro_contas_caixa',
+'financeiro.financeiro_contas_caixa',
 'nova_conta_caixa',
 'editar_conta_caixa',
 'financeiro_movimentacoes_caixa',
@@ -630,8 +630,8 @@
                                     Títulos Financeiros
                                 </a>
 
-                                <a class="nav-link {% if endpoint == 'financeiro_contas_caixa' or endpoint == 'nova_conta_caixa' or endpoint == 'editar_conta_caixa' %}active{% endif %}"
-                                   href="{{ url_for('financeiro_contas_caixa') }}">
+                                <a class="nav-link {% if endpoint == 'financeiro.financeiro_contas_caixa' or endpoint == 'nova_conta_caixa' or endpoint == 'editar_conta_caixa' %}active{% endif %}"
+                                   href="{{ url_for('financeiro.financeiro_contas_caixa') }}">
                                     <i class="fa-solid fa-building-columns me-2"></i>
                                     Contas Caixa
                                 </a>

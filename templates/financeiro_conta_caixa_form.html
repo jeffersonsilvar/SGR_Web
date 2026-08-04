@@ -6,7 +6,7 @@
             <h3 class="mb-1 fw-bold">{% if conta %}Editar Conta Caixa{% else %}Nova Conta Caixa{% endif %}</h3>
             <div class="text-muted small">Cadastro base para baixa financeira e movimentação de caixa.</div>
         </div>
-        <a href="{{ url_for('financeiro_contas_caixa') }}" class="btn btn-outline-secondary">Voltar</a>
+        <a href="{{ url_for('financeiro.financeiro_contas_caixa') }}" class="btn btn-outline-secondary">Voltar</a>
     </div>
 
     <form method="post" class="card border-0 shadow-sm">
@@ -68,7 +68,7 @@
             </div>
         </div>
         <div class="card-footer bg-white d-flex justify-content-end gap-2">
-            <a href="{{ url_for('financeiro_contas_caixa') }}" class="btn btn-outline-secondary">Cancelar</a>
+            <a href="{{ url_for('financeiro.financeiro_contas_caixa') }}" class="btn btn-outline-secondary">Cancelar</a>
             <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i> Salvar</button>
         </div>
     </form>
