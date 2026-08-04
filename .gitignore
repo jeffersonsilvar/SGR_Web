@@ -1,0 +1,49 @@
+# Variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+
+# IDEs e sistema operacional
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Uploads e documentos privados
+static/uploads/*
+!static/uploads/.gitkeep
+uploads/
+
+# Instância e credenciais locais
+instance/*
+!instance/.gitkeep
+credentials*.json
+client_secret*.json
+service_account*.json
+token*.json
+
+# Bancos, backups e exportações privadas
+*.db
+*.sqlite
+*.sqlite3
+*.bak
+*.backup
+*.dump
+sgr_web.sql
+
+# Temporários
+*.log
+*.tmp

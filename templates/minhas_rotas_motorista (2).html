@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid py-3">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+        <div>
+            <h2 class="mb-1 fw-bold text-dark">
+                <i class="fa-solid fa-route me-2 text-info"></i>
+                Minhas Rotas
+            </h2>
+            <p class="text-muted mb-0">
+                Confira suas rotas antes do envio da NF/XML. A nota fiscal fica como última etapa do processo.
+            </p>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('portal_motorista') }}" class="btn btn-outline-secondary fw-bold">
+                <i class="fa-solid fa-arrow-left me-1"></i>
+                Portal
+            </a>
+            <a href="{{ url_for('enviar_nf_motorista') }}" class="btn btn-success fw-bold">
+                <i class="fa-solid fa-file-arrow-up me-1"></i>
+                Enviar NF/XML
+            </a>
+        </div>
+    </div>
+
+    {% if motorista %}
+    <div class="alert alert-light border shadow-sm mb-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between gap-2">
+            <div>
+                <strong class="text-dark">
+                    <i class="fa-solid fa-id-card me-1 text-info"></i>
+                    {{ motorista.nome_completo }}
+                </strong>
+                <br>
+                <small class="text-muted">CPF/CNPJ: {{ motorista.cpf_cnpj or '-' }}</small>
+            </div>
+            <div class="text-md-end">
+                <small class="text-muted d-block">Empresa</small>
+                <strong>{{ session.get('empresa_nome') or '-' }}</strong>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="alert alert-info border-0 shadow-sm">
+        <strong>Fluxo da rota:</strong>
+        <small>
+            Rota lançada → conferência do motorista → liberação para NF → envio da NF/XML → análise financeira → pagamento.
+        </small>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-2">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+                <small class="text-muted fw-semibold">Aguardando conferência</small>
+                <h3 class="fw-bold mb-0">{{ resumo.aguardando or 0 }}</h3>
+            </div></div>
+        </div>
+        <div class="col-12 col-md-2">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+                <small class="text-muted fw-semibold">Conferidas</small>
+                <h3 class="fw-bold mb-0">{{ resumo.conferidas or 0 }}</h3>
+            </div></div>
+        </div>
+        <div class="col-12 col-md-2">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+                <small class="text-muted fw-semibold">Liberadas NF</small>
+                <h3 class="fw-bold mb-0">{{ resumo.liberadas or 0 }}</h3>
+            </div></div>
+        </div>
+        <div class="col-12 col-md-2">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+                <small class="text-muted fw-semibold">NF enviada</small>
+                <h3 class="fw-bold mb-0">{{ resumo.nf_enviada or 0 }}</h3>
+            </div></div>
+        </div>
+        <div class="col-12 col-md-2">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+                <small class="text-muted fw-semibold">Pagas</small>
+                <h3 class="fw-bold mb-0 text-success">{{ resumo.pagas or 0 }}</h3>
+            </div></div>
+        </div>
+        <div class="col-12 col-md-2">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+                <small class="text-muted fw-semibold">Canceladas</small>
+                <h3 class="fw-bold mb-0 text-danger">{{ resumo.canceladas or 0 }}</h3>
+            </div></div>
+        </div>
+        <div class="col-12 col-md-2">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+                <small class="text-muted fw-semibold">Valor ativo</small>
+                <h3 class="fw-bold mb-0" style="font-size:1.25rem;">
+                    R$ {{ "%.2f"|format(resumo.valor_total or 0)|replace('.', ',') }}
+                </h3>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('minhas_rotas_motorista') }}" class="row g-2 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold small text-muted">Buscar rota</label>
+                    <input type="text" class="form-control" name="identi_rota" placeholder="Identificação da rota..." value="{{ filtros.identi_rota or '' }}">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold small text-muted">Status</label>
+                    <select class="form-select" name="status_motorista">
+                        <option value="">Todos</option>
+                        {% for st in status_disponiveis %}
+                        <option value="{{ st }}" {% if filtros.status_motorista == st %}selected{% endif %}>{{ st }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold small text-muted">Data início</label>
+                    <input type="date" class="form-control" name="data_inicio" value="{{ filtros.data_inicio or '' }}">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold small text-muted">Data fim</label>
+                    <input type="date" class="form-control" name="data_fim" value="{{ filtros.data_fim or '' }}">
+                </div>
+                <div class="col-12 col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fa-solid fa-magnifying-glass me-1"></i> Filtrar
+                    </button>
+                    <a href="{{ url_for('minhas_rotas_motorista') }}" class="btn btn-outline-secondary"><i class="fa-solid fa-rotate-left"></i></a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 py-3">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                <div>
+                    <strong class="text-dark"><i class="fa-solid fa-list-check me-1 text-info"></i> Rotas atribuídas</strong>
+                    <br>
+                    <small class="text-muted">Aqui aparecem as rotas vinculadas ao seu cadastro. Rotas canceladas ficam visíveis apenas como histórico e não entram no valor ativo.</small>
+                </div>
+                <span class="badge bg-light text-dark border p-2">Total encontrado: {{ rotas|length }}</span>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
+                <thead class="table-light text-uppercase" style="font-size: 11px; letter-spacing: .4px;">
+                <tr>
+                    <th class="ps-3">ID</th>
+                    <th>Data</th>
+                    <th>Rota</th>
+                    <th>Responsável/Tomador</th>
+                    <th class="text-end">Valor</th>
+                    <th class="text-center">Status</th>
+                    <th class="text-end pe-3">Ação</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% if rotas %}
+                {% for rota in rotas %}
+                {% set sm = rota.status_motorista or 'Aguardando conferência' %}
+                <tr>
+                    <td class="ps-3 fw-bold font-monospace text-secondary">{{ rota.id }}</td>
+                    <td>{{ rota.data_lancamento|formatar_data_br }}</td>
+                    <td>
+                        <strong>{{ rota.identi_rota }}</strong><br>
+                        <small class="text-muted">{{ rota.tipo_rota }}</small>
+                    </td>
+                    <td>
+                        {{ rota.tomador_nome or session.get('empresa_nome') or '-' }}<br>
+                        <small class="text-muted">{{ rota.tomador_cpf_cnpj or '' }}</small>
+                    </td>
+                    <td class="text-end fw-bold">
+                        R$ {{ "%.2f"|format(rota.valor_total_rota or 0)|replace('.', ',') }}
+                    </td>
+                    <td class="text-center">
+                        {% if sm == 'Cancelada' or rota.situacao_rota == 'Cancelada' %}
+                            <span class="badge bg-danger">Cancelada</span>
+                        {% elif sm == 'Aguardando conferência' %}
+                            <span class="badge bg-warning text-dark">Aguardando conferência</span>
+                        {% elif sm == 'Conferida pelo motorista' %}
+                            <span class="badge bg-primary">Conferida pelo motorista</span>
+                        {% elif sm == 'Divergência apontada' %}
+                            <span class="badge bg-danger">Divergência apontada</span>
+                        {% elif sm == 'Liberada para NF' %}
+                            <span class="badge bg-info text-dark">Liberada para NF</span>
+                        {% elif sm == 'NF enviada' %}
+                            <span class="badge bg-secondary">NF enviada</span>
+                        {% elif sm == 'Em análise' %}
+                            <span class="badge bg-warning text-dark">Em análise</span>
+                        {% elif sm == 'Aprovada para pagamento' %}
+                            <span class="badge bg-success">Aprovada</span>
+                        {% elif sm == 'Pagamento confirmado' %}
+                            <span class="badge bg-success"><i class="fa-solid fa-circle-check me-1"></i>Pago</span>
+                        {% elif sm == 'Bloqueada' %}
+                            <span class="badge bg-dark">Bloqueada</span>
+                        {% else %}
+                            <span class="badge bg-light text-dark border">{{ sm }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end pe-3">
+                        {% if sm == 'Cancelada' or rota.situacao_rota == 'Cancelada' %}
+                            <button type="button" class="btn btn-sm btn-danger fw-bold" disabled>Cancelada</button>
+                        {% elif sm == 'Aguardando conferência' %}
+                            <div class="d-flex justify-content-end gap-1 flex-wrap">
+                                <form method="POST" action="{{ url_for('confirmar_rota_motorista', rota_id=rota.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-primary fw-bold"
+                                            onclick="return confirm('Confirmar que os dados desta rota estão corretos?');">
+                                        <i class="fa-solid fa-check me-1"></i> Conferir
+                                    </button>
+                                </form>
+                                <button type="button" class="btn btn-sm btn-outline-danger fw-bold"
+                                        data-bs-toggle="collapse"
+                                        data-bs-target="#divergenciaRota{{ rota.id }}">
+                                    <i class="fa-solid fa-triangle-exclamation me-1"></i> Divergência
+                                </button>
+                            </div>
+                            <div class="collapse mt-2" id="divergenciaRota{{ rota.id }}">
+                                <form method="POST" action="{{ url_for('apontar_divergencia_rota_motorista', rota_id=rota.id) }}" class="border rounded p-2 bg-light text-start">
+                                    <label class="form-label small fw-semibold mb-1">Tipo de divergência</label>
+                                    <select name="tipo_divergencia" class="form-select form-select-sm mb-2" required>
+                                        <option value="">Selecione...</option>
+                                        <option value="Valor divergente">Valor divergente</option>
+                                        <option value="Rota não realizada">Rota não realizada</option>
+                                        <option value="KM divergente">KM divergente</option>
+                                        <option value="Despesa faltando">Despesa faltando</option>
+                                        <option value="Dados incorretos">Dados incorretos</option>
+                                        <option value="Outro problema">Outro problema</option>
+                                    </select>
+                                    <label class="form-label small fw-semibold mb-1">Descrição</label>
+                                    <textarea name="descricao" class="form-control form-control-sm mb-2" rows="2" required placeholder="Explique o que precisa ser corrigido..."></textarea>
+                                    <button type="submit" class="btn btn-sm btn-danger w-100 fw-bold"
+                                            onclick="return confirm('Enviar divergência desta rota para análise da operação?');">
+                                        Enviar divergência
+                                    </button>
+                                </form>
+                            </div>
+                        {% elif sm == 'Conferida pelo motorista' %}
+                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold" disabled>
+                                <i class="fa-solid fa-clock me-1"></i> Aguardando liberação
+                            </button>
+                        {% elif sm == 'Divergência apontada' %}
+                            <button type="button" class="btn btn-sm btn-outline-danger fw-bold" disabled>
+                                <i class="fa-solid fa-hourglass-half me-1"></i> Em análise
+                            </button>
+                        {% elif sm == 'Liberada para NF' %}
+                            <a href="{{ url_for('enviar_nf_motorista', rota_id=rota.id) }}" class="btn btn-sm btn-success fw-bold">
+                                <i class="fa-solid fa-file-arrow-up me-1"></i> Enviar NF
+                            </a>
+                        {% elif sm in ['NF enviada', 'Em análise'] %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary fw-bold" disabled>Aguardando análise</button>
+                        {% elif sm == 'Aprovada para pagamento' %}
+                            <button type="button" class="btn btn-sm btn-outline-success fw-bold" disabled>Aprovada</button>
+                        {% elif sm == 'Pagamento confirmado' %}
+                            <button type="button" class="btn btn-sm btn-success fw-bold" disabled>Pago</button>
+                        {% else %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary fw-bold" disabled>Indisponível</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-muted">
+                        <i class="fa-solid fa-folder-open fs-3 mb-2 d-block"></i>
+                        Nenhuma rota atribuída ao seu cadastro no momento.
+                    </td>
+                </tr>
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

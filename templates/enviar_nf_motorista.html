@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid py-3">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+        <div>
+            <h2 class="mb-1 fw-bold text-dark">
+                <i class="fa-solid fa-file-arrow-up me-2 text-success"></i>
+                Enviar NF
+            </h2>
+            <p class="text-muted mb-0">
+                Selecione rotas liberadas, anexe o XML e envie para análise financeira.
+            </p>
+        </div>
+
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('portal_motorista') }}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-arrow-left me-1"></i>
+                Portal
+            </a>
+
+            <a href="{{ url_for('minhas_nfs_motorista') }}" class="btn btn-outline-primary">
+                <i class="fa-solid fa-file-invoice me-1"></i>
+                Minhas NFs
+            </a>
+        </div>
+    </div>
+
+    {% if motorista %}
+    <div class="alert alert-light border shadow-sm">
+        <strong>{{ motorista.nome_completo }}</strong>
+        <br>
+        <small class="text-muted">
+            CPF/CNPJ do prestador que será validado no XML: {{ motorista.cpf_cnpj or '-' }}
+        </small>
+    </div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" onsubmit="return confirmarEnvioNF();">
+        <div class="row g-4">
+
+            <div class="col-12 col-lg-8">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-0 py-3">
+                        <strong>
+                            <i class="fa-solid fa-route me-1 text-info"></i>
+                            Rotas liberadas para NF
+                        </strong>
+                        <br>
+                        <small class="text-muted">
+                            A NF deve ter o mesmo tomador das rotas selecionadas e valor igual à soma das rotas.
+                        </small>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
+                            <thead class="table-light text-uppercase" style="font-size: 11px;">
+                                <tr>
+                                    <th class="ps-3 text-center" style="width: 45px;">
+                                        <input type="checkbox" class="form-check-input" onclick="alternarTodas(this)">
+                                    </th>
+                                    <th>Data</th>
+                                    <th>Rota</th>
+                                    <th>Tomador</th>
+                                    <th class="text-end pe-3">Valor</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {% if rotas %}
+                                    {% for rota in rotas %}
+                                        <tr>
+                                            <td class="ps-3 text-center">
+                                                <input type="checkbox"
+                                                       class="form-check-input check-rota"
+                                                       name="rota_ids"
+                                                       value="{{ rota.id }}"
+                                                       data-valor="{{ rota.valor_total_rota or 0 }}"
+                                                       {% if rota_id_preselecionada|string == rota.id|string %}checked{% endif %}
+                                                       onchange="atualizarResumo()">
+                                            </td>
+
+                                            <td>{{ rota.data_lancamento|formatar_data_br }}</td>
+
+                                            <td>
+                                                <strong>{{ rota.identi_rota }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ rota.tipo_rota }}</small>
+                                            </td>
+
+                                            <td>
+                                                {{ rota.transportadora_nome or '-' }}
+                                                <br>
+                                                <small class="text-muted">{{ rota.transportadora_cpf_cnpj or '-' }}</small>
+                                            </td>
+
+                                            <td class="text-end pe-3 fw-bold">
+                                                R$ {{ "%.2f"|format(rota.valor_total_rota or 0)|replace(".", ",") }}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center py-5 text-muted">
+                                            <i class="fa-solid fa-folder-open fs-3 d-block mb-2"></i>
+                                            Nenhuma rota liberada para envio de NF.
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-0 py-3">
+                        <strong>
+                            <i class="fa-solid fa-file-code me-1 text-success"></i>
+                            XML da Nota Fiscal
+                        </strong>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="alert alert-info border-0 small">
+                            <strong>Validações automáticas:</strong>
+                            <br>
+                            Prestador do XML = motorista logado.
+                            <br>
+                            Tomador do XML = tomador das rotas.
+                            <br>
+                            Valor do XML = soma das rotas selecionadas.
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Arquivo XML *</label>
+                            <input type="file"
+                                   class="form-control"
+                                   name="xml_nf"
+                                   accept=".xml,text/xml,application/xml"
+                                   required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Observação</label>
+                            <textarea name="observacao"
+                                      class="form-control"
+                                      rows="3"
+                                      maxlength="255"
+                                      placeholder="Opcional..."></textarea>
+                        </div>
+
+                        <div class="border rounded p-3 bg-light mb-3">
+                            <small class="text-muted fw-bold text-uppercase">Resumo do envio</small>
+
+                            <div class="d-flex justify-content-between mt-2">
+                                <span>Rotas selecionadas:</span>
+                                <strong id="qtdSelecionadas">0</strong>
+                            </div>
+
+                            <div class="d-flex justify-content-between">
+                                <span>Total selecionado:</span>
+                                <strong class="text-success" id="valorSelecionado">R$ 0,00</strong>
+                            </div>
+                        </div>
+
+                        <button type="submit"
+                                class="btn btn-success w-100 fw-bold"
+                                {% if not rotas %}disabled{% endif %}>
+                            <i class="fa-solid fa-paper-plane me-1"></i>
+                            Enviar XML para análise
+                        </button>
+
+                        <a href="{{ url_for('portal_motorista') }}"
+                           class="btn btn-outline-secondary w-100 mt-2">
+                            Cancelar
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </form>
+
+</div>
+
+<script>
+    function getChecks() {
+        return Array.from(document.querySelectorAll('.check-rota'));
+    }
+
+    function alternarTodas(master) {
+        getChecks().forEach(function(check) {
+            check.checked = master.checked;
+        });
+        atualizarResumo();
+    }
+
+    function atualizarResumo() {
+        let qtd = 0;
+        let total = 0;
+
+        getChecks().forEach(function(check) {
+            if (check.checked) {
+                qtd += 1;
+                total += parseFloat(check.dataset.valor || '0');
+            }
+        });
+
+        document.getElementById('qtdSelecionadas').innerText = qtd;
+        document.getElementById('valorSelecionado').innerText = total.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        });
+    }
+
+    function confirmarEnvioNF() {
+        const selecionadas = getChecks().filter(function(check) {
+            return check.checked;
+        });
+
+        if (selecionadas.length === 0) {
+            alert("Selecione pelo menos uma rota.");
+            return false;
+        }
+
+        return confirm("Confirmar envio do XML para análise financeira?");
+    }
+
+    document.addEventListener('DOMContentLoaded', atualizarResumo);
+</script>
+{% endblock %}

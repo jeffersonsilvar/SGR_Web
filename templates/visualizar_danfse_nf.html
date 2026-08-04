@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+      <h2 class="mb-1"><i class="bi bi-file-earmark-text text-primary"></i> {{ danfse.titulo }}</h2>
+      <div class="text-muted">{{ danfse.subtitulo }}</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap no-print">
+      <button class="btn btn-outline-secondary" onclick="window.print()">
+        <i class="bi bi-printer"></i> Imprimir / Salvar PDF
+      </button>
+      {% if xml_download_url %}
+      <a class="btn btn-outline-primary" href="{{ xml_download_url }}">
+        <i class="bi bi-download"></i> Baixar XML original
+      </a>
+      {% endif %}
+      <a class="btn btn-dark" href="javascript:history.back()">
+        <i class="bi bi-arrow-left"></i> Voltar
+      </a>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-3 danfse-card">
+    <div class="card-body">
+      <div class="row g-3 align-items-center">
+        <div class="col-lg-8">
+          <h5 class="mb-1">{{ danfse.prefeitura }}</h5>
+          <div class="small text-muted">Documento Auxiliar da Nota Fiscal de Serviço Eletrônica</div>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+          <div class="small text-muted">Chave de Acesso da NFS-e</div>
+          <div class="fw-bold text-break">{{ danfse.chave_acesso }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="info-box"><span>Número da NFS-e</span><strong>{{ danfse.numero_nf }}</strong></div></div>
+    <div class="col-md-3"><div class="info-box"><span>Competência</span><strong>{{ danfse.competencia }}</strong></div></div>
+    <div class="col-md-3"><div class="info-box"><span>Data/Hora de emissão</span><strong>{{ danfse.data_emissao }}</strong></div></div>
+    <div class="col-md-3"><div class="info-box"><span>DPS / Série</span><strong>{{ danfse.numero_dps }} / {{ danfse.serie_dps }}</strong></div></div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header fw-bold bg-light">EMITENTE DA NFS-e — Prestador do Serviço</div>
+        <div class="card-body fiscal-grid">
+          <div><span>CNPJ/CPF/NIF</span><strong>{{ danfse.prestador.cpf_cnpj }}</strong></div>
+          <div><span>Inscrição Municipal</span><strong>{{ danfse.prestador.inscricao_municipal }}</strong></div>
+          <div><span>Nome / Nome Empresarial</span><strong>{{ danfse.prestador.nome }}</strong></div>
+          <div><span>Telefone</span><strong>{{ danfse.prestador.telefone }}</strong></div>
+          <div><span>E-mail</span><strong>{{ danfse.prestador.email }}</strong></div>
+          <div><span>Endereço</span><strong>{{ danfse.prestador.endereco }}</strong></div>
+          <div><span>Município</span><strong>{{ danfse.prestador.municipio }}</strong></div>
+          <div><span>CEP</span><strong>{{ danfse.prestador.cep }}</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header fw-bold bg-light">TOMADOR DO SERVIÇO</div>
+        <div class="card-body fiscal-grid">
+          <div><span>CNPJ/CPF/NIF</span><strong>{{ danfse.tomador.cpf_cnpj }}</strong></div>
+          <div><span>Inscrição Municipal</span><strong>{{ danfse.tomador.inscricao_municipal }}</strong></div>
+          <div><span>Nome / Nome Empresarial</span><strong>{{ danfse.tomador.nome }}</strong></div>
+          <div><span>Telefone</span><strong>{{ danfse.tomador.telefone }}</strong></div>
+          <div><span>E-mail</span><strong>{{ danfse.tomador.email }}</strong></div>
+          <div><span>Endereço</span><strong>{{ danfse.tomador.endereco }}</strong></div>
+          <div><span>Município</span><strong>{{ danfse.tomador.municipio }}</strong></div>
+          <div><span>CEP</span><strong>{{ danfse.tomador.cep }}</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mt-3">
+    <div class="card-header fw-bold bg-light">SERVIÇO PRESTADO</div>
+    <div class="card-body">
+      <div class="row g-3 mb-2">
+        <div class="col-md-4"><div class="small text-muted">Código de Tributação</div><strong>{{ danfse.servico.codigo_tributacao }}</strong></div>
+        <div class="col-md-4"><div class="small text-muted">Local da Prestação</div><strong>{{ danfse.servico.local_prestacao }}</strong></div>
+      </div>
+      <div class="small text-muted">Descrição do Serviço</div>
+      <div class="p-3 bg-light rounded border">{{ danfse.servico.descricao }}</div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header fw-bold bg-light">TRIBUTAÇÃO MUNICIPAL</div>
+        <div class="card-body fiscal-grid">
+          <div><span>BC ISSQN</span><strong>{{ danfse.tributacao.base_calculo }}</strong></div>
+          <div><span>Alíquota Aplicada</span><strong>{{ danfse.tributacao.aliquota }}</strong></div>
+          <div><span>Retenção do ISSQN</span><strong>{{ danfse.tributacao.iss_retido }}</strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100 border-primary">
+        <div class="card-header fw-bold bg-primary text-white">VALOR TOTAL DA NFS-e</div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between border-bottom py-2"><span>Valor do Serviço</span><strong>{{ danfse.valores.valor_servico }}</strong></div>
+          <div class="d-flex justify-content-between py-2 fs-5"><span>Valor Líquido da NFS-e</span><strong>{{ danfse.valores.valor_liquido }}</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .info-box { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,.05); height:100%; }
+  .info-box span, .fiscal-grid span { display:block; color:#6b7280; font-size:.82rem; }
+  .info-box strong { display:block; font-size:1.05rem; margin-top:4px; }
+  .fiscal-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:14px; }
+  .fiscal-grid strong { display:block; word-break:break-word; }
+  @media (max-width: 768px) { .fiscal-grid { grid-template-columns: 1fr; } }
+  @media print {
+    .no-print, .sidebar, nav, header, .btn { display:none !important; }
+    body { background:#fff !important; }
+    .container-fluid { padding:0 !important; }
+    .card { box-shadow:none !important; break-inside:avoid; }
+  }
+</style>
+{% endblock %}

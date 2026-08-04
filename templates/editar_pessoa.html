@@ -1,0 +1,394 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid py-3">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+        <div>
+            <h2 class="mb-1 fw-bold text-dark">
+                <i class="fa-solid fa-user-pen me-2 text-info"></i>
+                Editar Cadastro
+            </h2>
+            <p class="text-muted mb-0">
+                {{ pessoa.nome_completo }}
+                {% if is_super_admin %}
+                    — {{ pessoa.empresa_nome or pessoa.empresa_razao_social }}
+                {% endif %}
+            </p>
+        </div>
+
+        <a href="{{ url_for('visualizar_pessoas') }}" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-arrow-left me-1"></i>
+            Voltar
+        </a>
+    </div>
+
+    <form action="{{ url_for('editar_pessoa', id=pessoa.id) }}" method="POST" class="needs-validation" novalidate>
+
+        <div class="row g-4">
+
+            <!-- DADOS PRINCIPAIS -->
+            <div class="col-12 col-lg-7">
+                <div class="card shadow-sm border-0 p-4 bg-white h-100">
+
+                    <h5 class="text-secondary font-monospace border-bottom pb-2 mb-3">
+                        <i class="fa-solid fa-address-card me-2 text-info"></i>
+                        Dados Principais
+                    </h5>
+
+                    <div class="row g-3">
+
+                        {% if is_super_admin %}
+                        <div class="col-12">
+                            <label for="empresa_id" class="form-label fw-semibold">
+                                Empresa *
+                            </label>
+
+                            <select class="form-select" id="empresa_id" name="empresa_id" required>
+                                {% for empresa in empresas %}
+                                    <option value="{{ empresa.id }}"
+                                            {% if empresa.id == pessoa.empresa_id %}selected{% endif %}>
+                                        {{ empresa.nome_fantasia or empresa.razao_social }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+
+                            <small class="text-muted">
+                                Atenção: se este cadastro já estiver vinculado a usuário, rota, nota fiscal ou ajudante,
+                                o sistema não permitirá trocar a empresa para proteger o histórico.
+                            </small>
+                        </div>
+                        {% else %}
+                        <input type="hidden" name="empresa_id" value="{{ pessoa.empresa_id }}">
+                        {% endif %}
+
+                        <!-- NOME COMPLETO -->
+                        <div class="col-12">
+                            <label for="nome_completo" class="form-label fw-bold small text-muted">
+                                Nome Completo / Razão Social
+                            </label>
+
+                            <input type="text"
+                                   class="form-control text-dark"
+                                   id="nome_completo"
+                                   name="nome_completo"
+                                   maxlength="150"
+                                   value="{{ pessoa.nome_completo or '' }}"
+                                   required>
+                        </div>
+
+                        <!-- APELIDO -->
+                        <div class="col-md-6">
+                            <label for="apelido" class="form-label fw-bold small text-muted">
+                                Apelido / Nome Fantasia
+                            </label>
+
+                            <input type="text"
+                                   class="form-control text-dark"
+                                   id="apelido"
+                                   name="apelido"
+                                   maxlength="100"
+                                   value="{{ pessoa.apelido or '' }}">
+                        </div>
+
+                        <!-- CPF / CNPJ -->
+                        <div class="col-md-6">
+                            <label for="cpf_cnpj" class="form-label fw-bold small text-muted">
+                                CPF/CNPJ
+                            </label>
+
+                            <input type="text"
+                                   class="form-control text-dark"
+                                   id="cpf_cnpj"
+                                   name="cpf_cnpj"
+                                   maxlength="20"
+                                   value="{{ pessoa.cpf_cnpj or '' }}"
+                                   required>
+                        </div>
+
+                        <!-- EMAIL -->
+                        <div class="col-md-6">
+                            <label for="email" class="form-label fw-bold small text-muted">
+                                E-mail
+                            </label>
+
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-secondary">
+                                    <i class="fa-solid fa-envelope"></i>
+                                </span>
+
+                                <input type="email"
+                                       class="form-control text-dark"
+                                       id="email"
+                                       name="email"
+                                       maxlength="150"
+                                       value="{{ pessoa.email or '' }}">
+                            </div>
+                        </div>
+
+                        <!-- TELEFONE -->
+                        <div class="col-md-6">
+                            <label for="telefone" class="form-label fw-bold small text-muted">
+                                Telefone
+                            </label>
+
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-secondary">
+                                    <i class="fa-solid fa-phone"></i>
+                                </span>
+
+                                <input type="text"
+                                       class="form-control text-dark"
+                                       id="telefone"
+                                       name="telefone"
+                                       maxlength="35"
+                                       value="{{ pessoa.telefone or '' }}">
+                            </div>
+                        </div>
+
+                        <!-- CATEGORIA CADASTRO -->
+                        <div class="col-md-6">
+                            <label for="tipo_cadastro" class="form-label fw-bold small text-muted">
+                                Categoria do Cadastro
+                            </label>
+
+                            <select class="form-select text-dark" id="tipo_cadastro" name="tipo_cadastro" required onchange="alternarTipoPrestador()">
+                                <option value="" disabled>Selecione uma opção...</option>
+                                {% for categoria in categorias_cadastro %}
+                                    <option value="{{ categoria }}" {% if pessoa.tipo_cadastro == categoria %}selected{% endif %}>{{ categoria }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Categoria gerencial. Perfil de acesso é configurado em Usuários.</small>
+                        </div>
+
+                        <div class="col-md-6" id="blocoTipoPrestador" style="display:none;">
+                            <label for="tipo_prestador" class="form-label fw-bold small text-muted">
+                                Tipo de Prestador
+                            </label>
+                            <select class="form-select text-dark" id="tipo_prestador" name="tipo_prestador">
+                                {% for tipo in tipos_prestador %}
+                                    <option value="{{ tipo }}" {% if pessoa.tipo_prestador == tipo %}selected{% endif %}>{{ tipo }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6" id="blocoAcessoPortal" style="display:none;">
+                            <label for="permite_acesso_portal" class="form-label fw-bold small text-muted">
+                                Permitir uso do portal
+                            </label>
+                            <select class="form-select text-dark" id="permite_acesso_portal" name="permite_acesso_portal">
+                                <option value="N" {% if pessoa.permite_acesso_portal != 'S' %}selected{% endif %}>Não</option>
+                                <option value="S" {% if pessoa.permite_acesso_portal == 'S' %}selected{% endif %}>Sim</option>
+                            </select>
+                        </div>
+
+                        <!-- STATUS -->
+                        <div class="col-md-6">
+                            <label for="status_cadastro" class="form-label fw-bold small text-muted">
+                                Status Cadastro
+                            </label>
+
+                            <select class="form-select text-dark" id="status_cadastro" name="status_cadastro" required>
+                                <option value="Ativo" {% if pessoa.status_cadastro == 'Ativo' %}selected{% endif %}>Ativo</option>
+                                <option value="Inativo" {% if pessoa.status_cadastro == 'Inativo' %}selected{% endif %}>Inativo</option>
+                            </select>
+                        </div>
+
+                        <!-- OBSERVAÇÃO -->
+                        <div class="col-12">
+                            <label for="observacao" class="form-label fw-bold small text-muted">
+                                Observação
+                            </label>
+
+                            <textarea class="form-control text-dark"
+                                      id="observacao"
+                                      name="observacao"
+                                      maxlength="140"
+                                      rows="3"
+                                      oninput="atualizarContadorObservacao()">{{ pessoa.observacao or '' }}</textarea>
+
+                            <div class="form-text text-end">
+                                <span id="contadorObservacao">0</span>/140 caracteres
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- ENDEREÇO -->
+            <div class="col-12 col-lg-5">
+                <div class="card shadow-sm border-0 p-4 bg-white h-100">
+
+                    <h5 class="text-secondary font-monospace border-bottom pb-2 mb-3">
+                        <i class="fa-solid fa-map-location-dot me-2 text-info"></i>
+                        Endereço
+                    </h5>
+
+                    <div class="row g-3">
+
+                        <div class="col-md-6">
+                            <label for="cep" class="form-label fw-bold small text-muted">
+                                CEP
+                            </label>
+
+                            <div class="input-group">
+                                <input type="text"
+                                       class="form-control text-dark"
+                                       id="cep"
+                                       name="cep"
+                                       maxlength="10"
+                                       value="{{ pessoa.cep or '' }}">
+
+                                <button class="btn btn-outline-secondary"
+                                        type="button"
+                                        onclick="buscarCep()"
+                                        title="Buscar CEP">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="uf" class="form-label fw-bold small text-muted">
+                                UF
+                            </label>
+
+                            <input type="text"
+                                   class="form-control text-dark text-uppercase"
+                                   id="uf"
+                                   name="uf"
+                                   maxlength="5"
+                                   value="{{ pessoa.uf or '' }}">
+                        </div>
+
+                        <div class="col-12">
+                            <label for="rua" class="form-label fw-bold small text-muted">
+                                Rua / Logradouro
+                            </label>
+
+                            <input type="text"
+                                   class="form-control text-dark"
+                                   id="rua"
+                                   name="rua"
+                                   maxlength="150"
+                                   value="{{ pessoa.rua or '' }}">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="numero" class="form-label fw-bold small text-muted">
+                                Número
+                            </label>
+
+                            <input type="text"
+                                   class="form-control text-dark"
+                                   id="numero"
+                                   name="numero"
+                                   maxlength="20"
+                                   value="{{ pessoa.numero or '' }}">
+                        </div>
+
+                        <div class="col-md-8">
+                            <label for="bairro" class="form-label fw-bold small text-muted">
+                                Bairro
+                            </label>
+
+                            <input type="text"
+                                   class="form-control text-dark"
+                                   id="bairro"
+                                   name="bairro"
+                                   maxlength="100"
+                                   value="{{ pessoa.bairro or '' }}">
+                        </div>
+
+                        <div class="col-12">
+                            <label for="cidade" class="form-label fw-bold small text-muted">
+                                Cidade
+                            </label>
+
+                            <input type="text"
+                                   class="form-control text-dark"
+                                   id="cidade"
+                                   name="cidade"
+                                   maxlength="100"
+                                   value="{{ pessoa.cidade or '' }}">
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTÕES -->
+            <div class="col-12 text-end mt-4 mb-5">
+                <a href="{{ url_for('visualizar_pessoas') }}" class="btn btn-secondary px-4 me-2">
+                    <i class="fa-solid fa-arrow-left me-2"></i>
+                    Cancelar
+                </a>
+
+                <button type="submit" class="btn btn-success px-5 fw-bold shadow-sm">
+                    <i class="fa-solid fa-floppy-disk me-2"></i>
+                    Salvar Alterações
+                </button>
+            </div>
+
+        </div>
+    </form>
+</div>
+
+<script>
+    function buscarCep() {
+        let cep = document.getElementById('cep').value.replace(/\D/g, '');
+
+        if (cep.length !== 8) {
+            alert("Por favor, digite um CEP válido com 8 dígitos.");
+            return;
+        }
+
+        fetch(`https://viacep.com.br/ws/${cep}/json/`)
+            .then(response => response.json())
+            .then(data => {
+                if (!data.erro) {
+                    document.getElementById('rua').value = data.logradouro || "";
+                    document.getElementById('bairro').value = data.bairro || "";
+                    document.getElementById('cidade').value = data.localidade || "";
+                    document.getElementById('uf').value = data.uf || "";
+                    document.getElementById('numero').focus();
+                } else {
+                    alert("CEP não encontrado no banco de dados dos Correios.");
+                }
+            })
+            .catch(error => {
+                console.error("Erro ao buscar CEP:", error);
+                alert("Falha de conexão ao buscar o CEP automaticamente.");
+            });
+    }
+
+
+    function alternarTipoPrestador() {
+        const categoria = document.getElementById('tipo_cadastro');
+        const blocoTipo = document.getElementById('blocoTipoPrestador');
+        const blocoPortal = document.getElementById('blocoAcessoPortal');
+        if (!categoria || !blocoTipo || !blocoPortal) return;
+        const ehPrestador = categoria.value === 'Prestador de Serviço';
+        blocoTipo.style.display = ehPrestador ? '' : 'none';
+        blocoPortal.style.display = ehPrestador ? '' : 'none';
+        if (!ehPrestador) {
+            const portal = document.getElementById('permite_acesso_portal');
+            if (portal) portal.value = 'N';
+        }
+    }
+
+    function atualizarContadorObservacao() {
+        const observacao = document.getElementById('observacao');
+        const contador = document.getElementById('contadorObservacao');
+
+        if (observacao && contador) {
+            contador.innerText = observacao.value.length;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        atualizarContadorObservacao();
+    });
+</script>
+{% endblock %}

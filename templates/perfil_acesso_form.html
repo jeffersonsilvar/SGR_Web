@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
+  <div>
+    <div class="text-muted small mb-1"><i class="fa-solid fa-house me-1"></i> Sistema / Permissões / Novo perfil</div>
+    <h1 class="fw-bold mb-1">Novo Perfil de Acesso</h1>
+    <p class="text-muted mb-0">Crie um perfil e depois configure o que ele pode fazer.</p>
+  </div>
+  <a href="{{ url_for('perfil_acesso') }}" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i> Voltar</a>
+</div>
+
+<div class="card shadow-sm border-0">
+  <div class="card-body p-4">
+    <form method="post">
+      <div class="row g-3">
+        {% if escopo_global %}
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Escopo do perfil</label>
+          <select class="form-select" name="empresa_id">
+            <option value="">Global/Sistema</option>
+            {% for e in empresas %}
+            <option value="{{ e.id }}">{{ e.nome_fantasia or e.razao_social }}</option>
+            {% endfor %}
+          </select>
+          <small class="text-muted">Super Admin/Suporte pode criar perfil global ou para uma empresa específica.</small>
+        </div>
+        {% else %}
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Escopo do perfil</label>
+          <input class="form-control" value="Empresa atual" disabled>
+          <small class="text-muted">Administrador comum cria perfis somente para a própria empresa.</small>
+        </div>
+        {% endif %}
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Status</label>
+          <select class="form-select" name="ativo">
+            <option value="1">Ativo</option>
+            <option value="0">Inativo</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Nome do perfil</label>
+          <input class="form-control" name="nome" required placeholder="Ex: Financeiro Falcon, Operação Base, Consulta">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Descrição</label>
+          <input class="form-control" name="descricao" placeholder="Resumo do objetivo desse perfil">
+        </div>
+      </div>
+      <div class="alert alert-info mt-4 mb-0">
+        <strong>Regra:</strong> administrador da empresa não cria menus ou módulos. Ele apenas cria perfis e libera permissões nos menus já existentes.
+      </div>
+      <div class="d-flex justify-content-end gap-2 mt-4">
+        <a href="{{ url_for('perfil_acesso') }}" class="btn btn-light">Cancelar</a>
+        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk me-1"></i> Criar perfil</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

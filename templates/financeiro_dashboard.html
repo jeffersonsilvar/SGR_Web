@@ -1,0 +1,252 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+        <div>
+            <h3 class="mb-1 fw-bold">Dashboard Financeiro</h3>
+            <div class="text-muted small">Visão gerencial de títulos, caixa, vencimentos, estornos e movimentações.</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('financeiro_titulos') }}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-list-check me-1"></i> Títulos
+            </a>
+            <a href="{{ url_for('financeiro_movimentacoes_caixa') }}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-right-left me-1"></i> Movimentações
+            </a>
+            <a href="{{ url_for('financeiro_conciliacao_caixa') }}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-scale-balanced me-1"></i> Conciliação
+            </a>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end">
+                {% if is_super_admin %}
+                <div class="col-md-2">
+                    <label class="form-label small">Empresa</label>
+                    <select name="empresa_id" class="form-select">
+                        <option value="">Todas</option>
+                        {% for empresa in empresas %}
+                            <option value="{{ empresa.id }}" {% if filtros.empresa_id|string == empresa.id|string %}selected{% endif %}>{{ empresa.nome_fantasia or empresa.razao_social }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="col-md-2">
+                    <label class="form-label small">Período</label>
+                    <select name="periodo" class="form-select" id="periodoDashboard">
+                        <option value="hoje" {% if filtros.periodo == 'hoje' %}selected{% endif %}>Hoje</option>
+                        <option value="mes_atual" {% if filtros.periodo == 'mes_atual' %}selected{% endif %}>Este mês</option>
+                        <option value="mes_anterior" {% if filtros.periodo == 'mes_anterior' %}selected{% endif %}>Mês anterior</option>
+                        <option value="personalizado" {% if filtros.periodo == 'personalizado' %}selected{% endif %}>Personalizado</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Início</label>
+                    <input type="date" name="data_inicio" class="form-control" value="{{ filtros.data_inicio }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Fim</label>
+                    <input type="date" name="data_fim" class="form-control" value="{{ filtros.data_fim }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Tipo</label>
+                    <select name="tipo_titulo" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="PAGAR" {% if filtros.tipo_titulo == 'PAGAR' %}selected{% endif %}>A pagar</option>
+                        <option value="RECEBER" {% if filtros.tipo_titulo == 'RECEBER' %}selected{% endif %}>A receber</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Origem</label>
+                    <select name="origem" class="form-select">
+                        <option value="">Todas</option>
+                        {% for origem in origens %}
+                            <option value="{{ origem }}" {% if filtros.origem == origem %}selected{% endif %}>{{ origem }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Conta caixa</label>
+                    <select name="conta_caixa_id" class="form-select">
+                        <option value="">Todas</option>
+                        {% for conta in contas_caixa %}
+                            <option value="{{ conta.id }}" {% if filtros.conta_caixa_id|string == conta.id|string %}selected{% endif %}>{{ conta.nome_conta }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Pessoa / Prestador / Fornecedor</label>
+                    <input type="text" name="pesquisa_pessoa" class="form-control" value="{{ filtros.pesquisa_pessoa }}" placeholder="Nome, CPF/CNPJ ou ID">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-dark"><i class="fa-solid fa-filter me-1"></i> Filtrar</button>
+                </div>
+                <div class="col-md-2 d-grid">
+                    <a href="{{ url_for('financeiro_dashboard') }}" class="btn btn-outline-secondary">Limpar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">A pagar em aberto</div><div class="h4 fw-bold text-danger mb-0">{{ resumo_titulos.pagar_aberto|moeda_br }}</div><small class="text-muted">{{ resumo_titulos.qtd_abertos or 0 }} título(s) em aberto</small></div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">A receber em aberto</div><div class="h4 fw-bold text-success mb-0">{{ resumo_titulos.receber_aberto|moeda_br }}</div><small class="text-muted">Contas a receber pendentes</small></div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Vencidos</div><div class="h4 fw-bold text-warning mb-0">{{ resumo_titulos.vencidos|moeda_br }}</div><small class="text-muted">{{ resumo_titulos.qtd_vencidos or 0 }} título(s) vencido(s)</small></div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Saldo líquido do caixa</div><div class="h4 fw-bold mb-0">{{ resumo_caixa.saldo_liquido|moeda_br }}</div><small class="text-muted">Inclui estornos · {{ filtros.data_inicio|formatar_data_br }} a {{ filtros.data_fim|formatar_data_br }}</small></div></div></div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Entradas operacionais</div><div class="h5 fw-bold text-success mb-0">{{ resumo_caixa.entradas_operacionais|moeda_br }}</div><small class="text-muted">Não inclui estornos</small></div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Saídas operacionais</div><div class="h5 fw-bold text-danger mb-0">{{ resumo_caixa.saidas_operacionais|moeda_br }}</div><small class="text-muted">Não inclui baixas estornadas</small></div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Estornos de caixa</div><div class="h5 fw-bold text-warning mb-0">{{ resumo_caixa.estornos|moeda_br }}</div><small class="text-muted">Movimentações inversas</small></div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Saldo operacional</div><div class="h5 fw-bold mb-0">{{ resumo_caixa.saldo_operacional|moeda_br }}</div><small class="text-muted">Entradas op. - saídas op.</small></div></div></div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Pagos no período</div><div class="h5 fw-bold text-danger mb-0">{{ resumo_titulos.pagos_periodo|moeda_br }}</div></div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Recebidos no período</div><div class="h5 fw-bold text-success mb-0">{{ resumo_titulos.recebidos_periodo|moeda_br }}</div></div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Títulos estornados</div><div class="h5 fw-bold text-secondary mb-0">{{ resumo_titulos.estornados_periodo|moeda_br }}</div><small class="text-muted">Mov. originais estornadas: {{ resumo_caixa.movimentacoes_estornadas|moeda_br }}</small></div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Cancelados no período</div><div class="h5 fw-bold text-muted mb-0">{{ resumo_titulos.cancelados_periodo|moeda_br }}</div></div></div></div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 fw-bold">Títulos vencendo nos próximos 7 dias</div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light"><tr><th>Vencimento</th><th>Pessoa</th><th>Descrição</th><th class="text-end">Valor</th><th></th></tr></thead>
+                        <tbody>
+                        {% for titulo in titulos_vencendo %}
+                            <tr>
+                                <td>{{ titulo.data_vencimento|formatar_data_br }}</td>
+                                <td>{{ titulo.pessoa_nome or '-' }}</td>
+                                <td>{{ titulo.descricao or titulo.numero_documento or '-' }}</td>
+                                <td class="text-end fw-bold">{{ titulo.valor_liquido|moeda_br }}</td>
+                                <td><a href="{{ url_for('detalhes_titulo_financeiro', id=titulo.id) }}" class="btn btn-sm btn-outline-primary">Abrir</a></td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="5" class="text-center text-muted py-4">Nenhum título vencendo nos próximos 7 dias.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 fw-bold">Últimas movimentações de caixa</div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light"><tr><th>Data</th><th>Conta</th><th>Tipo</th><th>Status</th><th>Pessoa</th><th class="text-end">Valor</th></tr></thead>
+                        <tbody>
+                        {% for mov in ultimas_movimentacoes %}
+                            <tr>
+                                <td>{{ mov.data_movimentacao|formatar_data_br }}</td>
+                                <td>{{ mov.conta_caixa_nome }}</td>
+                                <td><span class="badge {% if mov.tipo_movimentacao == 'ENTRADA' %}bg-success{% else %}bg-danger{% endif %}">{{ mov.tipo_movimentacao }}</span></td>
+                                <td>
+                                    {% if mov.status_movimentacao == 'Estorno' or mov.estorno_de_movimentacao_id %}
+                                        <span class="badge bg-warning text-dark">ESTORNO</span>
+                                    {% elif mov.status_movimentacao == 'Estornada' %}
+                                        <span class="badge bg-secondary">ESTORNADA</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-dark border">ATIVA</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ mov.pessoa_nome or '-' }}</td>
+                                <td class="text-end fw-bold">{{ mov.valor_movimentacao|moeda_br }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="6" class="text-center text-muted py-4">Nenhuma movimentação no período.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 fw-bold">Ranking por pessoa / fornecedor / prestador</div>
+                <div class="list-group list-group-flush">
+                    {% for item in ranking_pessoas %}
+                        <div class="list-group-item d-flex justify-content-between gap-3">
+                            <div>
+                                <div class="fw-semibold">{{ item.pessoa_nome }}</div>
+                                <small class="text-muted">{{ item.pessoa_tipo or '-' }} · {{ item.quantidade }} título(s)</small>
+                            </div>
+                            <div class="fw-bold text-end">{{ item.total|moeda_br }}</div>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">Sem dados no período.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 fw-bold">Despesas/receitas por origem</div>
+                <div class="list-group list-group-flush">
+                    {% for item in despesas_por_origem %}
+                        <div class="list-group-item d-flex justify-content-between gap-3">
+                            <div>
+                                <div class="fw-semibold">{{ item.origem }}</div>
+                                <small class="text-muted">{{ item.quantidade }} título(s)</small>
+                            </div>
+                            <div class="fw-bold text-end">{{ item.total|moeda_br }}</div>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">Sem dados no período.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 fw-bold">Movimentações por conta caixa</div>
+                <div class="list-group list-group-flush">
+                    {% for item in movimentacoes_por_conta %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between gap-3">
+                                <div class="fw-semibold">{{ item.nome_conta }}</div>
+                                <div class="fw-bold">{{ item.saldo|moeda_br }}</div>
+                            </div>
+                            <small class="text-muted">Entradas op. {{ item.entradas|moeda_br }} · Saídas op. {{ item.saidas|moeda_br }} · Estornos {{ item.estornos|moeda_br }} · {{ item.quantidade }} mov.</small>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">Sem movimentações no período.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 fw-bold">Resumo por status no período</div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light"><tr><th>Status</th><th class="text-center">Quantidade</th><th class="text-end">Total</th></tr></thead>
+                <tbody>
+                {% for item in resumo_status %}
+                    <tr>
+                        <td><span class="badge bg-light text-dark border">{{ item.status_titulo }}</span></td>
+                        <td class="text-center">{{ item.quantidade }}</td>
+                        <td class="text-end fw-bold">{{ item.total|moeda_br }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="3" class="text-center text-muted py-4">Sem títulos no período.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

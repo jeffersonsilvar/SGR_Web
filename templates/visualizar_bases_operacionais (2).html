@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid py-3">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+        <div>
+            <h2 class="mb-1 fw-bold text-dark">
+                <i class="fa-solid fa-location-dot me-2 text-info"></i>
+                Bases Operacionais
+            </h2>
+            <p class="text-muted mb-0">
+                Cadastre bases, depósitos e estações de carregamento para escala, fila e validação de presença.
+            </p>
+        </div>
+
+        <a href="{{ url_for('cadastro_base_operacional') }}" class="btn btn-info text-white fw-bold">
+            <i class="fa-solid fa-circle-plus me-1"></i>
+            Nova Base
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('visualizar_bases_operacionais') }}" class="row g-2 align-items-end">
+                {% if is_super_admin %}
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold small text-muted">Empresa</label>
+                    <select name="empresa_id" class="form-select">
+                        {% for empresa in empresas %}
+                            <option value="{{ empresa.id }}" {% if filtros.empresa_id|string == empresa.id|string %}selected{% endif %}>
+                                {{ empresa.nome_fantasia or empresa.razao_social }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold small text-muted">Buscar</label>
+                    <input type="text"
+                           name="busca"
+                           class="form-control"
+                           placeholder="Nome, endereço ou descrição..."
+                           value="{{ filtros.busca or '' }}">
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold small text-muted">Status</label>
+                    <select name="status_base" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="Ativa" {% if filtros.status_base == 'Ativa' %}selected{% endif %}>Ativa</option>
+                        <option value="Inativa" {% if filtros.status_base == 'Inativa' %}selected{% endif %}>Inativa</option>
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <button class="btn btn-info text-white fw-bold w-100" type="submit">
+                        <i class="fa-solid fa-magnifying-glass me-1"></i>
+                        Filtrar
+                    </button>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <a class="btn btn-outline-secondary w-100" href="{{ url_for('visualizar_bases_operacionais') }}">
+                        Limpar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted fw-semibold">Total de bases</small>
+                    <h3 class="fw-bold mb-0">{{ bases|length }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted fw-semibold">Uso futuro</small>
+                    <h5 class="fw-bold mb-0">Geolocalização + QR Code</h5>
+                    <small class="text-muted">Cada base terá raio permitido.</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted fw-semibold">Aplicação</small>
+                    <h5 class="fw-bold mb-0">Escala e fila</h5>
+                    <small class="text-muted">Supervisor seleciona a base na escala.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 py-3">
+            <strong>
+                <i class="fa-solid fa-list me-1 text-info"></i>
+                Bases cadastradas
+            </strong>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
+                <thead class="table-light text-uppercase" style="font-size: 11px;">
+                    <tr>
+                        <th class="ps-3">Base</th>
+                        {% if is_super_admin %}<th>Empresa</th>{% endif %}
+                        <th>Endereço</th>
+                        <th>Latitude / Longitude</th>
+                        <th>Raio</th>
+                        <th>Código QR</th>
+                        <th>Validade</th>
+                        <th>Status</th>
+                        <th class="text-end pe-3">Ação</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for base in bases %}
+                    <tr>
+                        <td class="ps-3">
+                            <strong>{{ base.nome_base }}</strong>
+                            {% if base.descricao %}
+                                <br>
+                                <small class="text-muted">{{ base.descricao }}</small>
+                            {% endif %}
+                        </td>
+
+                        {% if is_super_admin %}
+                        <td>{{ base.empresa_nome or base.empresa_razao_social }}</td>
+                        {% endif %}
+
+                        <td style="min-width: 260px;">
+                            {{ base.endereco or '-' }}
+                        </td>
+
+                        <td>
+                            {% if base.latitude and base.longitude %}
+                                {{ base.latitude }}, {{ base.longitude }}
+                            {% else %}
+                                <span class="text-muted">Não informado</span>
+                            {% endif %}
+                        </td>
+
+                        <td>{{ base.raio_permitido_metros or 150 }}m</td>
+
+                        <td>
+                            {% if base.codigo_qr_base %}
+                                <code>{{ base.codigo_qr_base }}</code>
+                            {% else %}
+                                <span class="text-muted">Não gerado</span>
+                            {% endif %}
+                        </td>
+
+                        <td>{{ base.qr_validade_minutos or 5 }} min</td>
+
+                        <td>
+                            {% if base.status_base == 'Ativa' %}
+                                <span class="badge bg-success">Ativa</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inativa</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-end pe-3">
+                            <a class="btn btn-sm btn-outline-primary"
+                               href="{{ url_for('editar_base_operacional', id=base.id) }}">
+                                <i class="fa-solid fa-pen-to-square me-1"></i>
+                                Editar
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="{% if is_super_admin %}9{% else %}8{% endif %}" class="text-center text-muted py-4">
+                            Nenhuma base operacional encontrada.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<style>
+    .op-hero {
+        background: linear-gradient(135deg, #ffffff, #f7fbff);
+        border: 1px solid #dce7f5;
+        border-radius: 18px;
+        padding: 22px;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+    }
+    .op-card {
+        background: #fff;
+        border: 1px solid #e5edf5;
+        border-radius: 16px;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, .05);
+        overflow: hidden;
+    }
+    .op-card .card-head {
+        padding: 16px 18px;
+        border-bottom: 1px solid #edf2f7;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .op-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 5px 10px;
+        font-size: 12px;
+        font-weight: 800;
+        background: #eef5ff;
+        color: #175cd3;
+        border: 1px solid #d7e7ff;
+    }
+    .param-box {
+        border: 1px solid #e8eef6;
+        border-radius: 14px;
+        padding: 16px;
+        height: 100%;
+        background: #fff;
+    }
+    .param-code { font-size: 12px; color: #64748b; }
+</style>
+
+<div class="container-fluid py-3">
+    <div class="op-hero mb-3">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+                <div class="text-muted small mb-1"><i class="fa-solid fa-house me-1"></i> Dashboard / Sistema / Configurações</div>
+                <h1 class="fw-bold mb-1">Configurações Operacionais do Motorista</h1>
+                <p class="text-muted mb-2">Defina as regras de disponibilidade, check-in em base e falta automática por empresa.</p>
+                <span class="op-badge"><i class="fa-solid fa-building"></i> {{ empresa_config.nome_fantasia or empresa_config.razao_social }}</span>
+            </div>
+            <a href="{{ url_for('perfil_acesso') }}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-arrow-left me-1"></i> Permissões e Menus
+            </a>
+        </div>
+    </div>
+
+    {% if escopo_global and empresas %}
+    <div class="op-card mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label">Empresa para configurar</label>
+                    <select name="empresa_id" class="form-select">
+                        {% for emp in empresas %}
+                        <option value="{{ emp.id }}" {% if emp.id == empresa_id_config %}selected{% endif %}>{{ emp.nome_fantasia or emp.razao_social }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-dark w-100" type="submit">Carregar empresa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <form method="post">
+        {% if escopo_global %}
+        <input type="hidden" name="empresa_id" value="{{ empresa_id_config }}">
+        {% endif %}
+
+        <ul class="nav nav-pills mb-3" role="tablist">
+            {% for grupo, titulo in grupos.items() %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if loop.first %}active{% endif %}" data-bs-toggle="pill" data-bs-target="#grupo-{{ grupo }}" type="button">
+                    {{ titulo }}
+                </button>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <div class="tab-content">
+            {% for grupo, titulo in grupos.items() %}
+            <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="grupo-{{ grupo }}">
+                <div class="op-card mb-3">
+                    <div class="card-head">
+                        <div>
+                            <h5 class="mb-0 fw-bold">{{ titulo }}</h5>
+                            <small class="text-muted">Parâmetros aplicados somente à empresa selecionada.</small>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            {% for chave, param in parametros.items() if param.grupo == grupo %}
+                            {% set valor = param.valor|string %}
+                            <div class="col-lg-6">
+                                <div class="param-box">
+                                    <div class="d-flex justify-content-between align-items-start gap-3">
+                                        <div>
+                                            <label class="form-label fw-semibold mb-1">{{ param.descricao }}</label>
+                                            <div class="param-code"><code>{{ chave }}</code></div>
+                                        </div>
+                                        {% if param.tipo == 'boolean' %}
+                                        <div class="form-check form-switch fs-5">
+                                            <input class="form-check-input" type="checkbox" name="{{ chave }}" value="1" {% if valor in ['1','true','True','sim','on'] %}checked{% endif %}>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+
+                                    {% if param.tipo == 'time' %}
+                                    <input type="time" name="{{ chave }}" class="form-control mt-3" value="{{ valor[:5] }}">
+                                    {% elif param.tipo == 'integer' %}
+                                    <input type="number" min="0" step="1" name="{{ chave }}" class="form-control mt-3" value="{{ valor }}">
+                                    {% elif param.tipo == 'string' %}
+                                    <input type="text" name="{{ chave }}" class="form-control mt-3" value="{{ valor }}">
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="op-card mb-4">
+            <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <strong>Salvar configurações operacionais</strong>
+                    <div class="text-muted small">As alterações passam a valer para as próximas ações do motorista e do supervisor.</div>
+                </div>
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="fa-solid fa-floppy-disk me-1"></i> Salvar configurações
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <div class="alert alert-warning border-0 shadow-sm">
+        <strong>Atenção:</strong> desligar QR Code, selfie ou GPS flexibiliza o check-in do motorista. Use somente quando a operação da empresa permitir esse controle manual.
+    </div>
+</div>
+{% endblock %}

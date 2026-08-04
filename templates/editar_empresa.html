@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid py-3">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+        <div>
+            <h2 class="mb-1 fw-bold text-dark">
+                <i class="fa-solid fa-building-pen me-2 text-info"></i>
+                Editar Empresa
+            </h2>
+            <p class="text-muted mb-0">{{ empresa.nome_fantasia or empresa.razao_social }}</p>
+        </div>
+
+        <a href="{{ url_for('visualizar_empresas') }}" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-arrow-left me-1"></i>
+            Voltar
+        </a>
+    </div>
+
+    {% if empresa_padrao_sistema %}
+        <div class="alert alert-warning border-0 shadow-sm mb-3">
+            <div class="fw-bold mb-1">
+                <i class="fa-solid fa-shield-halved me-1"></i>
+                Empresa padrão do sistema
+            </div>
+            <div class="small mb-0">
+                A J Tecnologia é a empresa raiz do SGR. Status, plano, CNPJ, slug e limite de usuários ficam protegidos automaticamente.
+            </div>
+        </div>
+    {% endif %}
+
+    <form method="POST" class="card border-0 shadow-sm">
+        <div class="card-body">
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Razão Social *</label>
+                    <input type="text" name="razao_social" class="form-control" required
+                           value="{{ empresa.razao_social }}">
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Nome Fantasia</label>
+                    <input type="text" name="nome_fantasia" class="form-control"
+                           value="{{ empresa.nome_fantasia or '' }}">
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">CNPJ</label>
+                    <input type="text" name="cnpj" class="form-control" {% if empresa_padrao_sistema %}readonly{% endif %}
+                           value="{{ empresa.cnpj or '' }}">
+                    {% if empresa_padrao_sistema %}<div class="form-text">CNPJ protegido.</div>{% endif %}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Slug</label>
+                    <input type="text" name="slug" class="form-control" {% if empresa_padrao_sistema %}readonly{% endif %}
+                           value="{{ empresa.slug or '' }}">
+                    {% if empresa_padrao_sistema %}<div class="form-text">Slug protegido.</div>{% endif %}
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Status *</label>
+                    <select name="status_empresa" class="form-select" required {% if empresa_padrao_sistema %}disabled{% endif %}>
+                        <option value="Ativa" {% if empresa.status_empresa == 'Ativa' %}selected{% endif %}>Ativa</option>
+                        <option value="Inativa" {% if empresa.status_empresa == 'Inativa' %}selected{% endif %}>Inativa</option>
+                    </select>
+                    {% if empresa_padrao_sistema %}<input type="hidden" name="status_empresa" value="Ativa">{% endif %}
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Plano *</label>
+                    <select name="plano" class="form-select" required {% if empresa_padrao_sistema %}disabled{% endif %}>
+                        <option value="Profissional" {% if empresa.plano == 'Profissional' %}selected{% endif %}>Profissional</option>
+                        <option value="Starter" {% if empresa.plano == 'Starter' %}selected{% endif %}>Starter</option>
+                        <option value="Enterprise" {% if empresa.plano == 'Enterprise' %}selected{% endif %}>Enterprise</option>
+                        <option value="Ilimitado" {% if empresa.plano == 'Ilimitado' %}selected{% endif %}>Ilimitado</option>
+                    </select>
+                    {% if empresa_padrao_sistema %}<input type="hidden" name="plano" value="Ilimitado">{% endif %}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Limite de usuários</label>
+                    <input type="number" name="limite_usuarios" class="form-control" min="1" {% if empresa_padrao_sistema %}readonly{% endif %}
+                           value="{{ empresa.limite_usuarios or '' }}">
+                    {% if empresa_padrao_sistema %}<div class="form-text">Plano ilimitado, sem limite de usuários.</div>{% endif %}
+                </div>
+
+                <div class="col-md-9">
+                    <label class="form-label fw-semibold">Observação</label>
+                    <textarea name="observacao" class="form-control" rows="3">{{ empresa.observacao or '' }}</textarea>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="card-footer bg-white d-flex justify-content-end gap-2">
+            <a href="{{ url_for('visualizar_empresas') }}" class="btn btn-outline-secondary">
+                Cancelar
+            </a>
+
+            <button type="submit" class="btn btn-info text-white fw-bold">
+                <i class="fa-solid fa-floppy-disk me-1"></i>
+                Salvar Alterações
+            </button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}

@@ -1,0 +1,588 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+{% set financeiro = cards.financeiro %}
+{% set operacao = cards.operacao %}
+{% set prestadores = cards.prestadores %}
+{% set documentos = cards.documentos %}
+{% set auditoria = cards.auditoria %}
+{% set rankings = cards.rankings %}
+{% set acl = dashboard_acl if dashboard_acl is defined else {} %}
+
+<style>
+    :root {
+        --sgr-bg: #f5f7fb;
+        --sgr-card: #ffffff;
+        --sgr-border: #e5eaf2;
+        --sgr-text: #111827;
+        --sgr-muted: #64748b;
+        --sgr-blue: #1d73f8;
+        --sgr-green: #168a50;
+        --sgr-yellow: #f4b400;
+        --sgr-red: #dc3545;
+        --sgr-purple: #7c3aed;
+        --sgr-shadow: 0 14px 35px rgba(15, 23, 42, .08);
+    }
+
+    .executive-dashboard { color: var(--sgr-text); }
+    .dashboard-hero {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 18px;
+    }
+    .dashboard-title { font-size: clamp(1.6rem, 2.4vw, 2.45rem); line-height: 1.05; }
+    .dashboard-subtitle { color: var(--sgr-muted); font-size: 1rem; }
+    .dashboard-updated { color: var(--sgr-muted); font-size: .86rem; margin-top: 8px; }
+
+    .dashboard-filter-card {
+        position: sticky;
+        top: 10px;
+        z-index: 20;
+        background: rgba(255,255,255,.96);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--sgr-border);
+        border-radius: 20px;
+        padding: 18px;
+        box-shadow: var(--sgr-shadow);
+        margin-bottom: 24px;
+        transition: padding .18s ease, border-radius .18s ease, box-shadow .18s ease;
+    }
+    .dashboard-filter-card.is-compact {
+        padding: 10px 14px;
+        border-radius: 16px;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, .12);
+    }
+    .dashboard-filter-card.is-compact .filter-header-title,
+    .dashboard-filter-card.is-compact .form-label {
+        display: none !important;
+    }
+    .dashboard-filter-card.is-compact .filter-header {
+        margin-bottom: 8px !important;
+    }
+    .dashboard-filter-card.is-compact .filter-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+    }
+    .dashboard-filter-card.is-compact .form-control,
+    .dashboard-filter-card.is-compact .form-select {
+        min-height: 38px;
+        font-size: .88rem;
+    }
+    .dashboard-filter-card.is-compact .btn {
+        min-height: 38px;
+        padding-top: .35rem;
+        padding-bottom: .35rem;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 14px;
+        align-items: end;
+    }
+    .filter-grid .form-control,
+    .filter-grid .form-select { min-height: 45px; border-radius: 10px; }
+    .filter-actions { display: flex; gap: 8px; align-items: end; }
+
+    .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 18px;
+    }
+    .metric-card {
+        min-width: 0;
+        overflow: hidden;
+        background: var(--sgr-card);
+        border: 1px solid var(--sgr-border);
+        border-radius: 18px;
+        padding: 18px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, .06);
+        min-height: 128px;
+        position: relative;
+    }
+    .metric-card.primary { grid-column: span 2; background: linear-gradient(135deg, #ffffff 0%, #eef6ff 100%); }
+    .metric-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; min-width: 0; }
+    .metric-label { color: #64748b; font-weight: 800; font-size: .78rem; letter-spacing: .2px; }
+    .metric-value { font-size: clamp(1.55rem, 2.3vw, 2.35rem); font-weight: 900; letter-spacing: -.7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .metric-sub { color: #64748b; font-size: .86rem; margin-top: 5px; }
+    .metric-icon {
+        width: 48px; height: 48px; border-radius: 16px;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 1.25rem; flex: 0 0 auto;
+    }
+    .soft-blue { background: #e7f0ff; color: #1d73f8; }
+    .soft-green { background: #dff8eb; color: #168a50; }
+    .soft-yellow { background: #fff3cf; color: #d79a00; }
+    .soft-red { background: #ffe3e8; color: #dc3545; }
+    .soft-purple { background: #efe7ff; color: #7c3aed; }
+
+    .section-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 18px;
+    }
+    .panel-card {
+        min-width: 0;
+        overflow: hidden;
+        background: var(--sgr-card);
+        border: 1px solid var(--sgr-border);
+        border-radius: 18px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, .06);
+        padding: 18px;
+    }
+    .panel-title { font-weight: 900; font-size: 1rem; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+    .mini-list { display: grid; gap: 12px; }
+    .mini-row { min-width: 0; }
+    .mini-row-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+    .mini-label { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mini-value { font-weight: 900; white-space: nowrap; }
+    .mini-sub { color: var(--sgr-muted); font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .progress-track { height: 9px; border-radius: 999px; background: #e5eaf2; overflow: hidden; margin-top: 8px; width: 100%; max-width: 100%; }
+    .progress-fill { height: 100%; border-radius: 999px; max-width: 100%; background: var(--sgr-blue); }
+    .progress-fill.green { background: var(--sgr-green); }
+    .progress-fill.yellow { background: var(--sgr-yellow); }
+    .progress-fill.red { background: var(--sgr-red); }
+    .progress-fill.purple { background: var(--sgr-purple); }
+
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+    .quick-link {
+        text-decoration: none;
+        color: var(--sgr-text);
+        background: #fff;
+        border: 1px solid var(--sgr-border);
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, .05);
+        transition: .18s ease;
+        min-width: 0;
+    }
+    .quick-link:hover { transform: translateY(-2px); box-shadow: var(--sgr-shadow); color: var(--sgr-blue); }
+    .quick-link i { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; background: #f1f5f9; }
+    .quick-link strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 8px; }
+    .quick-link small { color: var(--sgr-muted); }
+
+    .alerts-panel {
+        background: #fff;
+        border: 1px solid var(--sgr-border);
+        border-radius: 18px;
+        padding: 16px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, .05);
+        margin-bottom: 20px;
+    }
+    .alerts-title { font-weight: 900; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .alert-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .dash-alert { border-radius: 16px; padding: 14px 16px; border: 1px solid var(--sgr-border); background: #fff; text-decoration: none; color: var(--sgr-text); display: block; min-width: 0; transition: .16s ease; }
+    .dash-alert:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(15, 23, 42, .08); color: var(--sgr-text); }
+    .dash-alert strong, .dash-alert span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dash-alert.danger { border-left: 5px solid var(--sgr-red); }
+    .dash-alert.warning { border-left: 5px solid var(--sgr-yellow); }
+
+    .badge-soft { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 5px 9px; font-size: .76rem; font-weight: 800; }
+    .badge-blue { background: #e7f0ff; color: #1657c7; }
+    .badge-green { background: #dff8eb; color: #0f6b3d; }
+    .badge-yellow { background: #fff3cf; color: #956900; }
+    .badge-red { background: #ffe3e8; color: #a51225; }
+    .access-note {
+        background: #fff;
+        border: 1px dashed #cbd5e1;
+        color: var(--sgr-muted);
+        border-radius: 16px;
+        padding: 14px 16px;
+        margin-bottom: 18px;
+        font-size: .9rem;
+    }
+
+    body.dashboard-loading .metric-card,
+    body.dashboard-loading .panel-card,
+    body.dashboard-loading .quick-link {
+        position: relative;
+        overflow: hidden;
+    }
+    body.dashboard-loading .metric-card::after,
+    body.dashboard-loading .panel-card::after,
+    body.dashboard-loading .quick-link::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent);
+        animation: sgrSkeleton 1.1s infinite;
+    }
+    @keyframes sgrSkeleton { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+    @media (prefers-color-scheme: dark) {
+        body.sgr-dark-ready .executive-dashboard {
+            --sgr-bg: #0f172a;
+            --sgr-card: #111827;
+            --sgr-border: #263246;
+            --sgr-text: #e5e7eb;
+            --sgr-muted: #94a3b8;
+        }
+    }
+
+    @media (max-width: 1400px) {
+        .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .metric-card.primary { grid-column: span 1; }
+        .quick-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 1100px) {
+        .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .section-grid { grid-template-columns: 1fr; }
+        .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .alert-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+        .dashboard-hero { flex-direction: column; }
+        .filter-grid { grid-template-columns: 1fr; }
+        .filter-actions { flex-direction: column; align-items: stretch; }
+        .metric-grid { grid-template-columns: 1fr; }
+        .quick-actions { grid-template-columns: 1fr; }
+        .dashboard-filter-card { position: relative; top: auto; }
+        .dashboard-filter-card.is-compact .filter-grid { grid-template-columns: 1fr; }
+        .metric-value { white-space: normal; }
+    }
+</style>
+
+<div class="container-fluid executive-dashboard">
+    <div class="dashboard-hero">
+        <div class="min-w-0">
+            <div class="small text-muted mb-2">
+                <i class="fa-solid fa-house me-1"></i> Dashboard / Executivo
+            </div>
+            <h1 class="dashboard-title fw-black font-monospace mb-1">Dashboard Executivo Geral</h1>
+            <div class="dashboard-subtitle">Visão financeira, operacional, documental, prestadores e auditoria do SGR Web.</div>
+            <div class="dashboard-updated">
+                <i class="fa-regular fa-clock me-1"></i>
+                Atualizado em {{ moment_atual if moment_atual is defined else '' }} {{ filtros.data_fim|formatar_data_br }}
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap justify-content-end">
+            {% if acl.relatorios %}
+            <a class="btn btn-outline-secondary" href="{{ url_for('relatorios_central') }}">
+                <i class="fa-solid fa-chart-simple me-1"></i> Central de Relatórios
+            </a>
+            {% endif %}
+            {% if acl.financeiro %}
+            <a class="btn btn-primary" href="{{ url_for('relatorios_financeiro', periodo=filtros.periodo, data_inicio=filtros.data_inicio, data_fim=filtros.data_fim) }}">
+                <i class="fa-solid fa-file-invoice-dollar me-1"></i> Relatório Financeiro
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="get" class="dashboard-filter-card" id="dashboardFilterForm">
+        <div class="filter-header d-flex align-items-center justify-content-between mb-3 gap-2 flex-wrap">
+            <h5 class="filter-header-title mb-0 fw-bold"><i class="fa-solid fa-sliders me-2 text-primary"></i>Filtros executivos</h5>
+            <span class="badge-soft badge-blue">
+                <i class="fa-regular fa-calendar"></i>
+                {{ filtros.data_inicio|formatar_data_br }} até {{ filtros.data_fim|formatar_data_br }}
+            </span>
+        </div>
+        <div class="filter-grid">
+            {% if is_super_admin %}
+            <div>
+                <label class="form-label">Empresa</label>
+                <select class="form-select" name="empresa_id">
+                    <option value="">Todas</option>
+                    {% for e in empresas %}
+                    <option value="{{ e.id }}" {% if filtros.empresa_id|string == e.id|string %}selected{% endif %}>{{ e.nome_fantasia or e.razao_social }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div>
+                <label class="form-label">Período</label>
+                <select class="form-select" name="periodo" id="periodoSelect">
+                    <option value="hoje" {% if filtros.periodo == 'hoje' %}selected{% endif %}>Hoje</option>
+                    <option value="mes_atual" {% if filtros.periodo == 'mes_atual' %}selected{% endif %}>Mês atual</option>
+                    <option value="ultimos_30" {% if filtros.periodo == 'ultimos_30' %}selected{% endif %}>Últimos 30 dias</option>
+                    <option value="personalizado" {% if filtros.periodo == 'personalizado' %}selected{% endif %}>Personalizado</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Data inicial</label>
+                <input class="form-control" type="date" name="data_inicio" value="{{ filtros.data_inicio }}">
+            </div>
+            <div>
+                <label class="form-label">Data final</label>
+                <input class="form-control" type="date" name="data_fim" value="{{ filtros.data_fim }}">
+            </div>
+            <div class="filter-actions {% if not is_super_admin %}grid-span{% endif %}">
+                <button class="btn btn-primary w-100 fw-bold" type="submit"><i class="fa-solid fa-filter me-1"></i>Atualizar</button>
+                <a class="btn btn-outline-secondary" href="{{ url_for('dashboard') }}" title="Limpar filtros"><i class="fa-solid fa-rotate-left"></i></a>
+            </div>
+        </div>
+    </form>
+
+    {% if cards.alertas %}
+    <div class="alerts-panel">
+        <div class="alerts-title"><i class="fa-solid fa-bell text-warning"></i> Alertas críticos do período</div>
+        <div class="alert-grid">
+            {% for alerta in cards.alertas %}
+            <a class="dash-alert {{ alerta.tipo }}" href="{{ alerta.url }}" title="{{ alerta.texto }}">
+                <strong>{{ alerta.titulo }}</strong>
+                <span class="small text-muted">{{ alerta.texto }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if acl.financeiro or acl.operacao or acl.documentos or acl.auditoria %}
+    <div class="metric-grid">
+        {% if acl.financeiro %}
+        <div class="metric-card primary">
+            <div class="metric-top">
+                <div class="min-w-0">
+                    <div class="metric-label">Saldo líquido do período</div>
+                    <div class="metric-value">{{ financeiro.saldo_liquido|moeda_br }}</div>
+                    <div class="metric-sub">Receber menos pagar no filtro selecionado</div>
+                </div>
+                <div class="metric-icon soft-blue"><i class="fa-solid fa-chart-line"></i></div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-top">
+                <div class="min-w-0">
+                    <div class="metric-label">Total a pagar</div>
+                    <div class="metric-value text-danger">{{ financeiro.total_pagar|moeda_br }}</div>
+                    <div class="metric-sub">{{ financeiro.qtd_titulos|default(0) }} título(s) no período</div>
+                </div>
+                <div class="metric-icon soft-red"><i class="fa-solid fa-arrow-trend-down"></i></div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-top">
+                <div class="min-w-0">
+                    <div class="metric-label">Total a receber</div>
+                    <div class="metric-value text-success">{{ financeiro.total_receber|moeda_br }}</div>
+                    <div class="metric-sub">Receitas previstas no período</div>
+                </div>
+                <div class="metric-icon soft-green"><i class="fa-solid fa-arrow-trend-up"></i></div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-top">
+                <div class="min-w-0">
+                    <div class="metric-label">Total baixado</div>
+                    <div class="metric-value text-success">{{ financeiro.total_baixado|moeda_br }}</div>
+                    <div class="metric-sub">Pago/recebido no filtro</div>
+                </div>
+                <div class="metric-icon soft-green"><i class="fa-solid fa-circle-check"></i></div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-top">
+                <div class="min-w-0">
+                    <div class="metric-label">Vencidos</div>
+                    <div class="metric-value text-danger">{{ financeiro.total_vencido|moeda_br }}</div>
+                    <div class="metric-sub">{{ financeiro.qtd_vencidos|default(0) }} título(s) vencido(s)</div>
+                </div>
+                <div class="metric-icon soft-red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            </div>
+        </div>
+        {% endif %}
+        {% if acl.operacao %}
+        <div class="metric-card">
+            <div class="metric-top">
+                <div class="min-w-0">
+                    <div class="metric-label">Rotas no período</div>
+                    <div class="metric-value">{{ operacao.total_rotas|default(0) }}</div>
+                    <div class="metric-sub">{{ operacao.valor_rotas|moeda_br }} em rotas</div>
+                </div>
+                <div class="metric-icon soft-blue"><i class="fa-solid fa-route"></i></div>
+            </div>
+        </div>
+        {% endif %}
+        {% if acl.documentos %}
+        <div class="metric-card">
+            <div class="metric-top">
+                <div class="min-w-0">
+                    <div class="metric-label">Documentos</div>
+                    <div class="metric-value">{{ documentos.uploads|default(0) }}</div>
+                    <div class="metric-sub">uploads protegidos no Drive/sistema</div>
+                </div>
+                <div class="metric-icon soft-purple"><i class="fa-solid fa-folder-open"></i></div>
+            </div>
+        </div>
+        {% endif %}
+        {% if acl.auditoria %}
+        <div class="metric-card">
+            <div class="metric-top">
+                <div class="min-w-0">
+                    <div class="metric-label">Ações auditadas</div>
+                    <div class="metric-value">{{ auditoria.acoes|default(0) }}</div>
+                    <div class="metric-sub">rastreabilidade do período</div>
+                </div>
+                <div class="metric-icon soft-yellow"><i class="fa-solid fa-shield-halved"></i></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="access-note"><i class="fa-solid fa-lock me-1"></i> Nenhum indicador executivo foi liberado para este perfil. Solicite a liberação ao administrador.</div>
+    {% endif %}
+
+    <div class="quick-actions">
+        {% if acl.financeiro %}<a class="quick-link" href="{{ url_for('financeiro_titulos') }}"><i class="fa-solid fa-money-check-dollar text-primary me-2"></i><strong>Títulos</strong><small>Gestão financeira</small></a>{% endif %}
+        {% if acl.operacao %}<a class="quick-link" href="{{ url_for('visualizar_rotas') }}"><i class="fa-solid fa-truck-fast text-success me-2"></i><strong>Rotas</strong><small>Operação</small></a>{% endif %}
+        {% if acl.documentos %}<a class="quick-link" href="{{ url_for('financeiro_nfs_motoristas') }}"><i class="fa-solid fa-file-invoice text-warning me-2"></i><strong>Documentos/NF</strong><small>Aprovação e recusa</small></a>{% endif %}
+        {% if acl.auditoria %}<a class="quick-link" href="{{ url_for('financeiro_auditoria') }}"><i class="fa-solid fa-shield text-danger me-2"></i><strong>Auditoria</strong><small>Ações críticas</small></a>{% endif %}
+        {% if acl.relatorios %}<a class="quick-link" href="{{ url_for('relatorios_financeiro', periodo=filtros.periodo, data_inicio=filtros.data_inicio, data_fim=filtros.data_fim) }}"><i class="fa-solid fa-chart-column text-info me-2"></i><strong>Relatórios</strong><small>Consulta gerencial</small></a>{% endif %}
+    </div>
+
+    <div class="section-grid">
+        {% if acl.financeiro %}
+        <div class="panel-card">
+            <div class="panel-title"><i class="fa-solid fa-chart-pie text-primary"></i> Financeiro por origem</div>
+            <div class="mini-list">
+                {% for item in rankings.origens_financeiras %}
+                <div class="mini-row" title="{{ item.origem }} - {{ item.valor|moeda_br }}">
+                    <div class="mini-row-head">
+                        <div class="mini-label">{{ item.origem }}</div>
+                        <div class="mini-value">{{ item.valor|moeda_br }}</div>
+                    </div>
+                    <div class="mini-sub">{{ item.quantidade }} título(s)</div>
+                    <div class="progress-track"><div class="progress-fill" style="width: {{ [100,70,45,30,18][loop.index0] if loop.index0 < 5 else 10 }}%"></div></div>
+                </div>
+                {% else %}
+                <div class="text-muted small">Nenhuma origem financeira no período.</div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if acl.operacao %}
+        <div class="panel-card">
+            <div class="panel-title"><i class="fa-solid fa-truck-fast text-success"></i> Operação por status</div>
+            <div class="mini-list">
+                {% for item in rankings.status_rotas %}
+                <div class="mini-row" title="{{ item.status }} - {{ item.quantidade }} rota(s)">
+                    <div class="mini-row-head">
+                        <div class="mini-label">{{ item.status }}</div>
+                        <div class="mini-value">{{ item.quantidade }}</div>
+                    </div>
+                    <div class="mini-sub">{{ item.valor|moeda_br }}</div>
+                    <div class="progress-track"><div class="progress-fill green" style="width: {{ [100,70,45,30,18][loop.index0] if loop.index0 < 5 else 10 }}%"></div></div>
+                </div>
+                {% else %}
+                <div class="text-muted small">Nenhuma rota no período.</div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if acl.prestadores or acl.financeiro %}
+        <div class="panel-card">
+            <div class="panel-title"><i class="fa-solid fa-user-tie text-info"></i> Top prestadores/pessoas</div>
+            <div class="mini-list">
+                {% for item in rankings.prestadores_valor %}
+                <div class="mini-row" title="{{ item.nome }} - {{ item.valor|moeda_br }}">
+                    <div class="mini-row-head">
+                        <div class="mini-label"><span class="badge-soft badge-blue me-1">{{ loop.index }}</span>{{ item.nome }}</div>
+                        <div class="mini-value">{{ item.valor|moeda_br }}</div>
+                    </div>
+                    <div class="mini-sub">{{ item.documento }} · {{ item.quantidade }} título(s)</div>
+                    <div class="progress-track"><div class="progress-fill" style="width: {{ [100,72,50,34,20][loop.index0] if loop.index0 < 5 else 10 }}%"></div></div>
+                </div>
+                {% else %}
+                <div class="text-muted small">Nenhum prestador/pessoa no período.</div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="section-grid">
+        {% if acl.operacao %}
+        <div class="panel-card">
+            <div class="panel-title"><i class="fa-solid fa-clipboard-check text-success"></i> Indicadores operacionais</div>
+            <div class="row g-2">
+                <div class="col-6"><span class="badge-soft badge-yellow w-100 justify-content-center">Pendentes: {{ operacao.rotas_pendentes|default(0) }}</span></div>
+                <div class="col-6"><span class="badge-soft badge-blue w-100 justify-content-center">Faturadas: {{ operacao.rotas_faturadas|default(0) }}</span></div>
+                <div class="col-6"><span class="badge-soft badge-green w-100 justify-content-center">Quitadas: {{ operacao.rotas_quitadas|default(0) }}</span></div>
+                <div class="col-6"><span class="badge-soft badge-red w-100 justify-content-center">Divergências: {{ operacao.rotas_divergencia|default(0) }}</span></div>
+                <div class="col-6"><span class="badge-soft badge-yellow w-100 justify-content-center">Bloqueadas: {{ operacao.rotas_bloqueadas|default(0) }}</span></div>
+                <div class="col-6"><span class="badge-soft badge-blue w-100 justify-content-center">Liberadas NF: {{ operacao.rotas_liberadas_nf|default(0) }}</span></div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if acl.prestadores %}
+        <div class="panel-card">
+            <div class="panel-title"><i class="fa-solid fa-handshake-angle text-warning"></i> Prestadores e ajudantes</div>
+            <div class="mini-list">
+                <div class="mini-row-head"><span class="mini-label">Prestadores ativos</span><span class="mini-value">{{ prestadores.ativos|default(0) }}</span></div>
+                <div class="mini-row-head"><span class="mini-label">Pagamentos pendentes</span><span class="mini-value text-warning">{{ prestadores.valor_pendente|moeda_br }}</span></div>
+                <div class="mini-row-head"><span class="mini-label">Pagamentos quitados</span><span class="mini-value text-success">{{ prestadores.valor_quitado|moeda_br }}</span></div>
+                <div class="mini-row-head"><span class="mini-label">Estornados</span><span class="mini-value text-danger">{{ prestadores.valor_estornado|moeda_br }}</span></div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if acl.documentos or acl.auditoria %}
+        <div class="panel-card">
+            <div class="panel-title"><i class="fa-solid fa-folder-tree text-primary"></i> Documentos e auditoria</div>
+            <div class="mini-list">
+                <div class="mini-row-head"><span class="mini-label">Documentos pendentes</span><span class="mini-value">{{ documentos.documentos_pendentes|default(0) }}</span></div>
+                <div class="mini-row-head"><span class="mini-label">Aprovados</span><span class="mini-value text-success">{{ documentos.documentos_aprovados|default(0) }}</span></div>
+                <div class="mini-row-head"><span class="mini-label">Recusados</span><span class="mini-value text-danger">{{ documentos.documentos_recusados|default(0) }}</span></div>
+                <div class="mini-row-head"><span class="mini-label">Estornos auditados</span><span class="mini-value text-warning">{{ auditoria.estornos|default(0) }}</span></div>
+                <div class="mini-row-head"><span class="mini-label">Alterações críticas</span><span class="mini-value">{{ auditoria.alteracoes_criticas|default(0) }}</span></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if acl.auditoria %}
+    <div class="panel-card mb-4">
+        <div class="panel-title"><i class="fa-solid fa-users-gear text-secondary"></i> Usuários com mais ações auditadas</div>
+        <div class="row g-3">
+            {% for item in rankings.usuarios_auditoria %}
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="p-3 rounded-4 border bg-light h-100" title="{{ item.nome }}">
+                    <div class="fw-bold text-truncate">{{ item.nome }}</div>
+                    <div class="text-muted small">{{ item.quantidade }} ação(ões) no período</div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-12 text-muted small">Nenhuma ação auditada no período.</div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('dashboardFilterForm');
+        if (form) {
+            const compactarFiltro = function () {
+                if (window.innerWidth <= 720) return form.classList.remove('is-compact');
+                form.classList.toggle('is-compact', window.scrollY > 180);
+            };
+            compactarFiltro();
+            window.addEventListener('scroll', compactarFiltro, { passive: true });
+            window.addEventListener('resize', compactarFiltro);
+            form.addEventListener('submit', function () {
+                document.body.classList.add('dashboard-loading');
+            });
+        }
+        const periodo = document.getElementById('periodoSelect');
+        if (periodo) {
+            periodo.addEventListener('change', function () {
+                try { sessionStorage.setItem('sgr_dashboard_periodo', this.value); } catch (e) {}
+            });
+        }
+    });
+</script>
+{% endblock %}

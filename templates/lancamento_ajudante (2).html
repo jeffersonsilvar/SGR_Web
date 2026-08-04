@@ -1,0 +1,323 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid">
+
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-1 pb-2 mb-3 border-bottom">
+        <div>
+            <h1 class="h3 text-dark font-monospace fw-bold mb-0">Lançamento Ajudante</h1>
+            <small class="text-muted">Vincule rotas realizadas com apoio de um ajudante</small>
+        </div>
+
+        <span class="badge bg-secondary p-2">
+            <i class="fa-solid fa-user-gear me-1"></i> Rotas com Ajudante
+        </span>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                    <i class="fa-solid {% if category == 'danger' %}fa-circle-xmark{% else %}fa-circle-check{% endif %} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form action="{{ url_for('lancamento_ajudante') }}" method="POST" class="needs-validation" novalidate>
+
+        <div class="row g-4">
+
+            <!-- CARD PRINCIPAL -->
+            <div class="col-12 col-lg-4">
+                <div class="card shadow-sm border-0 bg-white p-4 h-100">
+
+                    <h5 class="text-secondary font-monospace border-bottom pb-2 mb-3">
+                        <i class="fa-solid fa-handshake-angle me-2 text-info"></i>
+                        Dados do Lançamento
+                    </h5>
+
+                    <div class="mb-3">
+                        <label for="ajudante_id" class="form-label fw-bold small text-muted">
+                            Ajudante
+                        </label>
+
+                        <select class="form-select text-dark" id="ajudante_id" name="ajudante_id" required>
+                            <option value="" disabled selected>Selecione o ajudante...</option>
+
+                            {% for ajudante in ajudantes %}
+                                <option value="{{ ajudante.id }}">
+                                    {{ ajudante.nome_completo }}
+                                </option>
+                            {% endfor %}
+                        </select>
+
+                        <div class="form-text text-muted" style="font-size: 11px;">
+                            Carrega apenas pessoas do tipo Ajudante com status Ativo.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="observacao" class="form-label fw-bold small text-muted">
+                            Observação
+                        </label>
+
+                        <textarea class="form-control text-dark"
+                                  id="observacao"
+                                  name="observacao"
+                                  rows="3"
+                                  maxlength="150"
+                                  placeholder="Observação opcional..."
+                                  oninput="atualizarContadorObservacao()"></textarea>
+
+                        <div class="form-text text-end">
+                            <span id="contadorObservacao">0</span>/150 caracteres
+                        </div>
+                    </div>
+
+                    <div class="alert alert-light border shadow-sm mb-0">
+                        <small class="text-muted fw-bold text-uppercase d-block" style="font-size: 11px;">
+                            Valor Total do Ajudante
+                        </small>
+
+                        <div class="h3 fw-bold text-success mb-0" id="valor_total_visual">
+                            R$ 0,00
+                        </div>
+
+                        <small class="text-muted">
+                            Soma dos valores informados nas rotas selecionadas.
+                        </small>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- LISTA DE ROTAS -->
+            <div class="col-12 col-lg-8">
+                <div class="card shadow-sm border-0 bg-white h-100">
+
+                    <div class="card-header bg-transparent border-bottom py-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-dark fw-bold">
+                                <i class="fa-solid fa-route me-2 text-info"></i>
+                                Rotas Disponíveis
+                            </span>
+                            <div class="text-muted small">
+                                São exibidas apenas rotas que ainda não possuem ajudante vinculado.
+                            </div>
+                        </div>
+
+                        <span class="badge bg-info text-dark">
+                            <span id="contador_rotas">0</span> selecionada(s)
+                        </span>
+                    </div>
+
+                    <div class="table-responsive" style="max-height: 560px;">
+                        <table class="table table-striped table-hover align-middle mb-0" style="font-size: 13px;">
+                            <thead class="table-dark text-uppercase sticky-top" style="font-size: 11px; letter-spacing: 0.5px;">
+                                <tr>
+                                    <th class="text-center" style="width: 45px;">
+                                        <input type="checkbox"
+                                               class="form-check-input"
+                                               id="selecionar_todas"
+                                               onclick="selecionarTodasRotas()">
+                                    </th>
+                                    <th>Data</th>
+                                    <th>Identificação / Tipo</th>
+                                    <th>Transportadora</th>
+                                    <th class="text-end">Total Rota</th>
+                                    <th class="text-end" style="width: 160px;">Valor Ajudante</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {% for rota in rotas_disponiveis %}
+                                <tr>
+                                    <td class="text-center">
+                                        <input type="checkbox"
+                                               class="form-check-input check-rota"
+                                               name="rotas_selecionadas"
+                                               value="{{ rota.id }}"
+                                               onchange="alternarValorRota('{{ rota.id }}')">
+                                    </td>
+
+                                    <td>
+                                        <span class="fw-bold text-dark">
+                                            {{ rota.data_lancamento | formatar_data_br }}
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        <div class="fw-bold text-dark">
+                                            {{ rota.identi_rota }}
+                                        </div>
+
+                                        <span class="badge bg-light text-muted border font-monospace" style="font-size: 10px;">
+                                            {{ rota.tipo_rota }}
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        {% if rota.transportadora %}
+                                            <i class="fa-solid fa-truck me-1 text-muted"></i>
+                                            {{ rota.transportadora }}
+                                        {% else %}
+                                            <span class="text-muted">Não informada</span>
+                                        {% endif %}
+                                    </td>
+
+                                    <td class="text-end fw-bold text-dark">
+                                        R$ {{ "%.2f"|format(rota.total_rota | float) }}
+                                    </td>
+
+                                    <td>
+                                        <input type="number"
+                                               step="0.01"
+                                               min="0"
+                                               class="form-control form-control-sm text-end valor-ajudante"
+                                               id="valor_ajudante_{{ rota.id }}"
+                                               name="valor_ajudante_{{ rota.id }}"
+                                               placeholder="0.00"
+                                               value="0.00"
+                                               disabled
+                                               oninput="calcularTotalAjudante()">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+
+                        </table>
+                    </div>
+
+                    {% if not rotas_disponiveis %}
+                    <div class="text-center p-5 text-muted">
+                        <i class="fa-solid fa-folder-open fs-3 mb-2"></i>
+                        <p class="mb-0">Nenhuma rota disponível para lançamento de ajudante.</p>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+
+            <!-- BOTÕES -->
+            <div class="col-12 text-end mt-2 mb-5">
+                <button type="reset" class="btn btn-secondary px-4 me-2" onclick="resetarFormulario()">
+                    <i class="fa-solid fa-eraser me-2"></i>
+                    Limpar
+                </button>
+
+                <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm">
+                    <i class="fa-solid fa-floppy-disk me-2"></i>
+                    Salvar Lançamento
+                </button>
+            </div>
+
+        </div>
+
+    </form>
+
+</div>
+
+<script>
+    function formatarMoeda(valor) {
+        return valor.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        });
+    }
+
+    function converterNumero(valor) {
+        const numero = parseFloat(valor);
+
+        if (isNaN(numero)) {
+            return 0;
+        }
+
+        return numero;
+    }
+
+    function alternarValorRota(id) {
+        const checkbox = document.querySelector(`input.check-rota[value="${id}"]`);
+        const inputValor = document.getElementById(`valor_ajudante_${id}`);
+
+        if (checkbox.checked) {
+            inputValor.disabled = false;
+            inputValor.required = true;
+            inputValor.focus();
+        } else {
+            inputValor.disabled = true;
+            inputValor.required = false;
+            inputValor.value = "0.00";
+        }
+
+        calcularTotalAjudante();
+    }
+
+    function calcularTotalAjudante() {
+        const checkboxes = document.querySelectorAll('.check-rota');
+        let total = 0;
+        let quantidade = 0;
+
+        checkboxes.forEach(checkbox => {
+            const id = checkbox.value;
+            const inputValor = document.getElementById(`valor_ajudante_${id}`);
+
+            if (checkbox.checked) {
+                quantidade++;
+                total += converterNumero(inputValor.value);
+            }
+        });
+
+        document.getElementById('valor_total_visual').innerText = formatarMoeda(total);
+        document.getElementById('contador_rotas').innerText = quantidade;
+    }
+
+    function selecionarTodasRotas() {
+        const master = document.getElementById('selecionar_todas');
+        const checkboxes = document.querySelectorAll('.check-rota');
+
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = master.checked;
+            alternarValorRota(checkbox.value);
+        });
+
+        calcularTotalAjudante();
+    }
+
+    function atualizarContadorObservacao() {
+        const observacao = document.getElementById('observacao');
+        const contador = document.getElementById('contadorObservacao');
+
+        contador.innerText = observacao.value.length;
+    }
+
+    function resetarFormulario() {
+        setTimeout(() => {
+            document.querySelectorAll('.check-rota').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+
+            document.querySelectorAll('.valor-ajudante').forEach(input => {
+                input.disabled = true;
+                input.required = false;
+                input.value = "0.00";
+            });
+
+            const selecionarTodas = document.getElementById('selecionar_todas');
+            if (selecionarTodas) {
+                selecionarTodas.checked = false;
+            }
+
+            calcularTotalAjudante();
+            atualizarContadorObservacao();
+        }, 50);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        calcularTotalAjudante();
+        atualizarContadorObservacao();
+    });
+</script>
+{% endblock %}

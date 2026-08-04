@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid py-3">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+        <div>
+            <h2 class="mb-1 fw-bold text-dark">
+                <i class="fa-solid fa-triangle-exclamation me-2 text-danger"></i>
+                Divergências de Rotas
+            </h2>
+            <p class="text-muted mb-0">
+                Analise divergências apontadas pelos motoristas antes da liberação da NF/XML.
+            </p>
+        </div>
+        <a href="{{ url_for('visualizar_rotas') }}" class="btn btn-outline-secondary fw-bold">
+            <i class="fa-solid fa-arrow-left me-1"></i> Visualizar Rotas
+        </a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted fw-semibold">Abertas</small><h3 class="fw-bold mb-0 text-danger">{{ resumo.abertas or 0 }}</h3></div></div></div>
+        <div class="col-6 col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted fw-semibold">Em análise</small><h3 class="fw-bold mb-0 text-warning">{{ resumo.em_analise or 0 }}</h3></div></div></div>
+        <div class="col-6 col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted fw-semibold">Resolvidas</small><h3 class="fw-bold mb-0 text-success">{{ resumo.resolvidas or 0 }}</h3></div></div></div>
+        <div class="col-6 col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted fw-semibold">Total</small><h3 class="fw-bold mb-0">{{ resumo.total or 0 }}</h3></div></div></div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('divergencias_rotas_motoristas') }}" class="row g-2 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold small text-muted">Buscar rota</label>
+                    <input type="text" name="identi_rota" class="form-control" value="{{ filtros.identi_rota or '' }}" placeholder="Identificação da rota">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold small text-muted">Status</label>
+                    <select name="status_divergencia" class="form-select">
+                        <option value="">Todos</option>
+                        {% for st in ['Aberta', 'Em análise', 'Resolvida', 'Recusada'] %}
+                        <option value="{{ st }}" {% if filtros.status_divergencia == st %}selected{% endif %}>{{ st }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold small text-muted">Data início</label>
+                    <input type="date" name="data_inicio" class="form-control" value="{{ filtros.data_inicio or '' }}">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold small text-muted">Data fim</label>
+                    <input type="date" name="data_fim" class="form-control" value="{{ filtros.data_fim or '' }}">
+                </div>
+                <div class="col-12 col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-100"><i class="fa-solid fa-magnifying-glass me-1"></i> Filtrar</button>
+                    <a href="{{ url_for('divergencias_rotas_motoristas') }}" class="btn btn-outline-secondary"><i class="fa-solid fa-rotate-left"></i></a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 py-3">
+            <strong class="text-dark"><i class="fa-solid fa-list-check me-1 text-danger"></i> Pendências de divergência</strong>
+            <br><small class="text-muted">Após corrigir a rota, devolva para nova conferência ou libere para NF.</small>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size:13px;">
+                <thead class="table-light text-uppercase" style="font-size:11px; letter-spacing:.4px;">
+                <tr>
+                    <th class="ps-3">ID</th>
+                    {% if is_super_admin %}<th>Empresa</th>{% endif %}
+                    <th>Data</th>
+                    <th>Rota</th>
+                    <th>Motorista</th>
+                    <th>Tipo</th>
+                    <th>Descrição</th>
+                    <th class="text-end">Valor rota</th>
+                    <th class="text-center">Status</th>
+                    <th class="text-end pe-3">Tratativa</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% if divergencias %}
+                    {% for item in divergencias %}
+                    <tr>
+                        <td class="ps-3 fw-bold font-monospace text-secondary">#{{ item.id }}</td>
+                        {% if is_super_admin %}
+                        <td>{{ item.empresa_nome or item.empresa_razao_social or item.empresa_id }}</td>
+                        {% endif %}
+                        <td>
+                            {{ item.created_at|formatar_data_hora_br if item.created_at else '-' }}<br>
+                            <small class="text-muted">Rota: {{ item.data_lancamento|formatar_data_br }}</small>
+                        </td>
+                        <td><strong>{{ item.identi_rota }}</strong><br><small class="text-muted">{{ item.tipo_rota }}</small></td>
+                        <td>{{ item.motorista_nome }}</td>
+                        <td><span class="badge bg-light text-dark border">{{ item.tipo_divergencia }}</span></td>
+                        <td style="min-width:260px;">{{ item.descricao }}</td>
+                        <td class="text-end fw-bold">R$ {{ "%.2f"|format(item.valor_total_rota or 0)|replace('.', ',') }}</td>
+                        <td class="text-center">
+                            {% if item.status_divergencia == 'Aberta' %}
+                                <span class="badge bg-danger">Aberta</span>
+                            {% elif item.status_divergencia == 'Em análise' %}
+                                <span class="badge bg-warning text-dark">Em análise</span>
+                            {% elif item.status_divergencia == 'Resolvida' %}
+                                <span class="badge bg-success">Resolvida</span>
+                            {% elif item.status_divergencia == 'Recusada' %}
+                                <span class="badge bg-dark">Recusada</span>
+                            {% else %}
+                                <span class="badge bg-light text-dark border">{{ item.status_divergencia }}</span>
+                            {% endif %}
+                            <br><small class="text-muted">Rota: {{ item.status_motorista }}</small>
+                        </td>
+                        <td class="text-end pe-3" style="min-width:280px;">
+                            {% if item.status_divergencia in ['Aberta', 'Em análise'] %}
+                            <form method="POST" action="{{ url_for('tratar_divergencia_rota_motorista', divergencia_id=item.id) }}" class="border rounded p-2 bg-light text-start">
+                                <label class="form-label small fw-semibold mb-1">Observação da operação</label>
+                                <textarea name="observacao_operacao" class="form-control form-control-sm mb-2" rows="2" placeholder="Ex.: valor corrigido, rota ajustada, divergência recusada..."></textarea>
+                                <div class="d-grid gap-1">
+                                    <button type="submit" name="acao" value="marcar_analise" class="btn btn-sm btn-outline-warning fw-bold">
+                                        <i class="fa-solid fa-clock me-1"></i> Marcar em análise
+                                    </button>
+                                    <button type="submit" name="acao" value="retornar_conferencia" class="btn btn-sm btn-outline-primary fw-bold"
+                                            onclick="return confirm('Devolver esta rota para nova conferência do motorista?');">
+                                        <i class="fa-solid fa-rotate-left me-1"></i> Corrigida / Nova conferência
+                                    </button>
+                                    <button type="submit" name="acao" value="liberar_nf" class="btn btn-sm btn-success fw-bold"
+                                            onclick="return confirm('Liberar esta rota para envio de NF?');">
+                                        <i class="fa-solid fa-unlock me-1"></i> Liberar para NF
+                                    </button>
+                                    <button type="submit" name="acao" value="bloquear" class="btn btn-sm btn-outline-dark fw-bold"
+                                            onclick="return confirm('Recusar divergência e bloquear a rota?');">
+                                        <i class="fa-solid fa-lock me-1"></i> Recusar / Bloquear
+                                    </button>
+                                </div>
+                            </form>
+                            {% else %}
+                                <div class="text-start">
+                                    <span class="badge bg-light text-dark border">{{ item.resultado_operacao or 'Tratada' }}</span>
+                                    {% if item.observacao_operacao %}<br><small class="text-muted">{{ item.observacao_operacao }}</small>{% endif %}
+                                </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="{% if is_super_admin %}10{% else %}9{% endif %}" class="text-center py-5 text-muted"><i class="fa-solid fa-folder-open fs-3 mb-2 d-block"></i>Nenhuma divergência encontrada.</td></tr>
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

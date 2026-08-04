@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <div class="text-muted small"><i class="fa-solid fa-house me-1"></i> Sistema / Menus e Módulos / Menu</div>
+    <h1 class="fw-bold">{% if menu %}Editar menu/submenu{% else %}Novo menu/submenu{% endif %}</h1>
+    <p class="text-muted">Configure título, endpoint, rota, ícone, ordem e restrições globais.</p>
+  </div>
+  <a href="{{ url_for('gerenciar_menus_modulos') }}" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i> Voltar</a>
+</div>
+<div class="card shadow-sm border-0"><div class="card-body p-4">
+<form method="post">
+  <div class="row g-3">
+    <div class="col-md-4"><label class="form-label fw-bold">Módulo</label><select name="modulo_id" class="form-select"><option value="">Selecione...</option>{% for m in modulos %}<option value="{{ m.id }}" {% if menu and menu.modulo_id==m.id %}selected{% endif %}>{{ m.nome }}</option>{% endfor %}</select></div>
+    <div class="col-md-4"><label class="form-label fw-bold">Menu pai</label><select name="menu_pai_id" class="form-select"><option value="">Menu principal</option>{% for p in menus_pai %}<option value="{{ p.id }}" {% if menu and menu.menu_pai_id==p.id %}selected{% endif %}>{{ p.grupo_menu }} / {{ p.titulo }}</option>{% endfor %}</select></div>
+    <div class="col-md-4"><label class="form-label fw-bold">Grupo</label><input name="grupo_menu" class="form-control" value="{{ menu.grupo_menu if menu else '' }}" placeholder="ex: FINANCEIRO" required></div>
+    <div class="col-md-6"><label class="form-label fw-bold">Título</label><input name="titulo" class="form-control" value="{{ menu.titulo if menu else '' }}" required></div>
+    <div class="col-md-6"><label class="form-label fw-bold">Código interno</label><input name="codigo" class="form-control" value="{{ menu.codigo if menu else '' }}" placeholder="ex: financeiro_dashboard"></div>
+    <div class="col-md-6"><label class="form-label fw-bold">Endpoint Flask</label><input name="endpoint" class="form-control" value="{{ menu.endpoint if menu else '' }}" placeholder="ex: financeiro_dashboard"><div class="form-text">{% if menu and menu.endpoint %}{% if endpoint_existe %}Endpoint encontrado no app.py.{% else %}Endpoint ainda não encontrado no app.py.{% endif %}{% else %}Use o nome da função da rota no app.py.{% endif %}</div></div>
+    <div class="col-md-6"><label class="form-label fw-bold">Rota URL manual</label><input name="rota_url" class="form-control" value="{{ menu.rota_url if menu else '' }}" placeholder="/financeiro/dashboard"></div>
+    <div class="col-md-8"><label class="form-label fw-bold">Descrição</label><input name="descricao" class="form-control" value="{{ menu.descricao if menu else '' }}"></div>
+    <div class="col-md-4"><label class="form-label fw-bold">Ícone FontAwesome</label><input name="icone" class="form-control" value="{{ menu.icone if menu else 'fa-solid fa-circle' }}"></div>
+    <div class="col-md-2"><label class="form-label fw-bold">Ordem</label><input type="number" name="ordem" class="form-control" value="{{ menu.ordem if menu else 0 }}"></div>
+    <div class="col-md-2"><label class="form-label fw-bold">Status</label><select name="ativo" class="form-select"><option value="1" {% if not menu or menu.ativo %}selected{% endif %}>Ativo</option><option value="0" {% if menu and not menu.ativo %}selected{% endif %}>Inativo</option></select></div>
+    <div class="col-md-2"><label class="form-label fw-bold">Visível</label><select name="visivel_menu" class="form-select"><option value="1" {% if not menu or menu.visivel_menu %}selected{% endif %}>Sim</option><option value="0" {% if menu and not menu.visivel_menu %}selected{% endif %}>Não</option></select></div>
+    <div class="col-md-2"><label class="form-label fw-bold">Exige empresa</label><select name="exige_empresa" class="form-select"><option value="1" {% if not menu or menu.exige_empresa %}selected{% endif %}>Sim</option><option value="0" {% if menu and not menu.exige_empresa %}selected{% endif %}>Não</option></select></div>
+    <div class="col-md-4"><label class="form-label fw-bold">Restrição global</label><select name="somente_super_admin" class="form-select"><option value="0" {% if not menu or not menu.somente_super_admin %}selected{% endif %}>Controlado por permissões</option><option value="1" {% if menu and menu.somente_super_admin %}selected{% endif %}>Somente Super Admin/Suporte</option></select></div>
+    <input type="hidden" name="somente_suporte" value="0">
+    {% if not menu %}<div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" name="liberar_admin_global" value="1" id="liberar_admin_global"><label class="form-check-label" for="liberar_admin_global">Liberar visualização inicial para o perfil Administrador global</label></div></div>{% endif %}
+  </div>
+  <div class="alert alert-info mt-4 mb-0"><strong>Importante:</strong> criar o menu não libera automaticamente para empresas. Após salvar, libere no perfil desejado em Permissões e Menus.</div>
+  <div class="mt-4 d-flex justify-content-end gap-2"><a href="{{ url_for('gerenciar_menus_modulos') }}" class="btn btn-outline-secondary">Cancelar</a><button class="btn btn-success"><i class="fa-solid fa-floppy-disk me-1"></i> Salvar</button></div>
+</form>
+</div></div>
+{% endblock %}

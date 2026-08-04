@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid text-dark">
+
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-1 pb-2 mb-3 border-bottom">
+        <div>
+            <h1 class="h3 font-monospace fw-bold mb-0">Pagamentos de Ajudante</h1>
+            <p class="text-muted small mb-0">Baixe pagamentos pendentes, estorne baixas equivocadas e cancele lançamentos quando necessário.</p>
+        </div>
+
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('lancamento_ajudante') }}" class="btn btn-sm btn-outline-primary fw-bold">
+                <i class="fa-solid fa-plus me-1"></i>Novo Lançamento
+            </a>
+            <a href="{{ url_for('historico_pagamentos_ajudante') }}" class="btn btn-sm btn-outline-secondary fw-bold">
+                <i class="fa-solid fa-clock-rotate-left me-1"></i>Histórico
+            </a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                    <i class="fa-solid {% if category == 'danger' %}fa-circle-xmark{% elif category == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm bg-white">
+                <div class="card-body">
+                    <small class="text-muted text-uppercase fw-bold" style="font-size: 11px;">Pendente</small>
+                    <div class="d-flex justify-content-between align-items-end mt-2">
+                        <h4 class="fw-bold text-warning mb-0">R$ {{ "%.2f"|format(cards.total_pendente | default(0) | float) }}</h4>
+                        <span class="badge bg-warning text-dark">{{ cards.qtd_pendente | default(0) }} lanç.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm bg-white">
+                <div class="card-body">
+                    <small class="text-muted text-uppercase fw-bold" style="font-size: 11px;">Quitado</small>
+                    <div class="d-flex justify-content-between align-items-end mt-2">
+                        <h4 class="fw-bold text-success mb-0">R$ {{ "%.2f"|format(cards.total_quitado | default(0) | float) }}</h4>
+                        <span class="badge bg-success">{{ cards.qtd_quitado | default(0) }} lanç.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm bg-white">
+                <div class="card-body">
+                    <small class="text-muted text-uppercase fw-bold" style="font-size: 11px;">Estornado</small>
+                    <div class="d-flex justify-content-between align-items-end mt-2">
+                        <h4 class="fw-bold text-danger mb-0">R$ {{ "%.2f"|format(cards.total_estornado | default(0) | float) }}</h4>
+                        <span class="badge bg-danger">{{ cards.qtd_estornado | default(0) }} lanç.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PENDENTES -->
+    <div class="card shadow-sm border-0 bg-white mb-4">
+        <div class="card-header bg-transparent border-bottom py-3">
+            <span class="fw-bold text-dark"><i class="fa-solid fa-hourglass-half me-2 text-warning"></i>Pagamentos Pendentes</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle mb-0" style="font-size: 13px;">
+                <thead class="table-dark text-uppercase" style="font-size: 11px; letter-spacing: 0.5px;">
+                    <tr>
+                        <th class="ps-3">Lançamento</th><th>Data</th><th>Ajudante</th><th>Rotas</th><th class="text-center">Qtd.</th><th class="text-end">Valor</th><th>Status</th><th class="text-center" width="250">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in pendentes %}
+                        <tr>
+                            <td class="fw-bold ps-3">#{{ item.id }}</td>
+                            <td>{{ item.data_lancamento.strftime('%d/%m/%Y %H:%M') if item.data_lancamento else '-' }}</td>
+                            <td>{{ item.ajudante_nome }}</td>
+                            <td><small class="text-muted">{{ item.rotas or '-' }}</small></td>
+                            <td class="text-center fw-bold">{{ item.qtd_rotas }}</td>
+                            <td class="text-end fw-bold text-success">R$ {{ "%.2f"|format(item.valor_total | default(0) | float) }}</td>
+                            <td><span class="badge bg-warning text-dark">Pendente</span></td>
+                            <td class="text-center">
+                                <form action="{{ url_for('baixar_pagamento_ajudante', lancamento_id=item.id) }}" method="POST" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-success fw-bold" onclick="return confirm('Confirmar baixa do pagamento do ajudante {{ item.ajudante_nome }}?')">
+                                        <i class="fa-solid fa-money-bill-wave me-1"></i>Baixar
+                                    </button>
+                                </form>
+                                <button type="button" class="btn btn-sm btn-outline-danger fw-bold" data-bs-toggle="modal" data-bs-target="#modalEstornarLancamento{{ item.id }}">
+                                    <i class="fa-solid fa-ban me-1"></i>Estornar Lanç.
+                                </button>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="8" class="text-center py-5 text-muted"><i class="fa-solid fa-circle-info fs-3 mb-2 text-secondary"></i><p class="mb-0 fw-bold">Nenhum pagamento pendente.</p></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- QUITADOS -->
+    <div class="card shadow-sm border-0 bg-white mb-4">
+        <div class="card-header bg-transparent border-bottom py-3">
+            <span class="fw-bold text-dark"><i class="fa-solid fa-circle-check me-2 text-success"></i>Pagamentos Quitados</span>
+            <div class="text-muted small">Use o estorno apenas quando a baixa tiver sido feita por engano.</div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle mb-0" style="font-size: 13px;">
+                <thead class="table-dark text-uppercase" style="font-size: 11px; letter-spacing: 0.5px;">
+                    <tr>
+                        <th class="ps-3">Lançamento</th><th>Data Baixa</th><th>Ajudante</th><th>Rotas</th><th class="text-center">Qtd.</th><th class="text-end">Valor</th><th>Status</th><th class="text-center" width="210">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in quitados %}
+                        <tr>
+                            <td class="fw-bold ps-3">#{{ item.id }}</td>
+                            <td>{{ item.data_pagamento.strftime('%d/%m/%Y %H:%M') if item.data_pagamento else '-' }}</td>
+                            <td>{{ item.ajudante_nome }}</td>
+                            <td><small class="text-muted">{{ item.rotas or '-' }}</small></td>
+                            <td class="text-center fw-bold">{{ item.qtd_rotas }}</td>
+                            <td class="text-end fw-bold text-success">R$ {{ "%.2f"|format(item.valor_total | default(0) | float) }}</td>
+                            <td><span class="badge bg-success">Quitado</span></td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger fw-bold" data-bs-toggle="modal" data-bs-target="#modalEstornarBaixa{{ item.id }}">
+                                    <i class="fa-solid fa-rotate-left me-1"></i>Estornar Baixa
+                                </button>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="8" class="text-center py-5 text-muted"><i class="fa-solid fa-circle-info fs-3 mb-2 text-secondary"></i><p class="mb-0 fw-bold">Nenhum pagamento quitado.</p></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ESTORNADOS -->
+    <div class="card shadow-sm border-0 bg-white mb-5">
+        <div class="card-header bg-transparent border-bottom py-3">
+            <span class="fw-bold text-dark"><i class="fa-solid fa-ban me-2 text-danger"></i>Lançamentos Estornados</span>
+            <div class="text-muted small">Lançamentos cancelados. As rotas foram liberadas para novo vínculo.</div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle mb-0" style="font-size: 13px;">
+                <thead class="table-dark text-uppercase" style="font-size: 11px; letter-spacing: 0.5px;">
+                    <tr><th class="ps-3">Lançamento</th><th>Data Estorno</th><th>Ajudante</th><th>Motivo</th><th class="text-end">Valor</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                    {% for item in estornados %}
+                        <tr>
+                            <td class="fw-bold ps-3">#{{ item.id }}</td>
+                            <td>{{ item.data_estorno_lancamento.strftime('%d/%m/%Y %H:%M') if item.data_estorno_lancamento else '-' }}</td>
+                            <td>{{ item.ajudante_nome }}</td>
+                            <td>{{ item.motivo_estorno_lancamento or '-' }}</td>
+                            <td class="text-end fw-bold text-danger">R$ {{ "%.2f"|format(item.valor_total | default(0) | float) }}</td>
+                            <td><span class="badge bg-danger">Estornado</span></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="6" class="text-center py-5 text-muted"><i class="fa-solid fa-circle-info fs-3 mb-2 text-secondary"></i><p class="mb-0 fw-bold">Nenhum lançamento estornado.</p></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% for item in pendentes %}
+        <div class="modal fade" id="modalEstornarLancamento{{ item.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered"><div class="modal-content text-dark bg-white">
+                <div class="modal-header bg-danger text-white border-0"><h5 class="modal-title h6 fw-bold"><i class="fa-solid fa-triangle-exclamation me-2"></i>Estornar Lançamento</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <form action="{{ url_for('estornar_lancamento_ajudante', lancamento_id=item.id) }}" method="POST">
+                    <div class="modal-body">
+                        <p>Essa ação irá cancelar o lançamento <strong>#{{ item.id }}</strong> e liberar as rotas para novo vínculo com ajudante.</p>
+                        <div class="alert alert-warning small">Essa ação só é permitida enquanto o lançamento estiver Pendente.</div>
+                        <label class="form-label fw-bold small text-muted">Motivo do estorno <span class="text-danger">*</span></label>
+                        <textarea name="motivo_estorno" class="form-control" rows="3" maxlength="255" required placeholder="Ex: ajudante lançado errado, valor incorreto..."></textarea>
+                    </div>
+                    <div class="modal-footer bg-light border-0"><button type="button" class="btn btn-sm btn-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-sm btn-danger fw-bold">Confirmar Estorno</button></div>
+                </form>
+            </div></div>
+        </div>
+    {% endfor %}
+
+    {% for item in quitados %}
+        <div class="modal fade" id="modalEstornarBaixa{{ item.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered"><div class="modal-content text-dark bg-white">
+                <div class="modal-header bg-danger text-white border-0"><h5 class="modal-title h6 fw-bold"><i class="fa-solid fa-triangle-exclamation me-2"></i>Estornar Baixa de Pagamento</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <form action="{{ url_for('estornar_baixa_pagamento_ajudante', lancamento_id=item.id) }}" method="POST">
+                    <div class="modal-body">
+                        <p>Essa ação vai devolver o pagamento do lançamento <strong>#{{ item.id }}</strong> para <strong>Pendente</strong>.</p>
+                        <div class="alert alert-warning small">Após o estorno da baixa, será possível corrigir ou estornar o lançamento.</div>
+                        <label class="form-label fw-bold small text-muted">Motivo do estorno <span class="text-danger">*</span></label>
+                        <textarea name="motivo_estorno" class="form-control" rows="3" maxlength="255" required placeholder="Ex: baixa realizada por engano..."></textarea>
+                    </div>
+                    <div class="modal-footer bg-light border-0"><button type="button" class="btn btn-sm btn-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-sm btn-danger fw-bold">Confirmar Estorno</button></div>
+                </form>
+            </div></div>
+        </div>
+    {% endfor %}
+
+</div>
+{% endblock %}

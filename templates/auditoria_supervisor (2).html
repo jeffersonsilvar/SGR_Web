@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid py-4">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="fa-solid fa-user-shield text-info me-2"></i>
+                Auditoria do Supervisor
+            </h2>
+            <p class="text-muted mb-0">
+                Histórico das ações realizadas na escala, fila de cancelados e operação da base.
+            </p>
+        </div>
+        <div class="text-lg-end">
+            <span class="badge bg-dark-subtle text-dark border">
+                {{ total_records or 0 }} registro(s)
+            </span>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-12 col-lg-5">
+                    <label class="form-label fw-semibold">Pesquisar</label>
+                    <input type="text" name="pesquisa" value="{{ filtros.pesquisa or '' }}" class="form-control"
+                           placeholder="Buscar por supervisor, login ou descrição da ação">
+                </div>
+
+                <div class="col-12 col-lg-4">
+                    <label class="form-label fw-semibold">Tipo de ação</label>
+                    <select name="tipo_acao" class="form-select">
+                        <option value="">Todas as ações</option>
+                        {% set tipos = [
+                            'SALVAR_ESCALA',
+                            'ATRIBUIR_ROTA_EXTRA',
+                            'DISPENSAR_MOTORISTA',
+                            'MARCAR_FALTA',
+                            'REVERTER_FALTA',
+                            'ALTERAR_PRESENCA'
+                        ] %}
+                        {% for tipo in tipos %}
+                            <option value="{{ tipo }}" {% if filtros.tipo_acao == tipo %}selected{% endif %}>
+                                {{ tipo.replace('_', ' ') }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-12 col-lg-3 d-flex gap-2">
+                    <button class="btn btn-info text-white flex-fill" type="submit">
+                        <i class="fa-solid fa-filter me-1"></i> Filtrar
+                    </button>
+                    <a href="{{ url_for('visualizar_auditoria_supervisor') }}" class="btn btn-outline-secondary">
+                        Limpar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% if logs %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th style="min-width: 150px;">Data/Hora</th>
+                        <th style="min-width: 190px;">Usuário</th>
+                        <th style="min-width: 180px;">Ação</th>
+                        <th>Descrição</th>
+                        <th style="min-width: 120px;">IP</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">{{ log.data_acao.strftime('%d/%m/%Y') if log.data_acao else '-' }}</div>
+                            <small class="text-muted">{{ log.data_acao.strftime('%H:%M:%S') if log.data_acao else '' }}</small>
+                        </td>
+                        <td>
+                            <div class="fw-semibold">{{ log.nome_supervisor or log.login or 'Usuário não identificado' }}</div>
+                            {% if log.login %}<small class="text-muted">{{ log.login }}</small>{% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-info-subtle text-info border border-info-subtle">
+                                {{ (log.tipo_acao or '-').replace('_', ' ') }}
+                            </span>
+                        </td>
+                        <td>{{ log.descricao or '-' }}</td>
+                        <td><small class="text-muted">{{ log.ip_origem or '-' }}</small></td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fa-solid fa-clipboard-list fa-3x text-muted mb-3"></i>
+                <h5 class="fw-bold">Nenhum registro encontrado</h5>
+                <p class="text-muted mb-0">
+                    As ações do supervisor aparecerão aqui após salvar escala, dispensar motorista ou puxar rota extra.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if total_pages and total_pages > 1 %}
+        <div class="card-footer bg-white border-0">
+            <nav aria-label="Paginação auditoria supervisor">
+                <ul class="pagination justify-content-end mb-0">
+                    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('visualizar_auditoria_supervisor', page=page-1, pesquisa=filtros.pesquisa, tipo_acao=filtros.tipo_acao) }}">Anterior</a>
+                    </li>
+                    {% for p in range(1, total_pages + 1) %}
+                        {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                        <li class="page-item {% if p == page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('visualizar_auditoria_supervisor', page=p, pesquisa=filtros.pesquisa, tipo_acao=filtros.tipo_acao) }}">{{ p }}</a>
+                        </li>
+                        {% elif p == page - 3 or p == page + 3 %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('visualizar_auditoria_supervisor', page=page+1, pesquisa=filtros.pesquisa, tipo_acao=filtros.tipo_acao) }}">Próxima</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+Flask
+gunicorn
+mysql-connector-python
+Werkzeug
+openpyxl
+reportlab
+python-dotenv
+qrcode
+Pillow
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2

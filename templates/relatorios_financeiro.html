@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<style>
+    :root{
+        --sgr-bg:#f8fafc; --sgr-card:#ffffff; --sgr-card-soft:#f8fafc; --sgr-border:#e2e8f0;
+        --sgr-text:#0f172a; --sgr-muted:#64748b; --sgr-primary:#2563eb; --sgr-shadow:0 10px 30px rgba(15,23,42,.08);
+    }
+    [data-theme="dark"], body.sgr-dark{
+        --sgr-bg:#0f172a; --sgr-card:#111827; --sgr-card-soft:#1f2937; --sgr-border:#334155;
+        --sgr-text:#e5e7eb; --sgr-muted:#94a3b8; --sgr-primary:#60a5fa; --sgr-shadow:0 10px 30px rgba(0,0,0,.32);
+    }
+    .rel-card{border:0;border-radius:18px;box-shadow:var(--sgr-shadow);background:var(--sgr-card);color:var(--sgr-text)}
+    .rel-header-card{background:linear-gradient(135deg,#ffffff,#f8fafc)}
+    body.sgr-dark .rel-header-card{background:linear-gradient(135deg,#111827,#1f2937)}
+    .kpi-label{color:var(--sgr-muted);font-size:13px;font-weight:700}.kpi-value{font-size:24px;font-weight:900;letter-spacing:-.03em}.kpi-main .kpi-value{font-size:31px}
+    .kpi-mini{border:1px solid var(--sgr-border);border-radius:16px;background:var(--sgr-card);padding:16px;height:100%}.kpi-mini .value{font-weight:900;font-size:20px}.kpi-mini .label{font-size:12px;color:var(--sgr-muted);font-weight:700}
+    .table-sm td,.table-sm th{padding:.78rem .85rem}.badge-soft{background:#f1f5f9;color:#334155;border:1px solid #e2e8f0}.text-mini{font-size:12px;color:var(--sgr-muted)}
+    .sticky-filtros{position:sticky;top:0;z-index:30}.rel-filter-card{border:1px solid rgba(226,232,240,.95);backdrop-filter:blur(10px)}
+    .metric-icon{width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:14px;background:#eff6ff;color:#2563eb}.badge-status{border-radius:999px;padding:.45rem .65rem;font-weight:800;font-size:11px;letter-spacing:.01em;white-space:nowrap}
+    .status-pago,.status-recebido{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}.status-aberto,.status-solicitado{background:#fef9c3;color:#854d0e;border:1px solid #fde68a}.status-vencido{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}.status-estornado{background:#ffedd5;color:#9a3412;border:1px solid #fed7aa}.status-cancelado{background:#ffe4e6;color:#9f1239;border:1px solid #fecdd3}.status-default{background:#e2e8f0;color:#334155;border:1px solid #cbd5e1}
+    .origem-badge{background:#f8fafc;border:1px solid #e2e8f0;color:#334155;border-radius:8px;font-size:12px;padding:.35rem .55rem;font-weight:800;white-space:nowrap}.bar-track{height:9px;border-radius:999px;background:#e2e8f0;overflow:hidden}.bar-fill{height:100%;border-radius:999px;background:#2563eb;min-width:3px}.bar-fill-soft{background:linear-gradient(90deg,#2563eb,#22c55e)}
+    .table-wrap-premium{max-height:620px;overflow:auto}.table-sticky thead th{position:sticky;top:0;z-index:10;background:#f8fafc;box-shadow:0 1px 0 #e5e7eb}.table-nowrap th,.table-nowrap td{white-space:nowrap}.person-name{font-weight:900;color:#1f2937;max-width:320px}.action-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px}.search-wrap{position:relative}.search-wrap i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8}.search-wrap input{padding-left:36px}.truncate-260{max-width:260px}.truncate-360{max-width:360px}.sgr-avatar{width:34px;height:34px;border-radius:50%;background:#eff6ff;color:#2563eb;display:inline-flex;align-items:center;justify-content:center;font-weight:900;flex:0 0 auto}.drawer-section{border:1px solid var(--sgr-border);border-radius:14px;padding:14px;margin-bottom:12px;background:var(--sgr-card-soft)}
+
+    /* v5 - Correção de overflow e responsividade dos cards gerenciais */
+    .rel-card, .rel-card .card-body, .kpi-mini{min-width:0; max-width:100%; overflow:hidden}
+    .rel-card .row, .rel-card [class*="col-"], .rel-card .d-flex, .rel-card .text-truncate{min-width:0}
+    .rel-card .text-truncate{max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+    .summary-line{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; min-width:0; max-width:100%}
+    .summary-label{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+    .summary-value{white-space:nowrap; flex-shrink:0; font-weight:900}
+    .rank-item{min-width:0; max-width:100%; overflow:hidden}
+    .rank-head{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:start; min-width:0}
+    .rank-person{display:grid; grid-template-columns:34px minmax(0,1fr); gap:10px; align-items:start; min-width:0}
+    .rank-person-name{font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%}
+    .rank-person-meta{font-size:12px; color:var(--sgr-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%}
+    .rank-value{white-space:nowrap; font-weight:900; align-self:start}
+    .bar-track{width:100%; max-width:100%; min-width:0; overflow:hidden; contain:layout paint}
+    .bar-fill{display:block; max-width:100%; min-width:3px}
+    .report-summary-grid{min-width:0}
+    .report-summary-grid > [class*="col-"]{min-width:0}
+    .table-wrap-premium{width:100%; max-width:100%; overflow:auto; overscroll-behavior:contain}
+    .finance-table{min-width:1180px; table-layout:fixed}
+    .finance-table th:nth-child(1), .finance-table td:nth-child(1){width:330px}
+    .finance-table th:nth-child(2), .finance-table td:nth-child(2){width:380px}
+    .finance-table th:nth-child(3), .finance-table td:nth-child(3){width:120px}
+    .finance-table th:nth-child(4), .finance-table td:nth-child(4){width:130px}
+    .finance-table th:nth-child(5), .finance-table td:nth-child(5){width:130px}
+    .finance-table th:nth-child(6), .finance-table td:nth-child(6){width:130px}
+    .finance-table th:nth-child(7), .finance-table td:nth-child(7){width:150px}
+    .finance-table td{overflow:hidden; text-overflow:ellipsis}
+    .person-name{max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+    @media (max-width:1199px){.rank-head{grid-template-columns:1fr}.rank-value{padding-left:44px}.summary-line{grid-template-columns:1fr}.summary-value{margin-top:2px}}
+    .skeleton-overlay{position:fixed;inset:0;background:rgba(248,250,252,.72);z-index:9999;display:none;align-items:flex-start;justify-content:center;padding-top:120px;backdrop-filter:blur(2px)}.skeleton-box{width:min(760px,92vw);background:white;border-radius:20px;padding:24px;box-shadow:var(--sgr-shadow)}.skeleton-line{height:16px;border-radius:999px;background:linear-gradient(90deg,#e5e7eb,#f8fafc,#e5e7eb);background-size:200% 100%;animation:sgrShimmer 1.15s infinite;margin-bottom:14px}.skeleton-line.big{height:34px;width:46%}.skeleton-line.mid{width:75%}.skeleton-line.small{width:55%}@keyframes sgrShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    @media (max-width:991px){.sticky-filtros{position:static}.kpi-main .kpi-value{font-size:24px}.table-wrap-premium{max-height:none}.desktop-table-hint{display:none}.rel-card{border-radius:14px}.mobile-title-card{display:block}.table-desktop{display:none!important}}
+    @media (min-width:992px){.mobile-title-card{display:none!important}}
+</style>
+
+{% macro status_badge(status) %}
+    {% set st=(status or 'Sem status') %}{% set cls='status-default' %}
+    {% if st in ['Pago','Recebido'] %}{% set cls='status-pago' %}{% endif %}{% if st in ['Aberto','Solicitado'] %}{% set cls='status-aberto' %}{% endif %}{% if st=='Estornado' %}{% set cls='status-estornado' %}{% endif %}{% if st=='Cancelado' %}{% set cls='status-cancelado' %}{% endif %}
+    <span class="badge-status {{ cls }}">{{ st }}</span>
+{% endmacro %}
+{% macro origem_badge(origem) %}
+    {% set o=origem or 'Sem origem' %}{% set label=o %}{% set icon='fa-tag' %}
+    {% if o=='NF_MOTORISTA' %}{% set label='NF Motorista' %}{% set icon='fa-file-invoice' %}{% endif %}{% if o=='SEM_NF_MOTORISTA' %}{% set label='Sem NF' %}{% set icon='fa-file-circle-xmark' %}{% endif %}{% if o=='MANUAL' %}{% set label='Manual' %}{% set icon='fa-pen-to-square' %}{% endif %}
+    <span class="origem-badge"><i class="fa-solid {{ icon }} me-1"></i>{{ label }}</span>
+{% endmacro %}
+{% set total_base = resumo.total_liquido or 1 %}
+
+<div class="skeleton-overlay" id="sgrSkeleton"><div class="skeleton-box"><div class="skeleton-line big"></div><div class="skeleton-line mid"></div><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line small"></div></div></div>
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+    <div>
+        <div class="text-mini mb-1"><i class="fa-solid fa-house me-1"></i>Dashboard / Relatórios / Financeiro</div>
+        <h2 class="fw-bold mb-1"><i class="fa-solid fa-file-invoice-dollar me-2"></i>Relatório Financeiro Gerencial</h2>
+        <div class="text-muted">Títulos a pagar/receber, baixas, vencidos, estornos, cancelamentos e exportação.</div>
+        <div class="text-mini mt-1"><i class="fa-regular fa-clock me-1"></i>Atualizado em {{ moment().format('DD/MM/YYYY HH:mm') if moment is defined else '' }}</div>
+    </div>
+    <div class="dropdown">
+        <button class="btn btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="fa-solid fa-download me-1"></i>Exportar</button>
+        <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+            <li><a class="dropdown-item" href="{{ url_for('relatorios_financeiro_exportar_excel', empresa_id=filtros.empresa_id, periodo=filtros.periodo, data_inicio=filtros.data_inicio, data_fim=filtros.data_fim, referencia_data=filtros.referencia_data, tipo_titulo=filtros.tipo_titulo, status_titulo=filtros.status_titulo, origem=filtros.origem, pesquisa=filtros.pesquisa) }}"><i class="fa-solid fa-file-excel me-2 text-success"></i>Excel</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('relatorios_financeiro_exportar_csv', empresa_id=filtros.empresa_id, periodo=filtros.periodo, data_inicio=filtros.data_inicio, data_fim=filtros.data_fim, referencia_data=filtros.referencia_data, tipo_titulo=filtros.tipo_titulo, status_titulo=filtros.status_titulo, origem=filtros.origem, pesquisa=filtros.pesquisa) }}"><i class="fa-solid fa-file-csv me-2 text-success"></i>CSV</a></li>
+            <li><hr class="dropdown-divider"></li><li><span class="dropdown-item text-muted"><i class="fa-solid fa-file-pdf me-2"></i>PDF em breve</span></li>
+        </ul>
+    </div>
+</div>
+
+<form method="get" class="card rel-card rel-filter-card sticky-filtros mb-4" id="formRelatorioFinanceiro">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2"><div class="fw-bold"><i class="fa-solid fa-sliders me-2 text-primary"></i>Filtros do relatório</div><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('relatorios_central') }}"><i class="fa-solid fa-arrow-left me-1"></i>Central</a></div>
+        <div class="row g-3 align-items-end">
+            {% if is_super_admin %}<div class="col-12 col-md-3"><label class="form-label">Empresa</label><select name="empresa_id" class="form-select"><option value="">Todas</option>{% for e in empresas %}<option value="{{ e.id }}" {% if filtros.empresa_id|string==e.id|string %}selected{% endif %}>{{ e.nome_fantasia or e.razao_social }}</option>{% endfor %}</select></div>{% endif %}
+            <div class="col-12 col-md-2"><label class="form-label">Período</label><select name="periodo" class="form-select" onchange="document.getElementById('datasPersonalizadas').style.display=this.value==='personalizado'?'flex':'none'"><option value="hoje" {% if filtros.periodo=='hoje' %}selected{% endif %}>Hoje</option><option value="mes_atual" {% if filtros.periodo=='mes_atual' %}selected{% endif %}>Mês atual</option><option value="ultimos_30" {% if filtros.periodo=='ultimos_30' %}selected{% endif %}>Últimos 30 dias</option><option value="personalizado" {% if filtros.periodo=='personalizado' %}selected{% endif %}>Personalizado</option></select></div>
+            <div class="col-12 col-md-2"><label class="form-label">Referência</label><select name="referencia_data" class="form-select"><option value="vencimento" {% if filtros.referencia_data=='vencimento' %}selected{% endif %}>Vencimento</option><option value="emissao" {% if filtros.referencia_data=='emissao' %}selected{% endif %}>Emissão</option><option value="competencia" {% if filtros.referencia_data=='competencia' %}selected{% endif %}>Competência</option><option value="baixa" {% if filtros.referencia_data=='baixa' %}selected{% endif %}>Baixa</option><option value="criacao" {% if filtros.referencia_data=='criacao' %}selected{% endif %}>Criação</option></select></div>
+            <div class="col-12 col-md-3 d-flex gap-2" id="datasPersonalizadas" style="display:{% if filtros.periodo=='personalizado' %}flex{% else %}none{% endif %};"><div><label class="form-label">Início</label><input type="date" name="data_inicio" value="{{ filtros.data_inicio }}" class="form-control"></div><div><label class="form-label">Fim</label><input type="date" name="data_fim" value="{{ filtros.data_fim }}" class="form-control"></div></div>
+            <div class="col-12 col-md-2"><label class="form-label">Tipo</label><select name="tipo_titulo" class="form-select"><option value="">Todos</option><option value="PAGAR" {% if filtros.tipo_titulo=='PAGAR' %}selected{% endif %}>A pagar</option><option value="RECEBER" {% if filtros.tipo_titulo=='RECEBER' %}selected{% endif %}>A receber</option></select></div>
+            <div class="col-12 col-md-2"><label class="form-label">Status</label><select name="status_titulo" class="form-select"><option value="">Todos</option>{% for st in status_opcoes %}<option value="{{ st }}" {% if filtros.status_titulo==st %}selected{% endif %}>{{ st }}</option>{% endfor %}</select></div>
+            <div class="col-12 col-md-2"><label class="form-label">Origem</label><select name="origem" class="form-select"><option value="">Todas</option>{% for o in origem_opcoes %}<option value="{{ o }}" {% if filtros.origem==o %}selected{% endif %}>{{ o }}</option>{% endfor %}</select></div>
+            <div class="col-12 col-md-4"><label class="form-label">Pesquisa</label><div class="search-wrap"><i class="fa-solid fa-magnifying-glass"></i><input name="pesquisa" value="{{ filtros.pesquisa }}" class="form-control" placeholder="Pesquisar por pessoa, documento, descrição ou ID..."></div></div>
+            <div class="col-12 col-md-2 d-grid"><button class="btn btn-primary fw-bold"><i class="fa-solid fa-filter me-1"></i>Filtrar</button></div>
+        </div>
+    </div>
+</form>
+
+<div class="row g-3 mb-4">
+    <div class="col-12 col-lg-4"><div class="card rel-card kpi-main rel-header-card h-100"><div class="card-body d-flex justify-content-between gap-3"><div><div class="kpi-label">Total líquido filtrado</div><div class="kpi-value">{{ resumo.total_liquido|moeda_br }}</div><div class="text-mini">{{ resumo.total_registros or 0 }} registros no período</div></div><div class="metric-icon"><i class="fa-solid fa-chart-line"></i></div></div></div></div>
+    <div class="col-12 col-lg-2 col-md-6"><div class="card rel-card h-100"><div class="card-body"><div class="kpi-label">Em aberto</div><div class="kpi-value">{{ resumo.total_aberto|moeda_br }}</div><div class="text-mini">Aberto/Solicitado</div></div></div></div>
+    <div class="col-12 col-lg-2 col-md-6"><div class="card rel-card h-100"><div class="card-body"><div class="kpi-label">Vencidos</div><div class="kpi-value text-danger">{{ resumo.total_vencido|moeda_br }}</div><div class="text-mini">{{ resumo.qtd_vencidos or 0 }} títulos vencidos</div></div></div></div>
+    <div class="col-12 col-lg-2 col-md-6"><div class="card rel-card h-100"><div class="card-body"><div class="kpi-label">Baixado</div><div class="kpi-value text-success">{{ resumo.total_baixado|moeda_br }}</div><div class="text-mini">Pago/Recebido</div></div></div></div>
+    <div class="col-12 col-lg-2 col-md-6"><div class="card rel-card h-100"><div class="card-body"><div class="kpi-label">Estornado/Cancelado</div><div class="kpi-value text-warning">{{ (resumo.total_estornado + resumo.total_cancelado)|moeda_br }}</div><div class="text-mini">Rastreável na auditoria</div></div></div></div>
+</div>
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-6 col-xl-3"><div class="kpi-mini"><div class="label">Ticket médio</div><div class="value">{{ kpis_exec.ticket_medio|moeda_br }}</div><div class="text-mini">Média por título</div></div></div>
+    <div class="col-12 col-md-6 col-xl-3"><div class="kpi-mini"><div class="label">Maior pagamento</div><div class="value text-danger">{{ kpis_exec.maior_pagamento|moeda_br }}</div><div class="text-mini">Maior título a pagar filtrado</div></div></div>
+    <div class="col-12 col-md-6 col-xl-3"><div class="kpi-mini"><div class="label">Maior recebimento</div><div class="value text-success">{{ kpis_exec.maior_recebimento|moeda_br }}</div><div class="text-mini">Maior título a receber filtrado</div></div></div>
+    <div class="col-12 col-md-6 col-xl-3"><div class="kpi-mini"><div class="label">Tempo médio até baixa</div><div class="value">{{ (kpis_exec.tempo_medio_baixa or 0)|round(1) }} dias</div><div class="text-mini">Da emissão até a baixa</div></div></div>
+</div>
+
+<div class="row g-3 mb-4 report-summary-grid">
+    <div class="col-12 col-lg-4"><div class="card rel-card h-100"><div class="card-body"><h6 class="fw-bold mb-3"><i class="fa-solid fa-chart-simple me-2 text-primary"></i>Financeiro por status</h6>{% for item in por_status %}{% set pct=(((item.valor or 0)/total_base)*100)|round(0) %}<div class="mb-3 rank-item"><div class="summary-line mb-1"><div class="summary-label" title="{{ item.status_titulo or 'Sem status' }}">{{ status_badge(item.status_titulo) }} <span class="text-mini">({{ item.quantidade }})</span></div><strong class="summary-value">{{ item.valor|moeda_br }}</strong></div><div class="bar-track"><div class="bar-fill bar-fill-soft" style="width:{{ [pct,100]|min }}%"></div></div></div>{% else %}<div class="text-muted small">Sem dados.</div>{% endfor %}</div></div></div>
+    <div class="col-12 col-lg-4"><div class="card rel-card h-100"><div class="card-body"><h6 class="fw-bold mb-3"><i class="fa-solid fa-layer-group me-2 text-primary"></i>Resumo por origem</h6>{% for item in por_origem %}{% set pct=(((item.valor or 0)/total_base)*100)|round(0) %}<div class="mb-3 rank-item"><div class="summary-line mb-1"><div class="summary-label" title="{{ item.origem or 'Sem origem' }}">{{ origem_badge(item.origem) }} <span class="text-mini">({{ item.quantidade }})</span></div><strong class="summary-value">{{ item.valor|moeda_br }}</strong></div><div class="bar-track"><div class="bar-fill" style="width:{{ [pct,100]|min }}%"></div></div></div>{% else %}<div class="text-muted small">Sem dados.</div>{% endfor %}</div></div></div>
+    <div class="col-12 col-lg-4"><div class="card rel-card h-100"><div class="card-body"><h6 class="fw-bold mb-3"><i class="fa-solid fa-ranking-star me-2 text-primary"></i>Top pessoas/prestadores</h6>{% for item in ranking_pessoas %}{% set pct=(((item.valor or 0)/((ranking_pessoas[0].valor if ranking_pessoas else 1) or 1))*100)|round(0) %}<div class="mb-3 rank-item"><div class="rank-head"><div class="rank-person"><span class="sgr-avatar">{{ (item.pessoa_nome or 'S')[0] }}</span><div><div class="rank-person-name" title="{{ item.pessoa_nome or 'Sem pessoa' }}">{{ item.pessoa_nome or 'Sem pessoa' }}</div><div class="rank-person-meta" title="{{ item.cpf_cnpj or 'Documento não informado' }} · {{ item.quantidade }} título(s)">{{ item.cpf_cnpj or 'Documento não informado' }} · {{ item.quantidade }} título(s)</div></div></div><strong class="rank-value">{{ item.valor|moeda_br }}</strong></div><div class="bar-track mt-2"><div class="bar-fill" style="width:{{ [pct,100]|min }}%"></div></div></div>{% else %}<div class="text-muted small">Sem dados.</div>{% endfor %}</div></div></div>
+</div>
+
+<div class="card rel-card mb-4 table-desktop">
+    <div class="card-body p-0"><div class="d-flex justify-content-between align-items-center p-3 border-bottom"><div><h5 class="fw-bold mb-0">Títulos filtrados</h5><div class="text-mini desktop-table-hint">Cabeçalho fixo. Clique nos ícones para abrir título, comprovante ou auditoria.</div></div><span class="badge badge-soft">Mostrando até 500 registros</span></div>
+        <div class="table-responsive table-wrap-premium"><table class="table table-sm table-hover align-middle mb-0 table-nowrap table-sticky finance-table"><thead class="table-light"><tr><th>Pessoa</th><th>Descrição</th><th>Vencimento</th><th>Status</th><th class="text-end">Valor</th><th class="text-end">Baixado</th><th class="text-end">Ações</th></tr></thead><tbody>
+            {% for t in titulos %}<tr>
+                <td style="min-width:310px"><div class="person-name text-truncate" title="{{ t.pessoa_nome or '-' }}">{{ t.pessoa_nome or '-' }}</div><div class="text-mini">{{ t.cpf_cnpj or '' }} · #{{ t.id }} · {{ origem_badge(t.origem) }} · <span class="badge {% if t.tipo_titulo=='PAGAR' %}bg-danger{% else %}bg-success{% endif %}">{{ t.tipo_titulo }}</span></div></td>
+                <td style="min-width:340px;max-width:420px"><div class="text-truncate" title="{{ t.descricao or '-' }}">{{ t.descricao or '-' }}</div><div class="text-mini">Doc: {{ t.numero_documento or '-' }}{% if t.conta_baixa %} · Caixa: {{ t.conta_baixa }}{% endif %}</div></td>
+                <td>{{ t.data_vencimento|formatar_data_br }}</td><td>{{ status_badge(t.status_titulo) }}</td><td class="text-end fw-semibold">{{ t.valor_liquido|moeda_br }}</td><td class="text-end">{{ t.valor_baixado|moeda_br if t.valor_baixado else '-' }}</td>
+                <td class="text-end"><div class="d-inline-flex gap-1"><button type="button" class="btn btn-sm btn-outline-primary action-btn abrir-drawer" title="Ver detalhes" data-bs-toggle="offcanvas" data-bs-target="#drawerTitulo" data-id="{{ t.id }}" data-pessoa="{{ (t.pessoa_nome or '-')|e }}" data-documento-pessoa="{{ (t.cpf_cnpj or '')|e }}" data-descricao="{{ (t.descricao or '-')|e }}" data-doc="{{ (t.numero_documento or '-')|e }}" data-origem="{{ (t.origem or '-')|e }}" data-tipo="{{ t.tipo_titulo }}" data-status="{{ t.status_titulo or '-' }}" data-valor="{{ t.valor_liquido|moeda_br }}" data-baixado="{{ t.valor_baixado|moeda_br if t.valor_baixado else '-' }}" data-vencimento="{{ t.data_vencimento|formatar_data_br }}" data-baixa="{{ t.data_baixa|formatar_data_br if t.data_baixa else '-' }}" data-conta="{{ (t.conta_baixa or '-')|e }}" data-url="{{ url_for('detalhes_titulo_financeiro', id=t.id) }}" data-auditoria="{{ url_for('financeiro_auditoria', pesquisa=t.id, empresa_id=filtros.empresa_id) }}" data-comprovante="{{ t.comprovante_url|arquivo_url if t.comprovante_url else '' }}"><i class="fa-solid fa-eye"></i></button>{% if t.comprovante_url %}<a href="{{ t.comprovante_url|arquivo_url }}" target="_blank" class="btn btn-sm btn-outline-secondary action-btn" title="Abrir comprovante"><i class="fa-solid fa-paperclip"></i></a>{% endif %}<a href="{{ url_for('financeiro_auditoria', pesquisa=t.id, empresa_id=filtros.empresa_id) }}" class="btn btn-sm btn-outline-dark action-btn" title="Ver auditoria"><i class="fa-solid fa-shield-halved"></i></a></div></td>
+            </tr>{% else %}<tr><td colspan="7" class="text-center text-muted py-4">Nenhum título encontrado para os filtros selecionados.</td></tr>{% endfor %}
+        </tbody></table></div>
+    </div>
+</div>
+
+<div class="mobile-title-card">
+    {% for t in titulos %}<div class="card rel-card mb-3"><div class="card-body"><div class="d-flex justify-content-between gap-2"><div><div class="fw-bold">{{ t.pessoa_nome or '-' }}</div><div class="text-mini">{{ t.cpf_cnpj or '' }} · #{{ t.id }}</div></div>{{ status_badge(t.status_titulo) }}</div><div class="my-2" title="{{ t.descricao or '-' }}">{{ t.descricao or '-' }}</div><div class="d-flex justify-content-between"><span class="text-mini">Vencimento</span><strong>{{ t.data_vencimento|formatar_data_br }}</strong></div><div class="d-flex justify-content-between"><span class="text-mini">Valor</span><strong>{{ t.valor_liquido|moeda_br }}</strong></div><div class="d-flex gap-2 mt-3"><a href="{{ url_for('detalhes_titulo_financeiro', id=t.id) }}" class="btn btn-sm btn-outline-primary flex-fill"><i class="fa-solid fa-eye me-1"></i>Ver</a><a href="{{ url_for('financeiro_auditoria', pesquisa=t.id, empresa_id=filtros.empresa_id) }}" class="btn btn-sm btn-outline-dark flex-fill"><i class="fa-solid fa-shield-halved me-1"></i>Auditoria</a></div></div></div>{% else %}<div class="card rel-card"><div class="card-body text-center text-muted">Nenhum título encontrado.</div></div>{% endfor %}
+</div>
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="drawerTitulo" style="width:min(520px, 100vw);"><div class="offcanvas-header border-bottom"><div><h5 class="offcanvas-title fw-bold" id="drawerTituloLabel">Detalhes do título</h5><div class="text-mini" id="drawerSubtitulo"></div></div><button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button></div><div class="offcanvas-body"><div class="drawer-section"><div class="text-mini">Pessoa</div><div class="fw-bold fs-5" id="drawerPessoa"></div><div class="text-mini" id="drawerDocumentoPessoa"></div></div><div class="drawer-section"><div class="row g-2"><div class="col-6"><div class="text-mini">Valor</div><div class="fw-bold" id="drawerValor"></div></div><div class="col-6"><div class="text-mini">Baixado</div><div class="fw-bold" id="drawerBaixado"></div></div><div class="col-6"><div class="text-mini">Vencimento</div><div class="fw-bold" id="drawerVencimento"></div></div><div class="col-6"><div class="text-mini">Baixa</div><div class="fw-bold" id="drawerBaixa"></div></div></div></div><div class="drawer-section"><div class="text-mini">Descrição</div><div id="drawerDescricao"></div><hr><div class="text-mini">Documento / Origem / Conta</div><div id="drawerMeta"></div></div><div class="drawer-section"><div class="d-grid gap-2"><a id="drawerAbrir" class="btn btn-primary"><i class="fa-solid fa-up-right-from-square me-1"></i>Abrir tela completa</a><a id="drawerComprovante" target="_blank" class="btn btn-outline-secondary"><i class="fa-solid fa-paperclip me-1"></i>Ver comprovante/arquivo</a><a id="drawerAuditoria" class="btn btn-outline-dark"><i class="fa-solid fa-shield-halved me-1"></i>Ver auditoria</a></div></div></div></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const form=document.getElementById('formRelatorioFinanceiro'); const skeleton=document.getElementById('sgrSkeleton');
+    if(form && skeleton){form.addEventListener('submit',()=>{skeleton.style.display='flex';});}
+    document.querySelectorAll('.abrir-drawer').forEach(btn=>{btn.addEventListener('click',()=>{
+        const d=btn.dataset; document.getElementById('drawerTituloLabel').textContent='Título #'+(d.id||''); document.getElementById('drawerSubtitulo').textContent=(d.tipo||'')+' · '+(d.status||'');
+        document.getElementById('drawerPessoa').textContent=d.pessoa||'-'; document.getElementById('drawerDocumentoPessoa').textContent=d.documentoPessoa||''; document.getElementById('drawerValor').textContent=d.valor||'-'; document.getElementById('drawerBaixado').textContent=d.baixado||'-'; document.getElementById('drawerVencimento').textContent=d.vencimento||'-'; document.getElementById('drawerBaixa').textContent=d.baixa||'-'; document.getElementById('drawerDescricao').textContent=d.descricao||'-'; document.getElementById('drawerMeta').textContent='Doc: '+(d.doc||'-')+' · Origem: '+(d.origem||'-')+' · Conta: '+(d.conta||'-'); document.getElementById('drawerAbrir').href=d.url||'#'; document.getElementById('drawerAuditoria').href=d.auditoria||'#'; const comp=document.getElementById('drawerComprovante'); if(d.comprovante){comp.href=d.comprovante; comp.classList.remove('disabled'); comp.textContent=' Ver comprovante/arquivo'; comp.insertAdjacentHTML('afterbegin','<i class="fa-solid fa-paperclip me-1"></i>');}else{comp.href='#'; comp.classList.add('disabled'); comp.textContent='Sem comprovante anexado';}
+    });});
+});
+</script>
+{% endblock %}

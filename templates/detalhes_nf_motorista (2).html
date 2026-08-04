@@ -1,0 +1,587 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+{% set tipo_doc = nf.tipo_documento_pagamento or 'XML' %}
+{% set eh_sem_nf = tipo_doc == 'SEM_NF' %}
+{% set cfg_gerar_titulo_auto = parametro_bool(parametros_financeiros.get('titulos.gerar_automatico_documento_aprovado', {}).get('valor')) %}
+{% set cfg_estorno_permitido = parametro_bool(parametros_financeiros.get('estorno.permitir_estorno_baixa', {}).get('valor')) %}
+{% set cfg_exigir_motivo_recusa = parametro_bool(parametros_financeiros.get('documentos.exigir_motivo_recusa', {}).get('valor')) %}
+
+<div class="container-fluid py-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+        <div>
+            <h2 class="mb-1 fw-bold text-dark">
+                <i class="fa-solid fa-file-invoice me-2 text-info"></i>
+                Detalhes do Documento {{ nf.numero_nf }}
+            </h2>
+            <p class="text-muted mb-0">
+                Conferência financeira do documento enviado pelo motorista.
+            </p>
+        </div>
+
+        <a href="{{ url_for('financeiro_nfs_motoristas') }}" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-arrow-left me-1"></i>
+            Voltar
+        </a>
+    </div>
+
+    <div class="row g-4">
+
+        <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <strong>
+                        <i class="fa-solid fa-circle-info me-1 text-info"></i>
+                        Dados do Documento
+                    </strong>
+                </div>
+
+                <div class="card-body">
+
+                    <div class="mb-3">
+                        <small class="text-muted d-block">Tipo</small>
+                        {% if eh_sem_nf %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="fa-solid fa-hand-holding-dollar me-1"></i>
+                                Sem NF / Pessoa Física
+                            </span>
+                        {% else %}
+                            <span class="badge bg-success">
+                                <i class="fa-solid fa-file-code me-1"></i>
+                                XML/NF
+                            </span>
+                            {% if nf.nome_arquivo_xml %}
+                                <div class="mt-2 d-flex gap-1 flex-wrap">
+                                    <a href="{{ url_for('visualizar_danfse_nf', nf_id=nf.id) }}" target="_blank" class="btn btn-sm btn-outline-primary fw-semibold">
+                                        <i class="fa-solid fa-file-invoice me-1"></i>
+                                        Visualizar Nota
+                                    </a>
+                                    <a href="{{ url_for('baixar_xml_nf_original', nf_id=nf.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary fw-semibold">
+                                        <i class="fa-solid fa-file-code me-1"></i>
+                                        Baixar XML
+                                    </a>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <small class="text-muted d-block">
+                            {% if eh_sem_nf %}Identificador{% else %}Número{% endif %}
+                        </small>
+                        <strong>{{ nf.numero_nf }}</strong>
+                    </div>
+
+                    <div class="mb-3">
+                        <small class="text-muted d-block">
+                            {% if eh_sem_nf %}Chave interna{% else %}Chave{% endif %}
+                        </small>
+                        <span class="font-monospace small">{{ nf.chave_acesso }}</span>
+                    </div>
+
+                    <div class="mb-3">
+                        <small class="text-muted d-block">Empresa</small>
+                        <strong>{{ nf.empresa_nome or nf.empresa_razao_social }}</strong>
+                    </div>
+
+                    <div class="mb-3">
+                        <small class="text-muted d-block">Motorista</small>
+                        <strong>{{ nf.motorista_nome }}</strong>
+                        <br>
+                        <small class="text-muted">{{ nf.motorista_cpf_cnpj or '-' }}</small>
+                    </div>
+
+                    {% if eh_sem_nf %}
+                        <div class="mb-3">
+                            <small class="text-muted d-block">Prestador</small>
+                            <span>{{ nf.motorista_nome }}</span>
+                            <br>
+                            <small class="text-muted">{{ nf.prestador_cpf_cnpj or nf.motorista_cpf_cnpj or '-' }}</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <small class="text-muted d-block">Tomador</small>
+                            <span class="text-muted">Conforme rotas vinculadas</span>
+                        </div>
+                    {% else %}
+                        <div class="mb-3">
+                            <small class="text-muted d-block">Prestador XML</small>
+                            <span class="font-monospace">{{ nf.prestador_cpf_cnpj or '-' }}</span>
+                        </div>
+
+                        <div class="mb-3">
+                            <small class="text-muted d-block">Tomador XML</small>
+                            <span class="font-monospace">{{ nf.tomador_cpf_cnpj or '-' }}</span>
+                        </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <small class="text-muted d-block">Valor</small>
+                        <h4 class="fw-bold text-success">
+                            R$ {{ "%.2f"|format(nf.valor_total or 0)|replace(".", ",") }}
+                        </h4>
+                    </div>
+
+                    <div class="mb-3">
+                        <small class="text-muted d-block">Status atual</small>
+                        {% if nf.status_nf == 'Enviada' %}
+                            <span class="badge bg-primary">Enviado</span>
+                        {% elif nf.status_nf == 'Em análise' %}
+                            <span class="badge bg-warning text-dark">Em análise</span>
+                        {% elif nf.status_nf == 'Aprovada' %}
+                            <span class="badge bg-success">Aprovado</span>
+                        {% elif nf.status_nf == 'Pagamento solicitado' %}
+                            <span class="badge bg-warning text-dark"><i class="fa-solid fa-file-circle-check me-1"></i>Pagamento solicitado</span>
+                        {% elif nf.status_nf == 'Recusada' %}
+                            <span class="badge bg-danger">Recusado</span>
+                        {% elif nf.status_nf == 'Pagamento confirmado' %}
+                            <span class="badge bg-success">Pagamento confirmado</span>
+                        {% elif nf.status_nf == 'Estornada' %}
+                            <span class="badge bg-dark">Pagamento estornado</span>
+                        {% else %}
+                            <span class="badge bg-light text-dark border">{{ nf.status_nf }}</span>
+                        {% endif %}
+                    </div>
+
+                    {% if nf.titulo_financeiro_id %}
+                    <div class="alert alert-success small">
+                        <strong>Título financeiro gerado:</strong><br>
+                        <a href="{{ url_for('detalhes_titulo_financeiro', id=nf.titulo_financeiro_id) }}" class="fw-bold">
+                            Ver título #{{ nf.titulo_financeiro_id }}
+                        </a>
+                        <span class="text-muted">— {{ nf.titulo_financeiro_status }}</span>
+                    </div>
+                    {% endif %}
+
+                    {% if nf.observacao %}
+                    <div class="alert alert-light border small" style="white-space: pre-line;">
+                        <strong>Observação:</strong><br>
+                        {{ nf.observacao }}
+                    </div>
+                    {% endif %}
+
+                    {% if nf.motivo_recusa %}
+                    <div class="alert alert-danger small">
+                        <strong>Motivo da recusa:</strong><br>
+                        {{ nf.motivo_recusa }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <strong>
+                        <i class="fa-solid fa-route me-1 text-info"></i>
+                        Rotas vinculadas
+                    </strong>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
+                        <thead class="table-light text-uppercase" style="font-size: 11px;">
+                            <tr>
+                                <th class="ps-3">Rota</th>
+                                <th>Data</th>
+                                <th>Tomador</th>
+                                <th>Status motorista</th>
+                                <th class="text-end pe-3">Valor</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% if rotas %}
+                                {% for rota in rotas %}
+                                    <tr>
+                                        <td class="ps-3">
+                                            <strong>{{ rota.identi_rota }}</strong>
+                                            <br>
+                                            <small class="text-muted">#{{ rota.rota_id }} — {{ rota.tipo_rota }}</small>
+                                        </td>
+
+                                        <td>{{ rota.data_lancamento|formatar_data_br }}</td>
+
+                                        <td>
+                                            {{ rota.transportadora_nome or '-' }}
+                                            <br>
+                                            <small class="text-muted">{{ rota.transportadora_cpf_cnpj or '-' }}</small>
+                                        </td>
+
+                                        <td>
+                                            <span class="badge bg-light text-dark border">
+                                                {{ rota.status_motorista or '-' }}
+                                            </span>
+                                        </td>
+
+                                        <td class="text-end pe-3 fw-bold">
+                                            R$ {{ "%.2f"|format(rota.valor_rota or 0)|replace(".", ",") }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">
+                                        Nenhuma rota vinculada.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 py-3">
+                    <strong>
+                        <i class="fa-solid fa-gears me-1 text-warning"></i>
+                        Ações financeiras
+                    </strong>
+                </div>
+
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+
+                        {% if nf.status_nf == 'Enviada' %}
+                        <form method="POST"
+                              action="{{ url_for('marcar_nf_motorista_em_analise', id=nf.id) }}"
+                              onsubmit="return confirm('Marcar este documento como Em análise?');">
+                            <button type="submit" class="btn btn-warning fw-bold">
+                                <i class="fa-solid fa-magnifying-glass-chart me-1"></i>
+                                Marcar em análise
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        {% if nf.status_nf == 'Enviada' or nf.status_nf == 'Em análise' %}
+                        <form method="POST"
+                              action="{{ url_for('aprovar_documento_motorista', id=nf.id) }}"
+                              onsubmit="return confirm('Aprovar este documento para pagamento?');">
+                            <button type="submit" class="btn btn-success fw-bold">
+                                <i class="fa-solid fa-check me-1"></i>
+                                Aprovar Documento
+                            </button>
+                        </form>
+
+                        <button type="button"
+                                class="btn btn-outline-danger fw-bold"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalRecusarDocumento">
+                            <i class="fa-solid fa-xmark me-1"></i>
+                            Recusar Documento
+                        </button>
+                        {% endif %}
+
+                        {% if nf.status_nf == 'Aprovada' %}
+                        <button type="button"
+                                class="btn btn-outline-warning fw-bold"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalReverterAprovacao">
+                            <i class="fa-solid fa-rotate-left me-1"></i>
+                            Reverter Aprovação
+                        </button>
+
+                        {% if nf.titulo_financeiro_id %}
+                        <a href="{{ url_for('detalhes_titulo_financeiro', id=nf.titulo_financeiro_id) }}" class="btn btn-success fw-bold">
+                            <i class="fa-solid fa-receipt me-1"></i>
+                            Ver título financeiro
+                        </a>
+                        {% else %}
+                        <button type="button"
+                                class="btn btn-success fw-bold"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalSolicitarPagamento">
+                            <i class="fa-solid fa-money-check-dollar me-1"></i>
+                            Solicitar pagamento
+                        </button>
+                        {% endif %}
+                        {% endif %}
+
+                        {% if nf.status_nf == 'Pagamento confirmado' and cfg_estorno_permitido %}
+                        <button type="button"
+                                class="btn btn-outline-danger fw-bold"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalEstornarPagamento">
+                            <i class="fa-solid fa-rotate-left me-1"></i>
+                            Estornar Pagamento
+                        </button>
+                        {% endif %}
+
+                    </div>
+
+                    <hr>
+
+                    <small class="text-muted">
+                        Ao aprovar, as rotas vinculadas ficam como <strong>Aprovada para pagamento</strong>.
+                        Ao recusar, as rotas voltam para <strong>Liberada para NF</strong>, permitindo reenvio pelo motorista.
+                        Ao solicitar pagamento, será gerado um <strong>título financeiro</strong> em Contas a Pagar. A baixa real será feita no módulo financeiro.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- MODAL RECUSAR DOCUMENTO -->
+<div class="modal fade" id="modalRecusarDocumento" tabindex="-1" aria-labelledby="modalRecusarDocumentoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" action="{{ url_for('recusar_documento_motorista', id=nf.id) }}" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalRecusarDocumentoLabel">
+                    <i class="fa-solid fa-triangle-exclamation text-danger me-1"></i>
+                    Recusar Documento
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body">
+                <p class="text-muted small">
+                    Informe o motivo da recusa e escolha o que deve acontecer com as rotas vinculadas.
+                </p>
+
+                <label class="form-label fw-semibold">Motivo da recusa</label>
+                <textarea name="motivo_recusa"
+                          class="form-control"
+                          rows="4"
+                          minlength="{% if cfg_exigir_motivo_recusa %}3{% else %}0{% endif %}"
+                          maxlength="255"
+                          {% if cfg_exigir_motivo_recusa %}required{% endif %}
+                          placeholder="Ex.: Valor divergente, documento ilegível, tomador incorreto..."></textarea>
+
+                <hr>
+
+                <label class="form-label fw-semibold">Destino das rotas após a recusa</label>
+
+                <div class="form-check border rounded p-3 mb-2">
+                    <input class="form-check-input ms-0 me-2"
+                           type="radio"
+                           name="destino_rotas_recusa"
+                           id="destinoLiberarReenvio"
+                           value="LIBERAR_REENVIO"
+                           required>
+                    <label class="form-check-label ps-2" for="destinoLiberarReenvio">
+                        <strong>Liberar para reenvio pelo motorista</strong>
+                        <br>
+                        <small class="text-muted">
+                            Use quando a rota está correta, mas o documento/XML/solicitação foi enviado com erro.
+                        </small>
+                    </label>
+                </div>
+
+                <div class="form-check border rounded p-3">
+                    <input class="form-check-input ms-0 me-2"
+                           type="radio"
+                           name="destino_rotas_recusa"
+                           id="destinoBloquearCorrecao"
+                           value="BLOQUEAR_CORRECAO"
+                           required>
+                    <label class="form-check-label ps-2" for="destinoBloquearCorrecao">
+                        <strong>Bloquear rotas para correção operacional</strong>
+                        <br>
+                        <small class="text-muted">
+                            Use quando a rota lançada está errada e precisa de correção/cancelamento antes de novo envio.
+                        </small>
+                    </label>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+
+                <button type="submit" class="btn btn-danger fw-bold">
+                    <i class="fa-solid fa-xmark me-1"></i>
+                    Confirmar recusa
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL REVERTER APROVAÇÃO -->
+<div class="modal fade" id="modalReverterAprovacao" tabindex="-1" aria-labelledby="modalReverterAprovacaoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" action="{{ url_for('reverter_aprovacao_documento_motorista', id=nf.id) }}" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalReverterAprovacaoLabel">
+                    <i class="fa-solid fa-rotate-left text-warning me-1"></i>
+                    Reverter Aprovação
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="alert alert-warning small">
+                    A reversão só deve ser usada quando a aprovação foi feita por engano.
+                    O documento voltará para <strong>Em análise</strong> e as rotas também voltarão para análise.
+                </div>
+
+                <label class="form-label fw-semibold">Motivo da reversão</label>
+                <textarea name="motivo_reversao"
+                          class="form-control"
+                          rows="4"
+                          minlength="3"
+                          maxlength="255"
+                          required
+                          placeholder="Ex.: Aprovação realizada no documento errado, divergência identificada após aprovação..."></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+
+                <button type="submit" class="btn btn-warning fw-bold">
+                    <i class="fa-solid fa-rotate-left me-1"></i>
+                    Confirmar reversão
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- MODAL SOLICITAR PAGAMENTO -->
+<div class="modal fade" id="modalSolicitarPagamento" tabindex="-1" aria-labelledby="modalSolicitarPagamentoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" action="{{ url_for('solicitar_pagamento_nf_motorista', id=nf.id) }}" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalSolicitarPagamentoLabel">
+                    <i class="fa-solid fa-money-check-dollar text-success me-1"></i>
+                    Solicitar pagamento
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="alert alert-info small">
+                    Esta ação vai gerar automaticamente um <strong>título financeiro a pagar</strong>
+                    vinculado a esta NF e às rotas do documento. A baixa do pagamento será feita depois,
+                    pelo módulo de títulos financeiros.
+                </div>
+
+                <label class="form-label fw-semibold">Data de vencimento</label>
+                <input type="date"
+                       name="data_vencimento"
+                       class="form-control"
+                       required>
+                <small class="text-muted">Informe a data prevista para pagamento deste título.</small>
+
+                <label class="form-label fw-semibold mt-3">Forma de pagamento prevista</label>
+                <select name="forma_pagamento" class="form-select">
+                    <option value="PIX" selected>PIX</option>
+                    <option value="Transferência bancária">Transferência bancária</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Boleto">Boleto</option>
+                    <option value="Outro">Outro</option>
+                </select>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+
+                <button type="submit" class="btn btn-success fw-bold">
+                    <i class="fa-solid fa-check me-1"></i>
+                    Gerar título financeiro
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL CONFIRMAR PAGAMENTO -->
+<div class="modal fade" id="modalConfirmarPagamento" tabindex="-1" aria-labelledby="modalConfirmarPagamentoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" action="{{ url_for('confirmar_pagamento_documento_motorista', id=nf.id) }}" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalConfirmarPagamentoLabel">
+                    <i class="fa-solid fa-money-bill-transfer text-success me-1"></i>
+                    Confirmar Pagamento
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="alert alert-success small">
+                    Confirme o pagamento apenas quando o valor já estiver certo para baixa financeira.
+                    Após confirmar, as rotas vinculadas ficarão como <strong>Pagamento confirmado</strong>
+                    e a situação da rota será alterada para <strong>Quitado</strong>.
+                </div>
+
+                <label class="form-label fw-semibold">Data do pagamento</label>
+                <input type="date"
+                       name="data_pagamento"
+                       class="form-control"
+                       required>
+
+                <label class="form-label fw-semibold mt-3">Observação / referência do pagamento</label>
+                <textarea name="observacao_pagamento"
+                          class="form-control"
+                          rows="3"
+                          maxlength="255"
+                          placeholder="Opcional. Ex.: PIX, TED, comprovante interno, observação financeira..."></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+
+                <button type="submit" class="btn btn-success fw-bold">
+                    <i class="fa-solid fa-check me-1"></i>
+                    Confirmar pagamento
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL ESTORNAR PAGAMENTO -->
+<div class="modal fade" id="modalEstornarPagamento" tabindex="-1" aria-labelledby="modalEstornarPagamentoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" action="{{ url_for('estornar_pagamento_documento_motorista', id=nf.id) }}" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalEstornarPagamentoLabel">
+                    <i class="fa-solid fa-triangle-exclamation text-danger me-1"></i>
+                    Estornar Pagamento
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="alert alert-danger small">
+                    Use esta ação somente quando a confirmação de pagamento foi feita por engano.
+                    O documento ficará como <strong>Estornada</strong> e as rotas vinculadas serão
+                    <strong>canceladas</strong>, para que o processo seja feito do zero.
+                </div>
+
+                <label class="form-label fw-semibold">Motivo do estorno</label>
+                <textarea name="motivo_estorno_pagamento"
+                          class="form-control"
+                          rows="4"
+                          minlength="3"
+                          maxlength="255"
+                          required
+                          placeholder="Ex.: pagamento confirmado por engano, documento errado, baixa indevida..."></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+
+                <button type="submit" class="btn btn-danger fw-bold">
+                    <i class="fa-solid fa-rotate-left me-1"></i>
+                    Confirmar estorno
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

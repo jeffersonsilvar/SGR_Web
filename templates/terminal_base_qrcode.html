@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal da Base - {{ base.nome_base }}</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at top, #243b55 0, #141e30 45%, #0b111d 100%);
+            color: #fff;
+        }
+
+        .terminal-card {
+            max-width: 980px;
+            margin: 0 auto;
+        }
+
+        .qr-box {
+            background: #fff;
+            border-radius: 28px;
+            padding: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 330px;
+            min-height: 330px;
+        }
+
+        #qrcode canvas,
+        #qrcode img {
+            width: 280px !important;
+            height: 280px !important;
+        }
+
+        .codigo-manual {
+            font-size: clamp(28px, 5vw, 54px);
+            letter-spacing: 2px;
+            font-weight: 900;
+            color: #ffc107;
+            word-break: break-word;
+        }
+
+        .contador {
+            font-size: clamp(34px, 7vw, 74px);
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .terminal-label {
+            color: #aab7c4;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            font-weight: 700;
+        }
+
+        .base-title {
+            font-size: clamp(30px, 5vw, 62px);
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 24px;
+            backdrop-filter: blur(12px);
+        }
+
+        .logout-link {
+            color: #fff;
+            opacity: .75;
+            text-decoration: none;
+        }
+
+        .logout-link:hover {
+            opacity: 1;
+            color: #ffc107;
+        }
+
+        @media (max-width: 767.98px) {
+            .qr-box {
+                min-width: 250px;
+                min-height: 250px;
+            }
+
+            #qrcode canvas,
+            #qrcode img {
+                width: 210px !important;
+                height: 210px !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<div class="container-fluid py-4 py-md-5">
+    <div class="terminal-card">
+
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <div class="terminal-label">Terminal da Base</div>
+                <div class="base-title">{{ base.nome_base }}</div>
+                {% if base.endereco %}
+                    <div class="text-white-50 mt-2">
+                        <i class="fa-solid fa-location-dot me-1"></i>
+                        {{ base.endereco }}
+                    </div>
+                {% endif %}
+            </div>
+
+            <a href="{{ url_for('logout') }}" class="logout-link">
+                <i class="fa-solid fa-right-from-bracket me-1"></i>
+                Sair
+            </a>
+        </div>
+
+        <div class="glass-card p-4 p-md-5">
+            <div class="row align-items-center g-4">
+                <div class="col-12 col-lg-5 text-center">
+                    <div class="qr-box shadow-lg">
+                        <div id="qrcode"></div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-7 text-center text-lg-start">
+                    <div class="terminal-label">Código manual atual</div>
+                    <div class="codigo-manual mb-4" id="codigoManualAtual">{{ token.codigo_token }}</div>
+
+                    <div class="terminal-label">Atualiza em</div>
+                    <div class="contador" id="contadorQr">--:--</div>
+
+                    <div class="mt-4">
+                        <span class="badge bg-warning text-dark fs-6" id="validadeQrAtual">
+                            Validade: {{ base.qr_validade_minutos or 5 }} minutos
+                        </span>
+                        <span class="badge bg-success fs-6 ms-2">
+                            QR ativo
+                        </span>
+                    </div>
+
+                    <div class="alert alert-light border-0 mt-4 mb-0">
+                        <strong>Orientação:</strong>
+                        o motorista deve ler este QR atual ou informar o código manual no portal.
+                        Ao expirar, a tela atualiza automaticamente com um novo código.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center text-white-50 mt-4">
+            <small>
+                SGR Web • Tela exclusiva para validação de chegada na base •
+                Expiração: <span id="expiracaoQrAtual">{{ token.data_expiracao }}</span>
+            </small>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+    let codigoQr = "{{ token.codigo_token }}";
+    let segundosRestantes = {{ segundos_restantes if segundos_restantes else 300 }};
+    let atualizandoQr = false;
+
+    function desenharQr(codigo) {
+        const areaQr = document.getElementById("qrcode");
+        areaQr.innerHTML = "";
+
+        new QRCode(areaQr, {
+            text: codigo,
+            width: 280,
+            height: 280,
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    }
+
+    async function buscarNovoQr() {
+        if (atualizandoQr) {
+            return;
+        }
+
+        atualizandoQr = true;
+
+        try {
+            const resposta = await fetch("{{ url_for('terminal_base_qrcode_atualizar') }}", {
+                method: "GET",
+                cache: "no-store"
+            });
+
+            const dados = await resposta.json();
+
+            if (!dados.ok) {
+                console.error(dados.mensagem || "Erro ao atualizar QR.");
+                atualizandoQr = false;
+                setTimeout(buscarNovoQr, 5000);
+                return;
+            }
+
+            codigoQr = dados.codigo_token;
+            segundosRestantes = parseInt(dados.segundos_restantes || 300);
+
+            document.getElementById("codigoManualAtual").innerText = codigoQr;
+            document.getElementById("validadeQrAtual").innerText = "Validade: " + (dados.validade_minutos || 5) + " minutos";
+            document.getElementById("expiracaoQrAtual").innerText = dados.data_expiracao || "";
+
+            desenharQr(codigoQr);
+
+        } catch (erro) {
+            console.error("Erro ao buscar novo QR:", erro);
+            setTimeout(buscarNovoQr, 5000);
+        }
+
+        atualizandoQr = false;
+    }
+
+    function atualizarContador() {
+        const min = Math.floor(segundosRestantes / 60);
+        const seg = segundosRestantes % 60;
+
+        document.getElementById("contadorQr").innerText =
+            String(min).padStart(2, '0') + ':' + String(seg).padStart(2, '0');
+
+        if (segundosRestantes <= 0) {
+            document.getElementById("contadorQr").innerText = "Atualizando...";
+            buscarNovoQr();
+            return;
+        }
+
+        segundosRestantes -= 1;
+    }
+
+    desenharQr(codigoQr);
+    atualizarContador();
+    setInterval(atualizarContador, 1000);
+</script>
+</body>
+</html>

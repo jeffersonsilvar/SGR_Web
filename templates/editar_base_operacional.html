@@ -1,0 +1,186 @@
+{% set titulo_pagina = 'Editar Base Operacional' %}
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid py-3">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+        <div>
+            <h2 class="mb-1 fw-bold text-dark">
+                <i class="fa-solid fa-location-dot me-2 text-info"></i>
+                {{ titulo_pagina }}
+            </h2>
+            <p class="text-muted mb-0">
+                Informe os dados da base, endereço, coordenadas e raio permitido para validação futura.
+            </p>
+        </div>
+
+        <a href="{{ url_for('visualizar_bases_operacionais') }}" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-arrow-left me-1"></i>
+            Voltar
+        </a>
+    </div>
+
+    <form method="POST">
+        <div class="row g-4">
+            <div class="col-12 col-lg-8">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0 py-3">
+                        <strong>
+                            <i class="fa-solid fa-warehouse me-1 text-info"></i>
+                            Dados da base
+                        </strong>
+                    </div>
+
+                    <div class="card-body">
+                        {% if is_super_admin and empresas is defined %}
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Empresa *</label>
+                            <select name="empresa_id" class="form-select" required>
+                                {% for empresa in empresas %}
+                                    <option value="{{ empresa.id }}">
+                                        {{ empresa.nome_fantasia or empresa.razao_social }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Nome da base *</label>
+                            <input type="text"
+                                   name="nome_base"
+                                   class="form-control"
+                                   value="{{ base.nome_base if base is defined and base else '' }}"
+                                   placeholder="Ex.: Base Imbiribeira / Depósito Central"
+                                   required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Endereço</label>
+                            <input type="text"
+                                   name="endereco"
+                                   class="form-control"
+                                   value="{{ base.endereco if base is defined and base else '' }}"
+                                   placeholder="Rua, número, bairro, cidade/UF">
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label fw-semibold">Latitude</label>
+                                <input type="text"
+                                       name="latitude"
+                                       class="form-control"
+                                       value="{{ base.latitude if base is defined and base and base.latitude is not none else '' }}"
+                                       placeholder="-8.00000000">
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label fw-semibold">Longitude</label>
+                                <input type="text"
+                                       name="longitude"
+                                       class="form-control"
+                                       value="{{ base.longitude if base is defined and base and base.longitude is not none else '' }}"
+                                       placeholder="-34.00000000">
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label fw-semibold">Raio permitido</label>
+                                <div class="input-group">
+                                    <input type="number"
+                                           name="raio_permitido_metros"
+                                           class="form-control"
+                                           min="30"
+                                           value="{{ base.raio_permitido_metros if base is defined and base else 150 }}">
+                                    <span class="input-group-text">metros</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <label class="form-label fw-semibold">Código QR da base</label>
+                            <input type="text"
+                                   name="codigo_qr_base"
+                                   class="form-control"
+                                   value="{{ base.codigo_qr_base if base is defined and base and base.codigo_qr_base else '' }}"
+                                   placeholder="Deixe em branco para gerar automaticamente">
+                            <small class="text-muted">
+                                Código estático de apoio. A confirmação usará o QR dinâmico do Terminal da Base.
+                            </small>
+                        </div>
+
+                        <div class="mt-3">
+                            <label class="form-label fw-semibold">Validade do QR dinâmico</label>
+                            <div class="input-group">
+                                <input type="number"
+                                       name="qr_validade_minutos"
+                                       class="form-control"
+                                       min="1"
+                                       max="30"
+                                       value="{{ base.qr_validade_minutos if base is defined and base and base.qr_validade_minutos else 5 }}">
+                                <span class="input-group-text">minutos</span>
+                            </div>
+                            <small class="text-muted">
+                                Recomendado: 5 minutos. A tela do terminal renova automaticamente.
+                            </small>
+                        </div>
+
+                        <div class="mt-3">
+                            <label class="form-label fw-semibold">Descrição / observação</label>
+                            <textarea name="descricao"
+                                      class="form-control"
+                                      rows="3"
+                                      placeholder="Ex.: ponto principal de carregamento, entrada pela lateral, QR Code na portaria...">{{ base.descricao if base is defined and base and base.descricao else '' }}</textarea>
+                        </div>
+
+                        <div class="mt-3">
+                            <label class="form-label fw-semibold">Status *</label>
+                            {% set status_atual = base.status_base if base is defined and base else 'Ativa' %}
+                            <select name="status_base" class="form-select" required>
+                                <option value="Ativa" {% if status_atual == 'Ativa' %}selected{% endif %}>Ativa</option>
+                                <option value="Inativa" {% if status_atual == 'Inativa' %}selected{% endif %}>Inativa</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="card-footer bg-white d-flex justify-content-end gap-2">
+                        <a href="{{ url_for('visualizar_bases_operacionais') }}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+
+                        <button type="submit" class="btn btn-info text-white fw-bold">
+                            <i class="fa-solid fa-floppy-disk me-1"></i>
+                            Salvar Base
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="fw-bold">
+                            <i class="fa-solid fa-shield-halved me-1 text-warning"></i>
+                            Uso na operação
+                        </h5>
+
+                        <ul class="text-muted mb-0">
+                            <li>Esta base será selecionada na escala do supervisor.</li>
+                            <li>Na próxima fase, será usada para validar a geolocalização do motorista.</li>
+                            <li>O raio permitido define a distância máxima para confirmar presença.</li>
+                            <li>O QR Code da base será vinculado a este cadastro em fase futura.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="alert alert-info border-0 shadow-sm mt-3">
+                    <strong>Dica:</strong>
+                    para capturar latitude/longitude, abra o Google Maps no ponto exato da base,
+                    clique no local e copie as coordenadas.
+                </div>
+            </div>
+        </div>
+    </form>
+
+</div>
+{% endblock %}

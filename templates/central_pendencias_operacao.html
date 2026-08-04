@@ -1,0 +1,517 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<style>
+    .central-hero {
+        background: linear-gradient(135deg, #111827 0%, #1f2937 55%, #0f172a 100%);
+        color: #fff;
+        border-radius: 22px;
+        padding: 26px;
+        box-shadow: 0 18px 42px rgba(15, 23, 42, .22);
+        margin-bottom: 22px;
+    }
+    .central-hero .eyebrow {
+        text-transform: uppercase;
+        font-size: 12px;
+        letter-spacing: .08em;
+        color: #cbd5e1;
+        font-weight: 700;
+    }
+    .central-hero h1 {
+        margin: 6px 0 8px;
+        font-size: 28px;
+        font-weight: 800;
+    }
+    .central-hero p {
+        color: #d1d5db;
+        margin: 0;
+    }
+    .central-filter,
+    .central-card {
+        background: #fff;
+        border: 1px solid #edf0f4;
+        border-radius: 18px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, .06);
+    }
+    .central-filter { padding: 18px; margin-bottom: 20px; }
+    .kpi-card {
+        background: #fff;
+        border: 1px solid #edf0f4;
+        border-radius: 18px;
+        padding: 18px;
+        height: 100%;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, .06);
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-card::after {
+        content: '';
+        position: absolute;
+        right: -32px;
+        top: -32px;
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        background: rgba(13, 202, 240, .12);
+    }
+    .kpi-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        margin-bottom: 12px;
+    }
+    .kpi-value {
+        font-size: 28px;
+        font-weight: 900;
+        color: #111827;
+        line-height: 1;
+    }
+    .kpi-label {
+        color: #64748b;
+        font-size: 13px;
+        margin-top: 7px;
+        font-weight: 700;
+    }
+    .section-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 18px 18px 0;
+    }
+    .section-title h5 {
+        margin: 0;
+        font-weight: 850;
+        color: #111827;
+    }
+    .table thead th {
+        background: #f8fafc;
+        color: #334155;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        border-bottom: 1px solid #e5e7eb;
+        white-space: nowrap;
+    }
+    .table td {
+        vertical-align: middle;
+        color: #334155;
+    }
+    .badge-soft {
+        border-radius: 999px;
+        padding: 5px 9px;
+        font-size: 11px;
+        font-weight: 800;
+    }
+    .empty-state {
+        padding: 24px;
+        color: #64748b;
+        text-align: center;
+    }
+    .alert-card {
+        border: 0;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, .06);
+    }
+    .quick-action {
+        border-radius: 999px;
+        font-weight: 800;
+    }
+    .pendencia-tabs .nav-link {
+        border: 0;
+        border-radius: 999px;
+        color: #475569;
+        font-weight: 800;
+        background: #f1f5f9;
+        margin-right: 8px;
+        margin-bottom: 8px;
+    }
+    .pendencia-tabs .nav-link.active {
+        color: #fff;
+        background: #111827;
+    }
+</style>
+
+<div class="container-fluid py-3">
+    <div class="central-hero">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <div class="eyebrow">Operação em tempo real</div>
+                <h1>Central de Pendências da Operação</h1>
+                <p>Visão única do que precisa de ação: ciência pendente, chegada em base, fila, bloqueios, faltas e bases com configuração incompleta.</p>
+            </div>
+            <div class="text-end">
+                <div class="badge bg-info text-dark mb-2">{{ data_operacao_obj|formatar_data_br }}</div>
+                <div class="small text-light">Base: {{ base_nome_filtro }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="central-filter">
+        <form method="get" class="row g-3 align-items-end">
+            {% if is_super_admin %}
+            <div class="col-md-3">
+                <label class="form-label fw-bold">Empresa</label>
+                <select class="form-select" name="empresa_id">
+                    {% for empresa in empresas %}
+                    <option value="{{ empresa.id }}" {% if empresa_id_filtro|string == empresa.id|string %}selected{% endif %}>
+                        {{ empresa.nome_fantasia or empresa.razao_social }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="col-md-3">
+                <label class="form-label fw-bold">Data da operação</label>
+                <input type="date" class="form-control" name="data_operacao" value="{{ data_operacao }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Base operacional</label>
+                <select class="form-select" name="base_operacional_id">
+                    <option value="">Todas as bases</option>
+                    {% for base in bases_operacionais %}
+                    <option value="{{ base.id }}" {% if base_id_filtro|string == base.id|string %}selected{% endif %}>
+                        {{ base.nome_base }}{% if base.status_base != 'Ativa' %} — {{ base.status_base }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-5 d-flex gap-2 flex-wrap">
+                <button class="btn btn-info fw-bold" type="submit">
+                    <i class="fa-solid fa-filter me-1"></i> Filtrar pendências
+                </button>
+                <a class="btn btn-outline-secondary fw-bold" href="{{ url_for('central_pendencias_operacao') }}">
+                    <i class="fa-solid fa-rotate-left me-1"></i> Hoje
+                </a>
+                <a class="btn btn-outline-dark fw-bold" href="{{ url_for('escala_motoristas', data_escala=data_operacao, empresa_id=empresa_id_filtro if is_super_admin else '') }}">
+                    <i class="fa-solid fa-clipboard-list me-1"></i> Abrir escala
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6 col-xl-3">
+            <div class="kpi-card">
+                <div class="kpi-icon bg-dark"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div class="kpi-value">{{ kpis.total_pendencias }}</div>
+                <div class="kpi-label">Total de pendências</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="kpi-card">
+                <div class="kpi-icon bg-warning"><i class="fa-solid fa-people-arrows"></i></div>
+                <div class="kpi-value">{{ kpis.fila_aguardando }}</div>
+                <div class="kpi-label">Na fila aguardando decisão</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="kpi-card">
+                <div class="kpi-icon bg-info"><i class="fa-solid fa-location-dot"></i></div>
+                <div class="kpi-value">{{ kpis.aguardando_chegada }}</div>
+                <div class="kpi-label">Convocados aguardando chegada</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="kpi-card">
+                <div class="kpi-icon bg-danger"><i class="fa-solid fa-shield-halved"></i></div>
+                <div class="kpi-value">{{ kpis.checkins_bloqueados }}</div>
+                <div class="kpi-label">Check-ins bloqueados</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="kpi-card">
+                <div class="kpi-icon bg-secondary"><i class="fa-solid fa-eye-slash"></i></div>
+                <div class="kpi-value">{{ kpis.sem_ciencia }}</div>
+                <div class="kpi-label">Escalas sem ciência</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="kpi-card">
+                <div class="kpi-icon bg-primary"><i class="fa-solid fa-clock"></i></div>
+                <div class="kpi-value">{{ kpis.sem_resposta }}</div>
+                <div class="kpi-label">Disponibilidade sem resposta</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="kpi-card">
+                <div class="kpi-icon bg-danger"><i class="fa-solid fa-user-xmark"></i></div>
+                <div class="kpi-value">{{ kpis.faltas }}</div>
+                <div class="kpi-label">Faltas / não comparecimentos</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="kpi-card">
+                <div class="kpi-icon bg-primary"><i class="fa-solid fa-file-circle-question"></i></div>
+                <div class="kpi-value">{{ kpis.justificativas_pendentes }}</div>
+                <div class="kpi-label">Justificativas pendentes</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="kpi-card">
+                <div class="kpi-icon bg-warning"><i class="fa-solid fa-map-location-dot"></i></div>
+                <div class="kpi-value">{{ kpis.bases_pendentes }}</div>
+                <div class="kpi-label">Bases com ajuste cadastral</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        {% for alerta in alertas %}
+        <div class="col-md-6 col-xl-4">
+            <div class="alert alert-{{ alerta.tipo }} alert-card h-100 mb-0">
+                <div class="d-flex gap-3">
+                    <div class="fs-4"><i class="fa-solid {{ alerta.icone }}"></i></div>
+                    <div>
+                        <div class="fw-bold">{{ alerta.titulo }}</div>
+                        <div class="small">{{ alerta.descricao }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <ul class="nav pendencia-tabs mb-3" id="pendenciasTab" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#fila" type="button">Fila <span class="badge bg-light text-dark ms-1">{{ kpis.fila_aguardando }}</span></button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#chegada" type="button">Aguardando chegada <span class="badge bg-light text-dark ms-1">{{ kpis.aguardando_chegada }}</span></button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ciencia" type="button">Sem ciência <span class="badge bg-light text-dark ms-1">{{ kpis.sem_ciencia }}</span></button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#bloqueios" type="button">Bloqueios <span class="badge bg-light text-dark ms-1">{{ kpis.checkins_bloqueados }}</span></button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#faltas" type="button">Faltas <span class="badge bg-light text-dark ms-1">{{ kpis.faltas }}</span></button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#justificativas" type="button">Justificativas <span class="badge bg-light text-dark ms-1">{{ kpis.justificativas_pendentes }}</span></button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cadastro" type="button">Configuração <span class="badge bg-light text-dark ms-1">{{ kpis.bases_pendentes + kpis.qrs_expirados }}</span></button></li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="fila">
+            <div class="central-card">
+                <div class="section-title">
+                    <h5><i class="fa-solid fa-people-arrows text-warning me-2"></i>Motoristas na fila aguardando decisão</h5>
+                    <a class="btn btn-sm btn-outline-dark quick-action" href="{{ url_for('escala_motoristas', data_escala=data_operacao, empresa_id=empresa_id_filtro if is_super_admin else '') }}">Abrir escala</a>
+                </div>
+                <div class="table-responsive mt-3">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>Posição</th><th>Motorista</th><th>Base</th><th>Chegada</th><th>Validações</th><th>Status</th></tr></thead>
+                        <tbody>
+                        {% for item in fila_aguardando %}
+                            <tr>
+                                <td><span class="badge bg-dark">#{{ item.posicao_fila }}</span></td>
+                                <td><strong>{{ item.nome_completo or 'Motorista' }}</strong><br><small class="text-muted">{{ item.telefone or '' }}</small></td>
+                                <td>{{ item.nome_base or '-' }}</td>
+                                <td>{{ item.hora_confirmacao.strftime('%H:%M') if item.hora_confirmacao else '-' }}</td>
+                                <td>
+                                    <span class="badge-soft {% if item.geolocalizacao_validada == 'S' %}bg-success text-white{% else %}bg-danger text-white{% endif %}">GPS</span>
+                                    <span class="badge-soft {% if item.qr_code_validado == 'S' %}bg-success text-white{% else %}bg-danger text-white{% endif %}">QR</span>
+                                    <span class="badge-soft {% if item.selfie_path %}bg-success text-white{% else %}bg-danger text-white{% endif %}">Selfie</span>
+                                </td>
+                                <td><span class="badge bg-warning text-dark">{{ item.status_fila }}</span></td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="6"><div class="empty-state">Nenhum motorista aguardando decisão na fila.</div></td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="chegada">
+            <div class="central-card">
+                <div class="section-title"><h5><i class="fa-solid fa-location-dot text-info me-2"></i>Convocados aguardando chegada na base</h5></div>
+                <div class="table-responsive mt-3">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>Motorista</th><th>Base</th><th>Horário</th><th>Observação</th><th>Status presença</th></tr></thead>
+                        <tbody>
+                        {% for item in aguardando_chegada %}
+                            <tr>
+                                <td><strong>{{ item.nome_completo or 'Motorista' }}</strong><br><small class="text-muted">{{ item.telefone or '' }}</small></td>
+                                <td>{{ item.nome_base or '-' }}</td>
+                                <td>{{ item.horario_apresentacao|string|truncate(5, True, '') if item.horario_apresentacao else '-' }}</td>
+                                <td>{{ item.observacao_supervisor or '-' }}</td>
+                                <td><span class="badge bg-info text-dark">{{ item.status_presenca }}</span></td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="5"><div class="empty-state">Nenhum convocado aguardando chegada.</div></td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="ciencia">
+            <div class="central-card">
+                <div class="section-title"><h5><i class="fa-solid fa-eye-slash text-secondary me-2"></i>Escalas sem ciência do motorista</h5></div>
+                <div class="table-responsive mt-3">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>Motorista</th><th>Status escala</th><th>Base</th><th>Horário</th><th>Orientação</th></tr></thead>
+                        <tbody>
+                        {% for item in sem_ciencia %}
+                            <tr>
+                                <td><strong>{{ item.nome_completo or 'Motorista' }}</strong><br><small class="text-muted">{{ item.telefone or '' }}</small></td>
+                                <td><span class="badge bg-secondary">{{ item.status_escala }}</span></td>
+                                <td>{{ item.nome_base or '-' }}</td>
+                                <td>{{ item.horario_apresentacao|string|truncate(5, True, '') if item.horario_apresentacao else '-' }}</td>
+                                <td>{{ item.observacao_supervisor or '-' }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="5"><div class="empty-state">Todas as escalas relevantes possuem ciência registrada.</div></td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="bloqueios">
+            <div class="central-card">
+                <div class="section-title">
+                    <h5><i class="fa-solid fa-shield-halved text-danger me-2"></i>Check-ins bloqueados</h5>
+                    <a class="btn btn-sm btn-outline-dark quick-action" href="{{ url_for('auditoria_checkin_base', data_inicio=data_operacao, data_fim=data_operacao, base_operacional_id=base_id_filtro) }}">Abrir auditoria</a>
+                </div>
+                <div class="table-responsive mt-3">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>Hora</th><th>Motorista</th><th>Base</th><th>Resultado</th><th>Motivo</th><th>Distância</th></tr></thead>
+                        <tbody>
+                        {% for item in checkins_bloqueados %}
+                            <tr>
+                                <td>{{ item.data_tentativa.strftime('%H:%M') if item.data_tentativa else '-' }}</td>
+                                <td><strong>{{ item.nome_completo or 'Motorista' }}</strong><br><small class="text-muted">{{ item.telefone or '' }}</small></td>
+                                <td>{{ item.nome_base or '-' }}</td>
+                                <td><span class="badge bg-danger">{{ item.resultado }}</span></td>
+                                <td>{{ item.motivo_bloqueio or '-' }}</td>
+                                <td>{{ item.distancia_base_metros or '-' }} m</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="6"><div class="empty-state">Nenhum check-in bloqueado para os filtros atuais.</div></td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="faltas">
+            <div class="central-card">
+                <div class="section-title"><h5><i class="fa-solid fa-user-xmark text-danger me-2"></i>Faltas e não comparecimentos</h5></div>
+                <div class="table-responsive mt-3">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>Motorista</th><th>Base</th><th>Status escala</th><th>Status presença</th><th>Automática</th><th>Motivo</th></tr></thead>
+                        <tbody>
+                        {% for item in faltas %}
+                            <tr>
+                                <td><strong>{{ item.nome_completo or 'Motorista' }}</strong><br><small class="text-muted">{{ item.telefone or '' }}</small></td>
+                                <td>{{ item.nome_base or '-' }}</td>
+                                <td><span class="badge bg-danger">{{ item.status_escala }}</span></td>
+                                <td>{{ item.status_presenca }}</td>
+                                <td>{% if item.falta_automatica == 'S' %}<span class="badge bg-warning text-dark">Sim</span>{% else %}<span class="badge bg-secondary">Não</span>{% endif %}</td>
+                                <td>{{ item.falta_motivo or '-' }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="6"><div class="empty-state">Nenhuma falta ou não comparecimento encontrado.</div></td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="tab-pane fade" id="justificativas">
+            <div class="central-card">
+                <div class="section-title"><h5><i class="fa-solid fa-file-circle-question text-primary me-2"></i>Justificativas de ausência pendentes</h5></div>
+                <div class="table-responsive mt-3">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead><tr><th>Motorista</th><th>Base</th><th>Horário</th><th>Motivo</th><th>Descrição</th><th>Anexo</th><th>Ação</th></tr></thead>
+                        <tbody>
+                        {% for item in justificativas_pendentes %}
+                            <tr>
+                                <td><strong>{{ item.nome_completo or 'Motorista' }}</strong><br><small class="text-muted">{{ item.telefone or '' }}</small></td>
+                                <td>{{ item.nome_base or '-' }}</td>
+                                <td>{{ item.horario_previsto|string|truncate(5, True, '') if item.horario_previsto else '-' }}</td>
+                                <td><span class="badge bg-primary">{{ item.motivo }}</span><br><small class="text-muted">{{ item.data_envio.strftime('%d/%m/%Y %H:%M') if item.data_envio else '' }}</small></td>
+                                <td style="min-width: 260px;">{{ item.observacao_motorista }}</td>
+                                <td>
+                                    {% if item.anexo_path %}
+                                        <a href="{{ item.anexo_path|arquivo_url }}" target="_blank" class="btn btn-sm btn-outline-dark">Ver anexo</a>
+                                    {% else %}
+                                        <span class="text-muted">Sem anexo</span>
+                                    {% endif %}
+                                </td>
+                                <td style="min-width: 320px;">
+                                    <form method="POST" action="{{ url_for('analisar_justificativa_ausencia', justificativa_id=item.justificativa_id) }}" class="d-flex flex-column gap-2">
+                                        <input type="hidden" name="data_operacao" value="{{ data_operacao }}">
+                                        <input type="hidden" name="base_operacional_id" value="{{ base_id_filtro }}">
+                                        <input type="hidden" name="empresa_id" value="{{ empresa_id_filtro }}">
+                                        <textarea class="form-control form-control-sm" name="observacao_supervisor" rows="2" placeholder="Observação do supervisor"></textarea>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <button class="btn btn-sm btn-success fw-bold" name="decisao" value="aceitar" type="submit">Aceitar</button>
+                                            <button class="btn btn-sm btn-danger fw-bold" name="decisao" value="recusar" type="submit">Recusar</button>
+                                            <button class="btn btn-sm btn-outline-secondary fw-bold" name="decisao" value="em_analise" type="submit">Em análise</button>
+                                        </div>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="7"><div class="empty-state">Nenhuma justificativa de ausência pendente.</div></td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="cadastro">
+            <div class="row g-3">
+                <div class="col-xl-6">
+                    <div class="central-card h-100">
+                        <div class="section-title"><h5><i class="fa-solid fa-map-location-dot text-warning me-2"></i>Bases com configuração pendente</h5></div>
+                        <div class="table-responsive mt-3">
+                            <table class="table table-hover mb-0">
+                                <thead><tr><th>Base</th><th>Latitude</th><th>Longitude</th><th>Raio</th></tr></thead>
+                                <tbody>
+                                {% for base in bases_pendentes %}
+                                    <tr>
+                                        <td><strong>{{ base.nome_base }}</strong></td>
+                                        <td>{{ base.latitude or '-' }}</td>
+                                        <td>{{ base.longitude or '-' }}</td>
+                                        <td>{{ base.raio_permitido_metros or '-' }} m</td>
+                                    </tr>
+                                {% else %}
+                                    <tr><td colspan="4"><div class="empty-state">Todas as bases ativas estão com coordenada e raio válidos.</div></td></tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-6">
+                    <div class="central-card h-100">
+                        <div class="section-title"><h5><i class="fa-solid fa-qrcode text-secondary me-2"></i>QRs ativos expirados</h5></div>
+                        <div class="table-responsive mt-3">
+                            <table class="table table-hover mb-0">
+                                <thead><tr><th>Base</th><th>Token</th><th>Expiração</th><th>Status</th></tr></thead>
+                                <tbody>
+                                {% for qr in qrs_expirados %}
+                                    <tr>
+                                        <td>{{ qr.nome_base or '-' }}</td>
+                                        <td><code>{{ qr.codigo_token }}</code></td>
+                                        <td>{{ qr.data_expiracao.strftime('%d/%m/%Y %H:%M') if qr.data_expiracao else '-' }}</td>
+                                        <td><span class="badge bg-warning text-dark">{{ qr.status_token }}</span></td>
+                                    </tr>
+                                {% else %}
+                                    <tr><td colspan="4"><div class="empty-state">Nenhum QR ativo expirado encontrado.</div></td></tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

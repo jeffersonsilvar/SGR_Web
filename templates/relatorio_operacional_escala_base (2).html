@@ -1,0 +1,577 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<style>
+    .rel-premium-hero {
+        background: linear-gradient(135deg, #111827 0%, #1f2937 55%, #0f172a 100%);
+        border-radius: 24px;
+        color: #fff;
+        padding: 26px;
+        position: relative;
+        overflow: hidden;
+    }
+    .rel-premium-hero:before {
+        content: "";
+        position: absolute;
+        right: -80px;
+        top: -80px;
+        width: 260px;
+        height: 260px;
+        border-radius: 50%;
+        background: rgba(59, 130, 246, .28);
+        filter: blur(2px);
+    }
+    .rel-premium-hero:after {
+        content: "";
+        position: absolute;
+        right: 80px;
+        bottom: -110px;
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        background: rgba(16, 185, 129, .18);
+    }
+    .rel-premium-hero > * { position: relative; z-index: 1; }
+    .rel-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        padding: 8px 12px;
+        background: rgba(255,255,255,.1);
+        border: 1px solid rgba(255,255,255,.18);
+        color: rgba(255,255,255,.92);
+        font-size: 12px;
+        font-weight: 700;
+    }
+    .premium-card {
+        border: 0;
+        border-radius: 20px;
+        box-shadow: 0 8px 28px rgba(15, 23, 42, .08);
+        overflow: hidden;
+    }
+    .kpi-card {
+        border: 0;
+        border-radius: 20px;
+        box-shadow: 0 8px 28px rgba(15, 23, 42, .08);
+        height: 100%;
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 35px rgba(15, 23, 42, .12);
+    }
+    .kpi-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
+    .kpi-label {
+        color: #6b7280;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+    .kpi-value {
+        font-size: 30px;
+        line-height: 1;
+        font-weight: 900;
+        color: #111827;
+    }
+    .trend-pill {
+        font-size: 11px;
+        font-weight: 800;
+        border-radius: 999px;
+        padding: 4px 8px;
+        background: #f3f4f6;
+        color: #4b5563;
+        white-space: nowrap;
+    }
+    .chart-box {
+        position: relative;
+        min-height: 280px;
+    }
+    .mini-progress {
+        height: 8px;
+        background: #eef2f7;
+        border-radius: 999px;
+        overflow: hidden;
+    }
+    .mini-progress > div {
+        height: 100%;
+        border-radius: 999px;
+    }
+    .table-premium thead th {
+        font-size: 11px;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        background: #f9fafb;
+        border-bottom: 1px solid #eef2f7;
+    }
+    .table-premium tbody td {
+        font-size: 13px;
+        vertical-align: middle;
+    }
+    .alert-premium {
+        border: 0;
+        border-radius: 18px;
+        box-shadow: 0 8px 25px rgba(15, 23, 42, .06);
+    }
+    .attempt-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    @media (max-width: 768px) {
+        .rel-premium-hero { padding: 20px; border-radius: 18px; }
+        .kpi-value { font-size: 26px; }
+        .chart-box { min-height: 240px; }
+    }
+</style>
+
+<div class="container-fluid py-3">
+
+    <div class="rel-premium-hero mb-4">
+        <div class="d-flex flex-column flex-xl-row justify-content-between gap-4">
+            <div>
+                <div class="rel-chip mb-3">
+                    <i class="fa-solid fa-chart-line"></i>
+                    Relatório Operacional Premium
+                </div>
+                <h2 class="fw-black mb-2" style="font-weight: 900;">
+                    Escala, Base, Check-in e Fila em uma visão gerencial
+                </h2>
+                <p class="mb-0" style="max-width: 780px; color: rgba(255,255,255,.78);">
+                    Acompanhe comparecimento, bloqueios antifraude, aproveitamento da fila e desempenho por base no período filtrado.
+                </p>
+            </div>
+            <div class="d-flex flex-wrap align-content-start gap-2">
+                <span class="rel-chip"><i class="fa-solid fa-calendar-days"></i>{{ periodo_label }}</span>
+                <span class="rel-chip"><i class="fa-solid fa-location-dot"></i>{{ base_nome_filtro }}</span>
+                <a href="{{ url_for('exportar_relatorio_operacional_escala_base_pdf', data_inicio=data_inicio, data_fim=data_fim, base_operacional_id=base_id_filtro, empresa_id=empresa_id_filtro) }}"
+                   class="btn btn-danger fw-bold rounded-pill px-3">
+                    <i class="fa-solid fa-file-pdf me-1"></i>
+                    Exportar PDF
+                </a>
+                <a href="{{ url_for('exportar_relatorio_operacional_escala_base_excel', data_inicio=data_inicio, data_fim=data_fim, base_operacional_id=base_id_filtro, empresa_id=empresa_id_filtro) }}"
+                   class="btn btn-success fw-bold rounded-pill px-3">
+                    <i class="fa-solid fa-file-excel me-1"></i>
+                    Exportar Excel
+                </a>
+                <a href="{{ url_for('exportar_relatorio_operacional_escala_base_csv', data_inicio=data_inicio, data_fim=data_fim, base_operacional_id=base_id_filtro, empresa_id=empresa_id_filtro) }}"
+                   class="btn btn-light fw-bold rounded-pill px-3">
+                    <i class="fa-solid fa-file-csv me-1 text-success"></i>
+                    CSV simples
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card premium-card mb-4">
+        <div class="card-body p-3 p-md-4">
+            <form method="GET" action="{{ url_for('relatorio_operacional_escala_base') }}" class="row g-3 align-items-end">
+                {% if is_super_admin %}
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold">Empresa ID</label>
+                    <input type="number" name="empresa_id" class="form-control" value="{{ empresa_id_filtro }}">
+                </div>
+                {% endif %}
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold">Data inicial</label>
+                    <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold">Data final</label>
+                    <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Base</label>
+                    <select name="base_operacional_id" class="form-select">
+                        <option value="">Todas as bases</option>
+                        {% for base in bases_operacionais %}
+                            <option value="{{ base.id }}" {% if base_id_filtro|string == base.id|string %}selected{% endif %}>
+                                {{ base.nome_base }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <button type="submit" class="btn btn-dark w-100 fw-bold rounded-pill">
+                        <i class="fa-solid fa-filter me-1"></i>
+                        Filtrar
+                    </button>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <a href="{{ url_for('relatorio_operacional_escala_base') }}" class="btn btn-outline-secondary w-100 rounded-pill">
+                        Limpar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        {% set cards = [
+            {'titulo':'Escalados', 'valor':resumo.total_escalados, 'icone':'fa-users', 'bg':'#eff6ff', 'cor':'#2563eb', 'var':resumo.var_total_escalados},
+            {'titulo':'Confirmados rota', 'valor':resumo.confirmados_rota, 'icone':'fa-route', 'bg':'#ecfeff', 'cor':'#0891b2', 'var':resumo.var_confirmados_rota},
+            {'titulo':'Convocados base', 'valor':resumo.cancelados_comparecer_base, 'icone':'fa-location-dot', 'bg':'#fffbeb', 'cor':'#d97706', 'var':resumo.var_cancelados_comparecer_base},
+            {'titulo':'Chegaram base', 'valor':resumo.chegadas_confirmadas, 'icone':'fa-circle-check', 'bg':'#ecfdf5', 'cor':'#059669', 'var':resumo.var_chegadas_confirmadas},
+            {'titulo':'Rota extra', 'valor':resumo.atribuidos_rota_extra, 'icone':'fa-truck-fast', 'bg':'#eef2ff', 'cor':'#4f46e5', 'var':resumo.var_atribuidos_rota_extra},
+            {'titulo':'Faltas', 'valor':resumo.faltas, 'icone':'fa-user-xmark', 'bg':'#fef2f2', 'cor':'#dc2626', 'var':resumo.var_faltas}
+        ] %}
+        {% for card in cards %}
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="card kpi-card">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <span class="kpi-icon" style="background: {{ card.bg }}; color: {{ card.cor }};">
+                            <i class="fa-solid {{ card.icone }}"></i>
+                        </span>
+                        <span class="trend-pill">
+                            {% if card.var > 0 %}+{% endif %}{{ card.var }}%
+                        </span>
+                    </div>
+                    <div class="kpi-label mb-2">{{ card.titulo }}</div>
+                    <div class="kpi-value">{{ card.valor }}</div>
+                    <small class="text-muted">vs. período anterior</small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-lg-4">
+            <div class="card kpi-card">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <div class="kpi-label">Comparecimento na base</div>
+                            <div class="kpi-value text-success">{{ resumo.taxa_comparecimento_base }}%</div>
+                        </div>
+                        <span class="kpi-icon" style="background:#ecfdf5;color:#059669;"><i class="fa-solid fa-user-check"></i></span>
+                    </div>
+                    <div class="mini-progress"><div style="width: {{ resumo.taxa_comparecimento_base }}%; background:#10b981;"></div></div>
+                    <small class="text-muted">Chegadas confirmadas / convocados para base</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-4">
+            <div class="card kpi-card">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <div class="kpi-label">Aproveitamento da fila</div>
+                            <div class="kpi-value text-primary">{{ resumo.taxa_aproveitamento_fila }}%</div>
+                        </div>
+                        <span class="kpi-icon" style="background:#eff6ff;color:#2563eb;"><i class="fa-solid fa-people-arrows"></i></span>
+                    </div>
+                    <div class="mini-progress"><div style="width: {{ resumo.taxa_aproveitamento_fila }}%; background:#3b82f6;"></div></div>
+                    <small class="text-muted">Rota extra / total de motoristas na fila</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-4">
+            <div class="card kpi-card">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <div class="kpi-label">Bloqueio no check-in</div>
+                            <div class="kpi-value text-danger">{{ resumo.taxa_bloqueio_checkin }}%</div>
+                        </div>
+                        <span class="kpi-icon" style="background:#fef2f2;color:#dc2626;"><i class="fa-solid fa-shield-halved"></i></span>
+                    </div>
+                    <div class="mini-progress"><div style="width: {{ resumo.taxa_bloqueio_checkin }}%; background:#ef4444;"></div></div>
+                    <small class="text-muted">Bloqueios / tentativas totais de check-in</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card premium-card"><div class="card-body"><small class="text-muted fw-bold">Total na fila</small><h3 class="fw-bold mb-0">{{ resumo.total_fila }}</h3></div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card premium-card"><div class="card-body"><small class="text-muted fw-bold">Aguardando decisão</small><h3 class="fw-bold mb-0 text-warning">{{ resumo.aguardando_rota }}</h3></div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card premium-card"><div class="card-body"><small class="text-muted fw-bold">Check-ins aprovados</small><h3 class="fw-bold mb-0 text-success">{{ resumo.checkins_aprovados }}</h3></div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card premium-card"><div class="card-body"><small class="text-muted fw-bold">Check-ins bloqueados</small><h3 class="fw-bold mb-0 text-danger">{{ resumo.checkins_bloqueados }}</h3></div></div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        {% for alerta in alertas_operacionais %}
+        <div class="col-12 col-xl-3 col-md-6">
+            <div class="alert alert-{{ alerta.tipo }} alert-premium h-100 mb-0">
+                <div class="d-flex gap-3">
+                    <div class="fs-4"><i class="fa-solid {{ alerta.icone }}"></i></div>
+                    <div>
+                        <strong>{{ alerta.titulo }}</strong>
+                        <div class="small mt-1">{{ alerta.descricao }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-xl-8">
+            <div class="card premium-card h-100">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa-solid fa-chart-area me-1 text-primary"></i>Evolução diária da operação</strong>
+                    <span class="badge bg-light text-dark">Escala x Chegadas x Faltas</span>
+                </div>
+                <div class="card-body chart-box">
+                    <canvas id="chartEvolucao"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-4">
+            <div class="card premium-card h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <strong><i class="fa-solid fa-shield-halved me-1 text-danger"></i>Status dos check-ins</strong>
+                </div>
+                <div class="card-body chart-box">
+                    <canvas id="chartCheckins"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-xl-7">
+            <div class="card premium-card h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <strong><i class="fa-solid fa-location-dot me-1 text-primary"></i>Performance por base</strong>
+                </div>
+                <div class="card-body chart-box">
+                    <canvas id="chartBases"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-5">
+            <div class="card premium-card h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <strong><i class="fa-solid fa-triangle-exclamation me-1 text-warning"></i>Bloqueios por motivo</strong>
+                </div>
+                <div class="card-body chart-box">
+                    <canvas id="chartBloqueios"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-xl-7">
+            <div class="card premium-card h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <strong><i class="fa-solid fa-table-list me-1 text-primary"></i>Resultado detalhado por base</strong>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-premium align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-3">Base</th>
+                                <th>Escalados</th>
+                                <th>Convocados</th>
+                                <th>Chegaram</th>
+                                <th>Comparecimento</th>
+                                <th>Faltas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in ranking_bases %}
+                            <tr>
+                                <td class="ps-3"><strong>{{ item.base_nome }}</strong></td>
+                                <td>{{ item.total_escalados or 0 }}</td>
+                                <td>{{ item.cancelados_base or 0 }}</td>
+                                <td>{{ item.chegadas_confirmadas or 0 }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <strong>{{ item.taxa_comparecimento }}%</strong>
+                                        <div class="mini-progress flex-grow-1"><div style="width: {{ item.taxa_comparecimento }}%; background:#10b981;"></div></div>
+                                    </div>
+                                </td>
+                                <td><span class="badge bg-danger">{{ item.faltas or 0 }}</span></td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="6" class="text-center text-muted py-4">Nenhum dado encontrado.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-5">
+            <div class="card premium-card h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <strong><i class="fa-solid fa-clock-rotate-left me-1 text-secondary"></i>Últimas tentativas de check-in</strong>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-premium align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-3">Motorista</th>
+                                <th>Resultado</th>
+                                <th>Distância</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in ultimas_tentativas %}
+                            <tr>
+                                <td class="ps-3">
+                                    <strong>{{ item.motorista_nome or 'Não identificado' }}</strong><br>
+                                    <small class="text-muted">{{ item.base_nome }} • {{ item.data_tentativa }}</small>
+                                </td>
+                                <td>
+                                    {% if item.resultado == 'Aprovado' %}
+                                        <span class="badge bg-success">Aprovado</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">{{ item.resultado }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ item.distancia_base_metros or '-' }}m</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="3" class="text-center text-muted py-4">Nenhuma tentativa encontrada.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-xl-4">
+            <div class="card premium-card h-100">
+                <div class="card-header bg-white border-0 py-3"><strong><i class="fa-solid fa-trophy me-1 text-info"></i>Mais aproveitados em rota extra</strong></div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-premium align-middle mb-0">
+                        <tbody>
+                            {% for item in ranking_aproveitados %}
+                            <tr><td class="ps-3"><strong>{{ item.motorista_nome }}</strong></td><td class="text-end pe-3"><span class="badge bg-info text-dark">{{ item.total }}</span></td></tr>
+                            {% else %}
+                            <tr><td class="text-center text-muted py-4">Nenhum motorista puxado para rota extra.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-4">
+            <div class="card premium-card h-100">
+                <div class="card-header bg-white border-0 py-3"><strong><i class="fa-solid fa-user-xmark me-1 text-danger"></i>Motoristas com mais faltas</strong></div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-premium align-middle mb-0">
+                        <tbody>
+                            {% for item in ranking_faltas %}
+                            <tr><td class="ps-3"><strong>{{ item.motorista_nome }}</strong></td><td class="text-end pe-3"><span class="badge bg-danger">{{ item.total }}</span></td></tr>
+                            {% else %}
+                            <tr><td class="text-center text-muted py-4">Nenhuma falta registrada.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-4">
+            <div class="card premium-card h-100">
+                <div class="card-header bg-white border-0 py-3"><strong><i class="fa-solid fa-ban me-1 text-warning"></i>Motoristas com mais bloqueios</strong></div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-premium align-middle mb-0">
+                        <tbody>
+                            {% for item in ranking_bloqueios_motorista %}
+                            <tr><td class="ps-3"><strong>{{ item.motorista_nome }}</strong></td><td class="text-end pe-3"><span class="badge bg-warning text-dark">{{ item.total }}</span></td></tr>
+                            {% else %}
+                            <tr><td class="text-center text-muted py-4">Nenhum bloqueio por motorista.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function () {
+    const data = {{ charts_data|tojson }};
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { usePointStyle: true, boxWidth: 8 } } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } }
+    };
+
+    const elEvolucao = document.getElementById('chartEvolucao');
+    if (elEvolucao) {
+        new Chart(elEvolucao, {
+            type: 'line',
+            data: {
+                labels: data.serie_labels,
+                datasets: [
+                    { label: 'Escalados', data: data.serie_escalados, tension: .35, borderWidth: 3, pointRadius: 3 },
+                    { label: 'Chegaram base', data: data.serie_chegadas, tension: .35, borderWidth: 3, pointRadius: 3 },
+                    { label: 'Faltas', data: data.serie_faltas, tension: .35, borderWidth: 3, pointRadius: 3 }
+                ]
+            },
+            options: commonOptions
+        });
+    }
+
+    const elCheckins = document.getElementById('chartCheckins');
+    if (elCheckins) {
+        new Chart(elCheckins, {
+            type: 'doughnut',
+            data: { labels: data.status_labels, datasets: [{ data: data.status_totais }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+        });
+    }
+
+    const elBases = document.getElementById('chartBases');
+    if (elBases) {
+        new Chart(elBases, {
+            type: 'bar',
+            data: {
+                labels: data.bases_labels,
+                datasets: [
+                    { label: 'Comparecimento %', data: data.bases_comparecimento, borderWidth: 1 },
+                    { label: 'Falta %', data: data.bases_faltas, borderWidth: 1 }
+                ]
+            },
+            options: Object.assign({}, commonOptions, { scales: { y: { beginAtZero: true, max: 100 }, x: { grid: { display: false } } } })
+        });
+    }
+
+    const elBloqueios = document.getElementById('chartBloqueios');
+    if (elBloqueios) {
+        new Chart(elBloqueios, {
+            type: 'bar',
+            data: { labels: data.bloqueios_labels, datasets: [{ label: 'Bloqueios', data: data.bloqueios_totais, borderWidth: 1 }] },
+            options: Object.assign({}, commonOptions, { indexAxis: 'y' })
+        });
+    }
+})();
+</script>
+{% endblock %}

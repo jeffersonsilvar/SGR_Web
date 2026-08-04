@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<style>
+    .gm-hero{background:linear-gradient(135deg,#fff,#f6faff);border:1px solid #dce7f5;border-radius:18px;padding:22px;box-shadow:0 12px 30px rgba(15,23,42,.06)}
+    .gm-card{background:#fff;border:1px solid #e5edf5;border-radius:16px;box-shadow:0 10px 28px rgba(15,23,42,.05);overflow:hidden}
+    .gm-head{padding:16px 18px;border-bottom:1px solid #edf2f7;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .gm-badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;background:#eef5ff;color:#175cd3;border:1px solid #d7e7ff}
+    .gm-table-wrap{overflow-x:auto}.gm-table{min-width:1180px;margin-bottom:0}.gm-code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:#db2777}.gm-muted{color:#64748b}.gm-stat{border:1px solid #e5edf5;border-radius:14px;padding:14px;background:#fff}
+</style>
+
+<div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
+    <div>
+        <div class="text-muted small mb-1"><i class="fa-solid fa-house me-1"></i> Sistema / Permissões / Menus e Módulos</div>
+        <h1 class="fw-bold mb-1">Gerenciador Global de Módulos, Menus e Rotas</h1>
+        <p class="text-muted mb-0">Área exclusiva para Super Admin/Suporte. Administradores de empresa não alteram a estrutura global do sistema.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('perfil_acesso') }}" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i> Voltar</a>
+        <a href="{{ url_for('novo_modulo_sistema') }}" class="btn btn-primary"><i class="fa-solid fa-layer-group me-1"></i> Novo módulo</a>
+        <a href="{{ url_for('novo_menu_sistema') }}" class="btn btn-success"><i class="fa-solid fa-plus me-1"></i> Novo menu</a>
+    </div>
+</div>
+
+<div class="gm-hero mb-4">
+    <div class="row g-3 align-items-center">
+        <div class="col-lg-7">
+            <h4 class="fw-bold mb-2"><i class="fa-solid fa-sitemap text-primary me-2"></i>Bloco 12.4 ativo</h4>
+            <p class="text-muted mb-0">Crie e edite módulos, menus, submenus, rotas, endpoints, ícones, ordem e restrições globais. Use com cuidado: alterações aqui afetam a estrutura do SGR.</p>
+        </div>
+        <div class="col-lg-5">
+            <div class="row g-2">
+                <div class="col-6"><div class="gm-stat"><div class="text-muted small">Módulos</div><div class="fs-3 fw-bold">{{ modulos|length }}</div></div></div>
+                <div class="col-6"><div class="gm-stat"><div class="text-muted small">Menus/Submenus</div><div class="fs-3 fw-bold">{{ menus|length }}</div></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="gm-card mb-4">
+    <div class="gm-head">
+        <div>
+            <h5 class="fw-bold mb-0"><i class="fa-solid fa-layer-group text-primary me-2"></i>Módulos do sistema</h5>
+            <small class="text-muted">Grupos principais do menu lateral.</small>
+        </div>
+        <a href="{{ url_for('novo_modulo_sistema') }}" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus me-1"></i> Novo módulo</a>
+    </div>
+    <div class="gm-table-wrap">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Ordem</th><th>Módulo</th><th>Código</th><th>Ícone</th><th>Menus</th><th>Status</th><th>Restrição</th><th class="text-end">Ações</th></tr></thead>
+            <tbody>
+            {% for m in modulos %}
+            <tr>
+                <td>{{ m.ordem }}</td>
+                <td><strong>{{ m.nome }}</strong><div class="small gm-muted">{{ m.descricao or '' }}</div></td>
+                <td><span class="gm-code">{{ m.codigo }}</span></td>
+                <td><i class="{{ m.icone or 'fa-solid fa-folder' }}"></i> <small class="gm-muted">{{ m.icone or '-' }}</small></td>
+                <td><span class="gm-badge">{{ m.total_menus or 0 }}</span></td>
+                <td>{% if m.ativo %}<span class="badge text-bg-success">Ativo</span>{% else %}<span class="badge text-bg-secondary">Inativo</span>{% endif %}</td>
+                <td>{% if m.somente_super_admin %}<span class="badge text-bg-dark">Super Admin</span>{% elif m.somente_suporte %}<span class="badge text-bg-info">Suporte</span>{% else %}<span class="badge text-bg-light text-dark">Padrão</span>{% endif %}</td>
+                <td class="text-end">
+                    <a href="{{ url_for('editar_modulo_sistema', modulo_id=m.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                    <form method="post" action="{{ url_for('alternar_modulo_sistema', modulo_id=m.id) }}" class="d-inline"><button class="btn btn-sm btn-outline-secondary">{% if m.ativo %}Inativar{% else %}Ativar{% endif %}</button></form>
+                </td>
+            </tr>
+            {% else %}<tr><td colspan="8" class="text-muted">Nenhum módulo cadastrado.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="gm-card mb-4">
+    <div class="gm-head">
+        <div>
+            <h5 class="fw-bold mb-0"><i class="fa-solid fa-bars-staggered text-success me-2"></i>Menus, submenus e rotas</h5>
+            <small class="text-muted">Endpoint encontrado recebe selo verde. Endpoint inexistente fica em alerta.</small>
+        </div>
+        <a href="{{ url_for('novo_menu_sistema') }}" class="btn btn-sm btn-success"><i class="fa-solid fa-plus me-1"></i> Novo menu</a>
+    </div>
+    <div class="gm-table-wrap">
+        <table class="table table-hover align-middle gm-table">
+            <thead class="table-light"><tr><th>Grupo</th><th>Menu</th><th>Código</th><th>Endpoint/Rota</th><th>Ícone</th><th>Ordem</th><th>Status</th><th>Restrição</th><th class="text-end">Ações</th></tr></thead>
+            <tbody>
+            {% for m in menus %}
+            <tr>
+                <td><span class="gm-badge">{{ m.grupo_menu }}</span><div class="small gm-muted">{{ m.modulo_nome or '-' }}</div></td>
+                <td><strong>{% if m.menu_pai_id %}<span class="text-muted">↳</span> {% endif %}{{ m.titulo }}</strong><div class="small gm-muted">Pai: {{ m.menu_pai_titulo or '-' }}</div></td>
+                <td><span class="gm-code">{{ m.codigo }}</span></td>
+                <td>
+                    <div><code>{{ m.endpoint or '-' }}</code> {% if m.endpoint %}{% if m.endpoint_existe %}<span class="badge text-bg-success">Encontrado</span>{% else %}<span class="badge text-bg-warning text-dark">Não encontrado</span>{% endif %}{% endif %}</div>
+                    <div class="small gm-muted">{{ m.rota_url or '' }}</div>
+                </td>
+                <td><i class="{{ m.icone or 'fa-solid fa-circle' }}"></i> <small class="gm-muted">{{ m.icone or '-' }}</small></td>
+                <td>{{ m.ordem }}</td>
+                <td>{% if m.ativo %}<span class="badge text-bg-success">Ativo</span>{% else %}<span class="badge text-bg-secondary">Inativo</span>{% endif %} {% if m.visivel_menu %}<span class="badge text-bg-primary">Visível</span>{% else %}<span class="badge text-bg-light text-dark">Oculto</span>{% endif %}</td>
+                <td>{% if m.somente_super_admin %}<span class="badge text-bg-dark">Super Admin</span>{% elif m.somente_suporte %}<span class="badge text-bg-info">Suporte</span>{% else %}<span class="badge text-bg-light text-dark">Permissões</span>{% endif %}</td>
+                <td class="text-end">
+                    <a href="{{ url_for('editar_menu_sistema', menu_id=m.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                    <form method="post" action="{{ url_for('alternar_menu_sistema', menu_id=m.id) }}" class="d-inline"><button class="btn btn-sm btn-outline-secondary">{% if m.ativo %}Inativar{% else %}Ativar{% endif %}</button></form>
+                </td>
+            </tr>
+            {% else %}<tr><td colspan="9" class="text-muted">Nenhum menu cadastrado.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="alert alert-warning shadow-sm">
+    <strong>Regra de segurança:</strong> esta área altera a estrutura global do SGR. A liberação para empresas continua sendo feita no editor de permissões por perfil.
+</div>
+{% endblock %}

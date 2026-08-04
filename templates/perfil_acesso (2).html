@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<style>
+    .perm-hero {
+        background: linear-gradient(135deg, #ffffff, #f3f8ff);
+        border: 1px solid #dce7f5;
+        border-radius: 18px;
+        padding: 22px;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+    }
+    .perm-card {
+        background: #fff;
+        border: 1px solid #e5edf5;
+        border-radius: 16px;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, .05);
+        overflow: hidden;
+    }
+    .perm-card .card-head {
+        padding: 16px 18px;
+        border-bottom: 1px solid #edf2f7;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .perm-table-wrapper { overflow-x: auto; }
+    .perm-table { min-width: 980px; margin-bottom: 0; }
+    .perm-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 5px 10px;
+        font-size: 12px;
+        font-weight: 800;
+        background: #eef5ff;
+        color: #175cd3;
+        border: 1px solid #d7e7ff;
+    }
+    .perm-muted { color: #64748b; }
+    .module-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+    }
+    .module-box {
+        border: 1px solid #e5edf5;
+        border-radius: 14px;
+        background: #fff;
+        padding: 14px;
+    }
+</style>
+
+<div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
+    <div>
+        <div class="text-muted small mb-1">
+            <i class="fa-solid fa-house me-1"></i> Dashboard / Sistema / Permissões
+        </div>
+        <h1 class="fw-bold mb-1">Núcleo de Permissões e Menus</h1>
+        <p class="text-muted mb-0">Controle estrutural por perfil, usuário, empresa, módulo, menu e ação.</p>
+        <div class="mt-2">
+            <span class="perm-badge"><i class="fa-solid fa-filter"></i> {{ escopo_titulo }}</span>
+            <small class="text-muted ms-2">{{ escopo_descricao }}</small>
+        </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('novo_perfil_acesso_empresa') }}" class="btn btn-success shadow-sm">
+            <i class="fa-solid fa-user-lock me-1"></i> Novo perfil
+        </a>
+        {% if escopo_global %}
+        <a href="{{ url_for('gerenciar_menus_modulos') }}" class="btn btn-dark shadow-sm">
+            <i class="fa-solid fa-sitemap me-1"></i> Menus e módulos
+        </a>
+        {% endif %}
+        {% if pode_sincronizar_menus %}
+        <form action="{{ url_for('sincronizar_permissoes_menus') }}" method="post">
+            <button type="submit" class="btn btn-primary shadow-sm">
+                <i class="fa-solid fa-rotate me-1"></i> Sincronizar menus
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="perm-hero mb-4">
+    <div class="row g-3 align-items-center">
+        <div class="col-md-8">
+            <h4 class="fw-bold mb-2"><i class="fa-solid fa-shield-halved text-primary me-2"></i>Bloco 12 ativo</h4>
+            <p class="mb-0 text-muted">
+                O menu lateral agora pode ser renderizado a partir do banco. As permissões respeitam perfil, usuário e empresas liberadas.
+                O HTML deixou de decidir acesso; ele apenas exibe o que o backend entrega como permitido.
+            </p>
+        </div>
+        <div class="col-md-4">
+            <div class="module-grid">
+                <div class="module-box">
+                    <div class="text-muted small">Menus cadastrados</div>
+                    <div class="fs-3 fw-bold">{{ menus|length }}</div>
+                </div>
+                <div class="module-box">
+                    <div class="text-muted small">Registros de auditoria</div>
+                    <div class="fs-3 fw-bold">{{ auditoria_total }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-5">
+        <div class="perm-card h-100">
+            <div class="card-head">
+                <div>
+                    <h5 class="fw-bold mb-0"><i class="fa-solid fa-user-lock text-primary me-2"></i>Perfis com permissões</h5>
+                    <small class="text-muted">Permissões padrão carregadas por perfil.</small>
+                </div>
+            </div>
+            <div class="p-3">
+                {% if perfis %}
+                {% for p in perfis %}
+                <div class="d-flex align-items-center justify-content-between border-bottom py-2">
+                    <strong>{{ p.perfil_de_acesso }}</strong>
+                    <span class="perm-badge">{{ p.total }} permissões</span>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p class="text-muted mb-0">Nenhuma permissão por perfil encontrada.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="perm-card h-100">
+            <div class="card-head">
+                <div>
+                    <h5 class="fw-bold mb-0"><i class="fa-solid fa-users-gear text-success me-2"></i>Usuários e empresas</h5>
+                    <small class="text-muted">{% if escopo_global %}Base para escopo multiempresa global.{% else %}Exibindo somente usuários da empresa atual.{% endif %}</small>
+                </div>
+            </div>
+            <div class="perm-table-wrapper">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>Usuário</th>
+                        <th>Perfil</th>
+                        <th>Empresa principal</th>
+                        <th>Empresas liberadas</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for u in usuarios %}
+                    <tr>
+                        <td class="fw-bold">{{ u.login }}</td>
+                        <td>{{ u.perfil_de_acesso }}</td>
+                        <td>{{ u.empresa_nome or '-' }}</td>
+                        <td><span class="perm-badge">{{ u.empresas_liberadas or 0 }}</span></td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-muted">Nenhum usuário encontrado.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="perm-card mb-4">
+    <div class="card-head">
+        <div>
+            <h5 class="fw-bold mb-0"><i class="fa-solid fa-id-card-clip text-primary me-2"></i>Perfis editáveis</h5>
+            <small class="text-muted">{% if escopo_global %}Super Admin/Suporte visualiza perfis globais e por empresa.{% else %}Administrador da empresa cria e edita apenas perfis da própria empresa.{% endif %}</small>
+        </div>
+        <a href="{{ url_for('novo_perfil_acesso_empresa') }}" class="btn btn-sm btn-success"><i class="fa-solid fa-plus me-1"></i> Novo perfil</a>
+    </div>
+    <div class="perm-table-wrapper">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+            <tr>
+                <th>Perfil</th>
+                <th>Código</th>
+                <th>Escopo</th>
+                <th>Permissões</th>
+                <th>Status</th>
+                <th class="text-end">Ações</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for p in perfis_acesso_lista %}
+            <tr>
+                <td class="fw-bold">{{ p.nome }}</td>
+                <td><code>{{ p.codigo }}</code></td>
+                <td>{{ p.empresa_nome or 'Global/Sistema' }}</td>
+                <td><span class="perm-badge">{{ p.total_permissoes or 0 }}</span></td>
+                <td>{% if p.ativo %}<span class="badge text-bg-success">Ativo</span>{% else %}<span class="badge text-bg-secondary">Inativo</span>{% endif %}</td>
+                <td class="text-end">
+                    {% if escopo_global or p.empresa_id %}
+                    <a href="{{ url_for('editar_permissoes_perfil_acesso', perfil_id=p.id) }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fa-solid fa-sliders me-1"></i> Permissões
+                    </a>
+                    <form action="{{ url_for('alternar_perfil_acesso_empresa', perfil_id=p.id) }}" method="post" class="d-inline">
+                        <button class="btn btn-sm btn-outline-secondary" type="submit">
+                            {% if p.ativo %}Inativar{% else %}Ativar{% endif %}
+                        </button>
+                    </form>
+                    {% else %}
+                    <span class="text-muted small">Perfil do sistema</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-muted">Nenhum perfil encontrado neste escopo.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="perm-card mb-4">
+    <div class="card-head">
+        <div>
+            <h5 class="fw-bold mb-0"><i class="fa-solid fa-bars-staggered text-info me-2"></i>Menus cadastrados no banco</h5>
+            <small class="text-muted">{% if escopo_global %}Novos módulos devem ser cadastrados aqui no banco e liberados por perfil/usuário.{% else %}Exibindo somente menus liberados para seu perfil/usuário nesta empresa.{% endif %}</small>
+        </div>
+        <span class="perm-badge"><i class="fa-solid fa-database"></i> sistema_menus</span>
+    </div>
+    <div class="perm-table-wrapper">
+        <table class="table table-hover align-middle perm-table">
+            <thead class="table-light">
+            <tr>
+                <th>Grupo</th>
+                <th>Código</th>
+                <th>Título</th>
+                <th>Endpoint</th>
+                <th>Ícone</th>
+                <th>Ordem</th>
+                <th>Status</th>
+                <th>Menu</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for m in menus %}
+            <tr>
+                <td><span class="perm-badge">{{ m.grupo_menu }}</span></td>
+                <td><code>{{ m.codigo }}</code></td>
+                <td class="fw-bold">{{ m.titulo }}</td>
+                <td><code>{{ m.endpoint or '-' }}</code></td>
+                <td><i class="{{ m.icone or 'fa-solid fa-circle' }}"></i> <small class="text-muted">{{ m.icone or '-' }}</small></td>
+                <td>{{ m.ordem }}</td>
+                <td>
+                    {% if m.ativo %}<span class="badge text-bg-success">Ativo</span>{% else %}<span class="badge text-bg-secondary">Inativo</span>{% endif %}
+                </td>
+                <td>
+                    {% if m.visivel_menu %}<span class="badge text-bg-primary">Visível</span>{% else %}<span class="badge text-bg-light text-dark">Oculto</span>{% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-muted">Nenhum menu cadastrado.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="alert alert-info shadow-sm">
+    <strong>Bloco 12.4 ativo:</strong>
+    Super Admin/Suporte já pode gerenciar visualmente módulos, menus, submenus e rotas globais. Administradores de empresa ficam limitados à criação de perfis e edição das permissões da própria empresa.
+</div>
+{% endblock %}

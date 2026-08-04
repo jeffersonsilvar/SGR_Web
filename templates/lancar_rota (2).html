@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-1 pb-2 mb-3 border-bottom">
+        <div>
+            <h1 class="h3 text-dark font-monospace fw-bold mb-0">Movimentação de Entregas</h1>
+            <small class="text-muted">Lançamento de rota para motorista responsável</small>
+        </div>
+        <span class="badge bg-secondary p-2"><i class="fa-solid fa-road me-1"></i> Lançar Nova Rota</span>
+    </div>
+
+    <form action="{{ url_for('lancar_rota') }}" method="POST" class="needs-validation" novalidate>
+        <div class="card shadow-sm border-0 p-4 bg-white mb-5">
+            <h5 class="text-secondary font-monospace border-bottom pb-2 mb-4">
+                <i class="fa-solid fa-truck-ramp-box me-2 text-info"></i>Dados da Rota
+            </h5>
+
+            <div class="row g-3">
+                <div class="col-12 col-md-3">
+                    <label for="data_lancamento" class="form-label fw-bold small text-muted">Data da Rota *</label>
+                    <input type="date" class="form-control text-dark" id="data_lancamento" name="data_lancamento" required>
+                </div>
+
+                <div class="col-12 col-md-5">
+                    <label for="identi_rota" class="form-label fw-bold small text-muted">Identificação da Rota / ID Viagem *</label>
+                    <input type="text" class="form-control text-dark" id="identi_rota" name="identi_rota" placeholder="Ex.: Shopee - Recife Sul ou Amazon Flex" maxlength="100" required>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label for="tipo_rota" class="form-label fw-bold small text-muted">Tipo de Rota *</label>
+                    <select class="form-select text-dark" id="tipo_rota" name="tipo_rota" required>
+                        <option value="" disabled selected>Selecione...</option>
+                        <option value="Rota de 4h">Rota 4h</option>
+                        <option value="Rota de 6h">Rota 6h</option>
+                        <option value="Rota de 8h">Rota 8h</option>
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <label for="motorista_busca" class="form-label fw-bold small text-muted">Prestador responsável pela rota *</label>
+                    <input type="hidden" id="motorista_id" name="motorista_id" required>
+                    <div class="position-relative sgr-busca-pessoa" data-uso="motorista" data-hidden="motorista_id">
+                        <input type="text" class="form-control text-dark sgr-busca-input" id="motorista_busca" placeholder="Digite nome, CPF/CNPJ ou ID do prestador..." autocomplete="off" required>
+                        <div class="list-group position-absolute w-100 shadow-sm sgr-busca-resultados d-none" style="z-index: 1050; max-height: 260px; overflow:auto;"></div>
+                    </div>
+                    <small class="text-muted">Busca prestadores cadastrados como Motorista ou Motorista e Ajudante.</small>
+                </div>
+
+                <h5 class="text-secondary font-monospace border-bottom pb-2 mt-4 mb-3 col-12">
+                    <i class="fa-solid fa-money-bill-wave me-2 text-info"></i> Valores da Rota
+                </h5>
+
+                <div class="col-12 col-md-4">
+                    <label for="valor_rota" class="form-label fw-bold small text-muted">Valor da Rota (R$) *</label>
+                    <input type="number" step="0.01" min="0" class="form-control text-dark" id="valor_rota" name="valor_rota" placeholder="0.00" required>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label for="valor_km" class="form-label fw-bold small text-muted">Valor KM (R$)</label>
+                    <input type="number" step="0.01" min="0" class="form-control text-dark" id="valor_km" name="valor_km" placeholder="0.00" value="0.00">
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label for="outras_despesas" class="form-label fw-bold small text-muted">Outras Despesas (R$)</label>
+                    <input type="number" step="0.01" min="0" class="form-control text-dark" id="outras_despesas" name="outras_despesas" placeholder="0.00" value="0.00">
+                </div>
+
+                <h5 class="text-secondary font-monospace border-bottom pb-2 mt-4 mb-3 col-12">
+                    <i class="fa-solid fa-circle-info me-2 text-info"></i> Situações
+                </h5>
+
+                <div class="col-12 col-md-6">
+                    <label class="form-label fw-bold small text-muted">Situação da Rota</label>
+                    <input type="text" class="form-control text-dark bg-light" value="Pendente" readonly>
+                    <input type="hidden" name="situacao_rota" value="Pendente">
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <label class="form-label fw-bold small text-muted">Status Motorista</label>
+                    <input type="text" class="form-control text-dark bg-light" value="Aguardando conferência" readonly>
+                    <input type="hidden" name="status_motorista" value="Aguardando liberação">
+                    <small class="text-muted">Depois, o financeiro/operacional poderá liberar para envio de NF.</small>
+                </div>
+            </div>
+
+            <div class="text-end mt-4">
+                <button type="reset" class="btn btn-secondary px-4 me-2"><i class="fa-solid fa-eraser me-2"></i>Limpar</button>
+                <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm"><i class="fa-solid fa-circle-plus me-2"></i>Salvar Rota</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+(function(){
+    function inicializarBuscaPessoa(wrapper){
+        const input = wrapper.querySelector('.sgr-busca-input');
+        const resultados = wrapper.querySelector('.sgr-busca-resultados');
+        const hidden = document.getElementById(wrapper.dataset.hidden);
+        const uso = wrapper.dataset.uso || 'todos';
+        let timer = null;
+
+        input.addEventListener('input', function(){
+            if(hidden) hidden.value = '';
+            const q = input.value.trim();
+            clearTimeout(timer);
+            if(q.length < 1){
+                resultados.classList.add('d-none');
+                resultados.innerHTML = '';
+                return;
+            }
+            timer = setTimeout(function(){
+                fetch(`{{ url_for('api_buscar_pessoas') }}?uso=${encodeURIComponent(uso)}&q=${encodeURIComponent(q)}`)
+                    .then(resp => resp.json())
+                    .then(data => {
+                        resultados.innerHTML = '';
+                        const lista = data.results || [];
+                        if(!lista.length){
+                            resultados.innerHTML = '<div class="list-group-item text-muted small">Nenhum prestador encontrado.</div>';
+                            resultados.classList.remove('d-none');
+                            return;
+                        }
+                        lista.forEach(item => {
+                            const btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'list-group-item list-group-item-action';
+                            btn.innerHTML = `<strong>${item.nome || ''}</strong><br><small class="text-muted">#${item.id} — ${item.cpf_cnpj || 'sem documento'} — ${item.tipo_cadastro || ''}${item.tipo_prestador ? ' / ' + item.tipo_prestador : ''}</small>`;
+                            btn.addEventListener('click', function(){
+                                hidden.value = item.id;
+                                input.value = item.text;
+                                resultados.classList.add('d-none');
+                            });
+                            resultados.appendChild(btn);
+                        });
+                        resultados.classList.remove('d-none');
+                    })
+                    .catch(() => {
+                        resultados.innerHTML = '<div class="list-group-item text-danger small">Erro ao buscar prestador.</div>';
+                        resultados.classList.remove('d-none');
+                    });
+            }, 250);
+        });
+
+        document.addEventListener('click', function(e){
+            if(!wrapper.contains(e.target)){
+                resultados.classList.add('d-none');
+            }
+        });
+    }
+    document.querySelectorAll('.sgr-busca-pessoa').forEach(inicializarBuscaPessoa);
+})();
+</script>
+{% endblock %}

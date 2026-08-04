@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<style>
+    .rel-card { border: 0; border-radius: 16px; box-shadow: 0 6px 18px rgba(15,23,42,.06); }
+    .rel-icon { width: 46px; height: 46px; border-radius: 14px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+    .rel-muted { color:#64748b; }
+    .rel-card-action { text-decoration:none; color:inherit; }
+    .rel-card-action:hover .rel-card { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15,23,42,.10); }
+    .rel-card { transition:.2s ease; }
+</style>
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="fa-solid fa-chart-column me-2"></i>Central de Relatórios Gerenciais</h2>
+        <div class="rel-muted">Consulta, conferência e exportação dos dados financeiros, operacionais, arquivos e auditoria.</div>
+    </div>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+        <i class="fa-solid fa-arrow-left me-1"></i> Dashboard
+    </a>
+</div>
+
+{% if is_super_admin %}
+<form method="get" class="card rel-card mb-4">
+    <div class="card-body d-flex flex-wrap align-items-end gap-3">
+        <div style="min-width:260px;">
+            <label class="form-label">Empresa</label>
+            <select name="empresa_id" class="form-select">
+                <option value="">Todas</option>
+                {% for e in empresas %}
+                <option value="{{ e.id }}" {% if empresa_id_filtro|string == e.id|string %}selected{% endif %}>{{ e.nome_fantasia or e.razao_social }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Filtrar</button>
+    </div>
+</form>
+{% endif %}
+
+<div class="row g-3 mb-4">
+    <div class="col-12 col-lg-3 col-md-6">
+        <a class="rel-card-action" href="{{ url_for('relatorios_financeiro', empresa_id=empresa_id_filtro) }}">
+            <div class="card rel-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="rel-muted small">Financeiro</div>
+                            <h4 class="fw-bold mb-0">{{ cards.financeiro.qtd_titulos or 0 }}</h4>
+                            <div class="small rel-muted">títulos registrados</div>
+                        </div>
+                        <div class="rel-icon bg-primary-subtle text-primary"><i class="fa-solid fa-sack-dollar"></i></div>
+                    </div>
+                    <div class="mt-3 fw-semibold">{{ cards.financeiro.valor_titulos|moeda_br }}</div>
+                    <div class="small rel-muted">{{ cards.financeiro.qtd_abertos or 0 }} em aberto/solicitados</div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-12 col-lg-3 col-md-6">
+        <div class="card rel-card h-100 border-dashed">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="rel-muted small">Operação</div>
+                        <h4 class="fw-bold mb-0">{{ cards.operacao.qtd_rotas or 0 }}</h4>
+                        <div class="small rel-muted">rotas registradas</div>
+                    </div>
+                    <div class="rel-icon bg-warning-subtle text-warning"><i class="fa-solid fa-route"></i></div>
+                </div>
+                <div class="mt-3 fw-semibold">{{ cards.operacao.valor_rotas|moeda_br }}</div>
+                <div class="small rel-muted">{{ cards.operacao.qtd_pendentes or 0 }} pendentes operacionais</div>
+                <div class="small text-muted mt-2">Próxima etapa do Bloco 10.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-3 col-md-6">
+        <div class="card rel-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="rel-muted small">Arquivos</div>
+                        <h4 class="fw-bold mb-0">{{ cards.arquivos.qtd_arquivos or 0 }}</h4>
+                        <div class="small rel-muted">uploads no sistema</div>
+                    </div>
+                    <div class="rel-icon bg-success-subtle text-success"><i class="fa-solid fa-folder-open"></i></div>
+                </div>
+                <div class="small text-muted mt-4">Drive, comprovantes, XML, selfies e justificativas.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-3 col-md-6">
+        <div class="card rel-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="rel-muted small">Auditoria</div>
+                        <h4 class="fw-bold mb-0">{{ cards.auditoria.qtd_auditorias or 0 }}</h4>
+                        <div class="small rel-muted">ações auditadas</div>
+                    </div>
+                    <div class="rel-icon bg-dark-subtle text-dark"><i class="fa-solid fa-shield-halved"></i></div>
+                </div>
+                <a href="{{ url_for('financeiro_auditoria') }}" class="btn btn-sm btn-outline-dark mt-3">Abrir auditoria</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card rel-card">
+    <div class="card-body">
+        <h5 class="fw-bold mb-2">Primeira entrega do Bloco 10</h5>
+        <p class="mb-3 text-muted">A primeira etapa concentra o relatório financeiro gerencial com filtros, visão resumida, rankings e exportação para Excel/CSV.</p>
+        <a href="{{ url_for('relatorios_financeiro', empresa_id=empresa_id_filtro) }}" class="btn btn-primary">
+            <i class="fa-solid fa-file-invoice-dollar me-1"></i> Abrir Relatório Financeiro
+        </a>
+    </div>
+</div>
+{% endblock %}

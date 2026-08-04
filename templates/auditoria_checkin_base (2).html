@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid py-3">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+        <div>
+            <h2 class="mb-1 fw-bold text-dark">
+                <i class="fa-solid fa-shield-halved me-2 text-warning"></i>
+                Auditoria de Check-in da Base
+            </h2>
+            <p class="text-muted mb-0">
+                Histórico de tentativas aprovadas e bloqueadas com GPS, QR Code dinâmico e selfie.
+            </p>
+        </div>
+
+        <a href="{{ url_for('exportar_auditoria_checkin_base_csv', data_inicio=data_inicio, data_fim=data_fim) }}"
+           class="btn btn-outline-success fw-bold">
+            <i class="fa-solid fa-file-csv me-1"></i>
+            Exportar CSV
+        </a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted fw-semibold">Tentativas</small>
+                    <h3 class="fw-bold mb-0">{{ resumo.total }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted fw-semibold">Aprovados</small>
+                    <h3 class="fw-bold mb-0 text-success">{{ resumo.aprovados }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted fw-semibold">Bloqueados</small>
+                    <h3 class="fw-bold mb-0 text-danger">{{ resumo.bloqueados }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted fw-semibold">Erros técnicos</small>
+                    <h3 class="fw-bold mb-0 text-warning">{{ resumo.erros }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('auditoria_checkin_base') }}" class="row g-3 align-items-end">
+                {% if is_super_admin %}
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold">Empresa ID</label>
+                    <input type="number" name="empresa_id" class="form-control" value="{{ empresa_id_filtro }}">
+                </div>
+                {% endif %}
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold">Data inicial</label>
+                    <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold">Data final</label>
+                    <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold">Base</label>
+                    <select name="base_operacional_id" class="form-select">
+                        <option value="">Todas as bases</option>
+                        {% for base in bases_operacionais %}
+                            <option value="{{ base.id }}" {% if base_id_filtro|string == base.id|string %}selected{% endif %}>
+                                {{ base.nome_base }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold">Resultado</label>
+                    <select name="resultado" class="form-select">
+                        <option value="">Todos</option>
+                        {% for resultado in [
+                            'Aprovado',
+                            'Bloqueado por distância',
+                            'Bloqueado por QR inválido/expirado',
+                            'Bloqueado por falta de selfie',
+                            'Bloqueado por falta de geolocalização',
+                            'Bloqueado por base sem coordenadas',
+                            'Erro técnico'
+                        ] %}
+                            <option value="{{ resultado }}" {% if resultado_filtro == resultado %}selected{% endif %}>
+                                {{ resultado }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Motorista</label>
+                    <input type="text" name="motorista" class="form-control" value="{{ busca_motorista }}" placeholder="Buscar por nome">
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <button type="submit" class="btn btn-dark w-100 fw-bold">
+                        <i class="fa-solid fa-filter me-1"></i>
+                        Filtrar
+                    </button>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <a href="{{ url_for('auditoria_checkin_base') }}" class="btn btn-outline-secondary w-100">
+                        Limpar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 py-3">
+            <strong>
+                <i class="fa-solid fa-clock-rotate-left me-1 text-warning"></i>
+                Registros encontrados
+            </strong>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
+                <thead class="table-light text-uppercase" style="font-size: 11px;">
+                    <tr>
+                        <th class="ps-3">Data/Hora</th>
+                        <th>Motorista</th>
+                        <th>Base</th>
+                        <th>Resultado</th>
+                        <th>Distância</th>
+                        <th>QR</th>
+                        <th>Selfie</th>
+                        <th>IP</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for item in auditorias %}
+                    <tr>
+                        <td class="ps-3" style="min-width: 150px;">
+                            <strong>{{ item.data_tentativa }}</strong>
+                            {% if item.data_escala %}
+                                <br>
+                                <small class="text-muted">Escala: {{ item.data_escala|formatar_data_br }}</small>
+                            {% endif %}
+                        </td>
+
+                        <td style="min-width: 220px;">
+                            <strong>{{ item.motorista_nome or '-' }}</strong>
+                            {% if item.motorista_cpf_cnpj %}
+                                <br>
+                                <small class="text-muted">{{ item.motorista_cpf_cnpj }}</small>
+                            {% endif %}
+                        </td>
+
+                        <td style="min-width: 180px;">
+                            {{ item.base_nome or '-' }}
+                            {% if item.raio_permitido_metros %}
+                                <br>
+                                <small class="text-muted">Raio: {{ item.raio_permitido_metros }}m</small>
+                            {% endif %}
+                        </td>
+
+                        <td style="min-width: 240px;">
+                            {% if item.resultado == 'Aprovado' %}
+                                <span class="badge bg-success">Aprovado</span>
+                            {% elif item.resultado and item.resultado.startswith('Bloqueado') %}
+                                <span class="badge bg-danger">{{ item.resultado }}</span>
+                            {% elif item.resultado == 'Erro técnico' %}
+                                <span class="badge bg-warning text-dark">Erro técnico</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ item.resultado or '-' }}</span>
+                            {% endif %}
+
+                            {% if item.motivo_bloqueio %}
+                                <br>
+                                <small class="text-muted">{{ item.motivo_bloqueio }}</small>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.distancia_base_metros is not none %}
+                                <strong>{{ item.distancia_base_metros }}m</strong>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+
+                            {% if item.latitude and item.longitude %}
+                                <br>
+                                <small class="text-muted">
+                                    {{ item.latitude }}, {{ item.longitude }}
+                                </small>
+                            {% endif %}
+                        </td>
+
+                        <td style="min-width: 170px;">
+                            {% if item.codigo_qr_informado %}
+                                <code>{{ item.codigo_qr_informado }}</code>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+
+                            {% if item.qr_token_id %}
+                                <br>
+                                <small class="text-muted">Token #{{ item.qr_token_id }}</small>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.selfie_path %}
+                                <a href="{{ item.selfie_path|arquivo_url }}"
+                                   target="_blank"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fa-solid fa-image me-1"></i>
+                                    Ver
+                                </a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <small class="text-muted">{{ item.ip_origem or '-' }}</small>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            Nenhum registro encontrado para os filtros selecionados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

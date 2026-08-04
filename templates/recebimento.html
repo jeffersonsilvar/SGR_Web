@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid text-dark">
+
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-1 pb-2 mb-3 border-bottom">
+        <div>
+            <h1 class="h3 font-monospace fw-bold mb-0">Recebimento de Faturamentos</h1>
+            <p class="text-muted small mb-0">Baixe notas faturadas e estorne recebimentos feitos por engano.</p>
+        </div>
+
+        <a href="{{ url_for('historico_estornos') }}" class="btn btn-sm btn-outline-secondary fw-bold">
+            <i class="fa-solid fa-clock-rotate-left me-1"></i>
+            Histórico
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                    <i class="fa-solid {% if category == 'danger' %}fa-circle-xmark{% elif category == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- NOTAS AGUARDANDO RECEBIMENTO -->
+    <div class="card shadow-sm border-0 bg-white mb-4">
+        <div class="card-header bg-transparent border-bottom py-3">
+            <span class="text-dark fw-bold">
+                <i class="fa-solid fa-hand-holding-dollar me-2 text-success"></i>
+                Notas Faturadas Aguardando Recebimento
+            </span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle mb-0" style="font-size: 13px;">
+                <thead class="table-dark text-uppercase" style="font-size: 11px; letter-spacing: 0.5px;">
+                    <tr>
+                        <th class="ps-3">NF</th>
+                        <th>Data</th>
+                        <th>Emitente / Prestador</th>
+                        <th>Tomador</th>
+                        <th class="text-center">Rotas</th>
+                        <th class="text-end">Valor Total</th>
+                        <th>Status</th>
+                        <th class="text-center" width="160">Ações</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for fat in faturamentos_pendentes %}
+                        <tr>
+                            <td class="fw-bold ps-3">
+                                {{ fat.numero_nf }}
+                                <div class="font-monospace text-muted" style="font-size: 10px;">#{{ fat.id }}</div>
+                            </td>
+                            <td>{{ fat.data_emissao | formatar_data_br }}</td>
+                            <td>{{ fat.emitente_nome or '-' }}</td>
+                            <td>{{ fat.tomador_nome or '-' }}</td>
+                            <td class="text-center fw-bold">{{ fat.qtd_faturadas }}</td>
+                            <td class="text-end fw-bold text-success">
+                                R$ {{ "%.2f"|format(fat.valor_total | default(0) | float) }}
+                            </td>
+                            <td>
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fa-solid fa-file-invoice me-1"></i>
+                                    Faturada
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <form action="{{ url_for('confirmar_recebimento', id=fat.id) }}" method="POST" style="display:inline;">
+                                    <button type="submit"
+                                            class="btn btn-sm btn-success fw-bold px-3 shadow-sm"
+                                            onclick="return confirm('Deseja confirmar o recebimento da NF {{ fat.numero_nf }}? As rotas faturadas serão marcadas como Quitada.')">
+                                        <i class="fa-solid fa-money-bill-wave me-1"></i>
+                                        Baixar Nota
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="fa-solid fa-circle-dollar-to-slot fs-3 mb-2 text-secondary"></i>
+                                <p class="mb-0 fw-bold">Não existem notas aguardando recebimento.</p>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- RECEBIMENTOS REALIZADOS -->
+    <div class="card shadow-sm border-0 bg-white mb-5">
+        <div class="card-header bg-transparent border-bottom py-3">
+            <span class="text-dark fw-bold">
+                <i class="fa-solid fa-circle-check me-2 text-primary"></i>
+                Recebimentos Realizados
+            </span>
+            <div class="text-muted small">
+                Use o estorno apenas quando a baixa tiver sido feita por engano.
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle mb-0" style="font-size: 13px;">
+                <thead class="table-dark text-uppercase" style="font-size: 11px; letter-spacing: 0.5px;">
+                    <tr>
+                        <th class="ps-3">NF</th>
+                        <th>Data</th>
+                        <th>Emitente / Prestador</th>
+                        <th>Tomador</th>
+                        <th class="text-center">Rotas Quitadas</th>
+                        <th class="text-end">Valor Total</th>
+                        <th>Status</th>
+                        <th class="text-center" width="190">Ações</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for rec in recebimentos_realizados %}
+                        <tr>
+                            <td class="fw-bold ps-3">
+                                {{ rec.numero_nf }}
+                                <div class="font-monospace text-muted" style="font-size: 10px;">#{{ rec.id }}</div>
+                            </td>
+                            <td>{{ rec.data_emissao | formatar_data_br }}</td>
+                            <td>{{ rec.emitente_nome or '-' }}</td>
+                            <td>{{ rec.tomador_nome or '-' }}</td>
+                            <td class="text-center fw-bold">{{ rec.qtd_quitadas }}</td>
+                            <td class="text-end fw-bold text-success">
+                                R$ {{ "%.2f"|format(rec.valor_total | default(0) | float) }}
+                            </td>
+                            <td>
+                                <span class="badge bg-success">
+                                    <i class="fa-solid fa-circle-check me-1"></i>
+                                    Quitada
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger fw-bold"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modalEstornoRecebimento{{ rec.id }}">
+                                    <i class="fa-solid fa-rotate-left me-1"></i>
+                                    Estornar Recebimento
+                                </button>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="fa-solid fa-circle-info fs-3 mb-2 text-secondary"></i>
+                                <p class="mb-0 fw-bold">Nenhum recebimento quitado encontrado para estorno.</p>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- MODAIS DE ESTORNO DE RECEBIMENTO -->
+    {% for rec in recebimentos_realizados %}
+        <div class="modal fade" id="modalEstornoRecebimento{{ rec.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content text-dark bg-white">
+                    <div class="modal-header bg-danger text-white border-0">
+                        <h5 class="modal-title h6 fw-bold">
+                            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                            Estornar Recebimento
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <form action="{{ url_for('estornar_recebimento', nota_id=rec.id) }}" method="POST">
+                        <div class="modal-body">
+                            <p class="mb-2">
+                                Essa ação vai devolver as rotas quitadas da NF <strong>{{ rec.numero_nf }}</strong> para
+                                <strong>Faturada</strong>, mantendo o vínculo da nota fiscal.
+                            </p>
+
+                            <div class="alert alert-warning small">
+                                Depois do estorno, a nota poderá ser baixada novamente.
+                            </div>
+
+                            <label class="form-label fw-bold small text-muted">
+                                Motivo do estorno <span class="text-danger">*</span>
+                            </label>
+                            <textarea name="motivo_estorno" class="form-control" rows="3" maxlength="255" required
+                                      placeholder="Ex: baixa realizada acidentalmente, conferência incorreta..."></textarea>
+                        </div>
+
+                        <div class="modal-footer bg-light border-0">
+                            <button type="button" class="btn btn-sm btn-secondary fw-bold" data-bs-dismiss="modal">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-sm btn-danger fw-bold">
+                                Confirmar Estorno
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+
+</div>
+{% endblock %}

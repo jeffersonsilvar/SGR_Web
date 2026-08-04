@@ -1,0 +1,779 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="container-fluid py-3">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+        <div>
+            <h2 class="mb-1 fw-bold text-dark">
+                <i class="fa-solid fa-calendar-week me-2 text-info"></i>
+                Minha Semana
+            </h2>
+            <p class="text-muted mb-0">
+                Acompanhe sua disponibilidade, escala, orientações e pendências da semana.
+            </p>
+        </div>
+
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('disponibilidade_motorista', semana=data_inicio.strftime('%Y-%m-%d')) }}"
+               class="btn btn-info text-white fw-bold">
+                <i class="fa-solid fa-calendar-check me-1"></i>
+                Informar disponibilidade
+            </a>
+
+            <a href="{{ url_for('portal_motorista') }}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-arrow-left me-1"></i>
+                Portal
+            </a>
+        </div>
+    </div>
+
+    {% if dia_amanha %}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+                <div>
+                    <small class="text-muted fw-semibold">Situação para amanhã — {{ dia_amanha.data|formatar_data_br }}</small>
+                    <h4 class="fw-bold mb-2">
+                        {% if dia_amanha.status_escala == 'Confirmado com rota' %}
+                            <span class="text-primary">Confirmado com rota</span>
+                        {% elif dia_amanha.status_escala == 'Cancelado, comparecer na base' %}
+                            <span class="text-warning">Cancelado, comparecer na base</span>
+                        {% elif dia_amanha.status_escala == 'Cancelado definitivo' %}
+                            <span class="text-secondary">Cancelado definitivo</span>
+                        {% elif dia_amanha.status_escala == 'Reserva / Avulso' %}
+                            <span class="text-info">Reserva / Avulso</span>
+                        {% elif dia_amanha.status_escala == 'Falta' %}
+                            <span class="text-danger">Falta</span>
+                        {% else %}
+                            <span class="text-muted">Aguardando escala</span>
+                        {% endif %}
+                    </h4>
+
+                    <p class="mb-1">{{ dia_amanha.orientacao }}</p>
+
+                    {% if dia_amanha.base_operacao or dia_amanha.horario_apresentacao %}
+                    <p class="mb-0 text-muted">
+                        {% if dia_amanha.base_operacao %}
+                            <i class="fa-solid fa-location-dot me-1"></i>
+                            Base: <strong>{{ dia_amanha.base_operacao }}</strong>
+                        {% endif %}
+
+                        {% if dia_amanha.horario_apresentacao %}
+                            <span class="ms-md-2">
+                                <i class="fa-solid fa-clock me-1"></i>
+                                Apresentação: <strong>{{ dia_amanha.horario_apresentacao }}</strong>
+                            </span>
+                        {% endif %}
+                    </p>
+                    {% endif %}
+
+                    {% if dia_amanha.observacao_supervisor %}
+                    <p class="mt-2 mb-0">
+                        <strong>Orientação do supervisor:</strong>
+                        {{ dia_amanha.observacao_supervisor }}
+                    </p>
+                    {% endif %}
+                </div>
+
+                <div class="text-md-end">
+                    {% if dia_amanha.precisa_presenca %}
+                        <span class="badge bg-warning text-dark mb-2">
+                            Presença obrigatória na base
+                        </span>
+                        <br>
+                    {% endif %}
+
+                    {% if dia_amanha.precisa_presenca and dia_amanha.status_presenca != 'Chegada confirmada' and dia_amanha.escala_id %}
+                        <form method="POST" action="{{ url_for('minha_semana_motorista') }}" class="mb-2">
+                            <input type="hidden" name="acao" value="confirmar_chegada_base">
+                            <input type="hidden" name="escala_id" value="{{ dia_amanha.escala_id }}">
+                            <input type="hidden" name="latitude_confirmacao" class="latitude-confirmacao">
+                            <input type="hidden" name="longitude_confirmacao" class="longitude-confirmacao">
+                            <input type="hidden" name="selfie_base64" class="selfie-base64">
+                            <div class="input-group mb-2">
+                                <span class="input-group-text">QR</span>
+                                <input type="text" name="codigo_qr_base" class="form-control codigo-qr-base-input" placeholder="Código atual exibido na base" required>
+                                <button type="button" class="btn btn-outline-dark btn-abrir-leitor-qr">
+                                    <i class="fa-solid fa-qrcode me-1"></i>
+                                    Escanear
+                                </button>
+                            </div>
+                            <button type="submit" class="btn btn-warning fw-bold btn-confirmar-chegada">
+                                <i class="fa-solid fa-location-dot me-1"></i>
+                                Confirmar chegada na base
+                            </button>
+                        </form>
+
+                        <button class="btn btn-outline-danger fw-bold mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#justificarAmanha{{ dia_amanha.escala_id }}">
+                            <i class="fa-solid fa-file-circle-question me-1"></i>
+                            Justificar ausência
+                        </button>
+                        <div class="collapse text-start" id="justificarAmanha{{ dia_amanha.escala_id }}">
+                            <form method="POST" action="{{ url_for('minha_semana_motorista') }}" enctype="multipart/form-data" class="border rounded p-3 bg-light mb-2">
+                                <input type="hidden" name="acao" value="justificar_ausencia">
+                                <input type="hidden" name="escala_id" value="{{ dia_amanha.escala_id }}">
+                                <label class="form-label fw-bold small">Motivo</label>
+                                <select class="form-select form-select-sm mb-2" name="motivo_ausencia" required>
+                                    <option value="">Selecione</option>
+                                    <option>Problema de saúde</option>
+                                    <option>Problema familiar</option>
+                                    <option>Problema com veículo</option>
+                                    <option>Atraso no deslocamento</option>
+                                    <option>Não recebeu a orientação</option>
+                                    <option>Erro na escala</option>
+                                    <option>Outro</option>
+                                </select>
+                                <label class="form-label fw-bold small">Descrição</label>
+                                <textarea class="form-control form-control-sm mb-2" name="observacao_ausencia" rows="3" placeholder="Explique o que aconteceu" required></textarea>
+                                <label class="form-label fw-bold small">Anexo opcional</label>
+                                <input type="file" class="form-control form-control-sm mb-2" name="anexo_justificativa" accept=".jpg,.jpeg,.png,.webp,.pdf">
+                                <button type="submit" class="btn btn-sm btn-danger fw-bold">
+                                    Enviar justificativa
+                                </button>
+                            </form>
+                        </div>
+                    {% elif dia_amanha.status_presenca == 'Chegada confirmada' %}
+                        <span class="badge bg-success mb-2">
+                            Chegada confirmada
+                        </span>
+                        {% if dia_amanha.posicao_fila %}
+                            <br>
+                            <span class="badge bg-info text-dark mb-2">
+                                Posição na fila: {{ dia_amanha.posicao_fila }}
+                            </span>
+                        {% endif %}
+                    {% endif %}
+
+
+                    {% if dia_amanha.status_justificativa %}
+                        <div class="alert alert-light border mt-2 mb-2 text-start">
+                            <div class="fw-bold small">
+                                <i class="fa-solid fa-file-circle-question me-1"></i>
+                                Justificativa: {{ dia_amanha.status_justificativa }}
+                            </div>
+                            <div class="small text-muted">
+                                {{ dia_amanha.justificativa_motivo }}{% if dia_amanha.justificativa_data_envio %} · enviada em {{ dia_amanha.justificativa_data_envio.strftime('%d/%m/%Y %H:%M') }}{% endif %}
+                            </div>
+                            {% if dia_amanha.justificativa_observacao_supervisor %}
+                            <div class="small text-muted">Supervisor: {{ dia_amanha.justificativa_observacao_supervisor }}</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    {% if dia_amanha.data_ciencia %}
+                        <span class="badge bg-success">
+                            Ciência confirmada
+                        </span>
+                    {% elif dia_amanha.precisa_ciencia and dia_amanha.escala_id %}
+                        <form method="POST" action="{{ url_for('minha_semana_motorista') }}">
+                            <input type="hidden" name="acao" value="confirmar_ciencia">
+                            <input type="hidden" name="escala_id" value="{{ dia_amanha.escala_id }}">
+                            <button type="submit" class="btn btn-success fw-bold">
+                                <i class="fa-solid fa-check me-1"></i>
+                                Confirmar ciência
+                            </button>
+                        </form>
+                    {% else %}
+                        <span class="badge bg-secondary">
+                            Sem pendência de ciência
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted fw-semibold">Disponíveis</small>
+                    <h3 class="fw-bold mb-0 text-success">{{ resumo.disponiveis }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted fw-semibold">Ausentes</small>
+                    <h3 class="fw-bold mb-0 text-danger">{{ resumo.ausentes }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted fw-semibold">Confirmados</small>
+                    <h3 class="fw-bold mb-0 text-primary">{{ resumo.confirmados }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted fw-semibold">Base</small>
+                    <h3 class="fw-bold mb-0 text-warning">{{ resumo.comparecer_base }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted fw-semibold">Reservas</small>
+                    <h3 class="fw-bold mb-0 text-info">{{ resumo.reservas }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted fw-semibold">Ciências pendentes</small>
+                    <h3 class="fw-bold mb-0 {% if resumo.ciencias_pendentes > 0 %}text-danger{% else %}text-success{% endif %}">
+                        {{ resumo.ciencias_pendentes }}
+                    </h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between mb-3">
+        <a href="{{ url_for('minha_semana_motorista', semana=semana_anterior.strftime('%Y-%m-%d')) }}"
+           class="btn btn-outline-secondary">
+            <i class="fa-solid fa-chevron-left me-1"></i>
+            Semana anterior
+        </a>
+
+        <a href="{{ url_for('minha_semana_motorista', semana=proxima_semana.strftime('%Y-%m-%d')) }}"
+           class="btn btn-outline-secondary">
+            Próxima semana
+            <i class="fa-solid fa-chevron-right ms-1"></i>
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 py-3">
+            <strong>
+                <i class="fa-solid fa-list-check me-1 text-info"></i>
+                Semana de {{ data_inicio|formatar_data_br }} a {{ data_fim|formatar_data_br }}
+            </strong>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
+                <thead class="table-light text-uppercase" style="font-size: 11px;">
+                    <tr>
+                        <th class="ps-3">Dia</th>
+                        <th>Disponibilidade</th>
+                        <th>Escala</th>
+                        <th>Orientação</th>
+                        <th>Presença</th>
+                        <th>Ciência</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for dia in dias %}
+                    <tr>
+                        <td class="ps-3" style="min-width: 150px;">
+                            <strong>{{ dia.dia_nome }}</strong>
+                            <br>
+                            <small class="text-muted">{{ dia.data|formatar_data_br }}</small>
+                        </td>
+
+                        <td style="min-width: 180px;">
+                            {% if dia.status_disponibilidade == 'Disponível' %}
+                                <span class="badge bg-success">Disponível</span>
+                            {% elif dia.status_disponibilidade == 'Ausente' %}
+                                <span class="badge bg-danger">Ausente</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Sem resposta</span>
+                            {% endif %}
+
+                            {% if dia.observacao_disponibilidade %}
+                                <br>
+                                <small class="text-muted">{{ dia.observacao_disponibilidade }}</small>
+                            {% endif %}
+                        </td>
+
+                        <td style="min-width: 210px;">
+                            {% if dia.status_escala == 'Confirmado com rota' %}
+                                <span class="badge bg-primary">Confirmado com rota</span>
+                            {% elif dia.status_escala == 'Cancelado, comparecer na base' %}
+                                <span class="badge bg-warning text-dark">Cancelado, comparecer base</span>
+                            {% elif dia.status_escala == 'Cancelado definitivo' %}
+                                <span class="badge bg-secondary">Cancelado definitivo</span>
+                            {% elif dia.status_escala == 'Reserva / Avulso' %}
+                                <span class="badge bg-info text-dark">Reserva / Avulso</span>
+                            {% elif dia.status_escala == 'Falta' %}
+                                <span class="badge bg-danger">Falta</span>
+                            {% else %}
+                                <span class="badge bg-light text-dark border">Pendente</span>
+                            {% endif %}
+
+                            {% if dia.falta_automatica == 'S' and dia.status_escala == 'Falta' %}
+                                <br>
+                                <span class="badge bg-danger mt-1">Automática</span>
+                            {% endif %}
+                        </td>
+
+                        <td style="min-width: 320px;">
+                            <span>{{ dia.orientacao }}</span>
+
+                            {% if dia.base_operacao or dia.horario_apresentacao %}
+                                <br>
+                                <small class="text-muted">
+                                    {% if dia.base_operacao %}
+                                        Base: {{ dia.base_operacao }}
+                                    {% endif %}
+
+                                    {% if dia.horario_apresentacao %}
+                                        | Horário: {{ dia.horario_apresentacao }}
+                                    {% endif %}
+                                </small>
+                            {% endif %}
+
+                            {% if dia.observacao_supervisor %}
+                                <br>
+                                <small class="text-muted">
+                                    Supervisor: {{ dia.observacao_supervisor }}
+                                </small>
+                            {% endif %}
+                        </td>
+
+                        <td style="min-width: 180px;">
+                            {% if dia.status_presenca == 'Chegada confirmada' %}
+                                <span class="badge bg-success">Chegada confirmada</span>
+                                {% if dia.posicao_fila %}
+                                    <br>
+                                    <span class="badge bg-info text-dark mt-1">
+                                        Fila #{{ dia.posicao_fila }} — {{ dia.status_fila }}
+                                    </span>
+                                {% endif %}
+                            {% elif dia.status_presenca == 'Aguardando chegada' %}
+                                <span class="badge bg-warning text-dark">Aguardando chegada</span>
+                                {% if dia.precisa_presenca and dia.escala_id %}
+                                    <form method="POST" action="{{ url_for('minha_semana_motorista') }}" class="mt-2">
+                                        <input type="hidden" name="acao" value="confirmar_chegada_base">
+                                        <input type="hidden" name="escala_id" value="{{ dia.escala_id }}">
+                                        <input type="hidden" name="latitude_confirmacao" class="latitude-confirmacao">
+                                        <input type="hidden" name="longitude_confirmacao" class="longitude-confirmacao">
+                                        <input type="hidden" name="selfie_base64" class="selfie-base64">
+                                        <div class="input-group input-group-sm mb-2">
+                                            <span class="input-group-text">QR</span>
+                                            <input type="text" name="codigo_qr_base" class="form-control codigo-qr-base-input" placeholder="Código atual" required>
+                                            <button type="button" class="btn btn-outline-dark btn-abrir-leitor-qr">
+                                                <i class="fa-solid fa-qrcode"></i>
+                                            </button>
+                                        </div>
+                                        <button type="submit" class="btn btn-sm btn-warning fw-bold btn-confirmar-chegada">
+                                            Confirmar chegada
+                                        </button>
+                                    </form>
+
+                                    <button class="btn btn-sm btn-outline-danger fw-bold mt-1" type="button" data-bs-toggle="collapse" data-bs-target="#justificarDia{{ dia.escala_id }}">
+                                        Justificar ausência
+                                    </button>
+                                    <div class="collapse mt-2" id="justificarDia{{ dia.escala_id }}">
+                                        <form method="POST" action="{{ url_for('minha_semana_motorista') }}" enctype="multipart/form-data" class="border rounded p-2 bg-light">
+                                            <input type="hidden" name="acao" value="justificar_ausencia">
+                                            <input type="hidden" name="escala_id" value="{{ dia.escala_id }}">
+                                            <select class="form-select form-select-sm mb-2" name="motivo_ausencia" required>
+                                                <option value="">Motivo</option>
+                                                <option>Problema de saúde</option>
+                                                <option>Problema familiar</option>
+                                                <option>Problema com veículo</option>
+                                                <option>Atraso no deslocamento</option>
+                                                <option>Não recebeu a orientação</option>
+                                                <option>Erro na escala</option>
+                                                <option>Outro</option>
+                                            </select>
+                                            <textarea class="form-control form-control-sm mb-2" name="observacao_ausencia" rows="2" placeholder="Explique o que aconteceu" required></textarea>
+                                            <input type="file" class="form-control form-control-sm mb-2" name="anexo_justificativa" accept=".jpg,.jpeg,.png,.webp,.pdf">
+                                            <button type="submit" class="btn btn-sm btn-danger fw-bold">Enviar</button>
+                                        </form>
+                                    </div>
+                                {% endif %}
+                            {% elif dia.status_presenca == 'Não compareceu' %}
+                                <span class="badge bg-danger">Não compareceu</span>
+
+                                    <button class="btn btn-sm btn-outline-danger fw-bold mt-1" type="button" data-bs-toggle="collapse" data-bs-target="#justificarDia{{ dia.escala_id }}">
+                                        Justificar ausência
+                                    </button>
+                                    <div class="collapse mt-2" id="justificarDia{{ dia.escala_id }}">
+                                        <form method="POST" action="{{ url_for('minha_semana_motorista') }}" enctype="multipart/form-data" class="border rounded p-2 bg-light">
+                                            <input type="hidden" name="acao" value="justificar_ausencia">
+                                            <input type="hidden" name="escala_id" value="{{ dia.escala_id }}">
+                                            <select class="form-select form-select-sm mb-2" name="motivo_ausencia" required>
+                                                <option value="">Motivo</option>
+                                                <option>Problema de saúde</option>
+                                                <option>Problema familiar</option>
+                                                <option>Problema com veículo</option>
+                                                <option>Atraso no deslocamento</option>
+                                                <option>Não recebeu a orientação</option>
+                                                <option>Erro na escala</option>
+                                                <option>Outro</option>
+                                            </select>
+                                            <textarea class="form-control form-control-sm mb-2" name="observacao_ausencia" rows="2" placeholder="Explique o que aconteceu" required></textarea>
+                                            <input type="file" class="form-control form-control-sm mb-2" name="anexo_justificativa" accept=".jpg,.jpeg,.png,.webp,.pdf">
+                                            <button type="submit" class="btn btn-sm btn-danger fw-bold">Enviar</button>
+                                        </form>
+                                    </div>
+                            {% else %}
+                                <span class="badge bg-secondary">Não se aplica</span>
+                            {% endif %}
+
+                                {% if dia.status_justificativa %}
+                                    <br>
+                                    <span class="badge bg-primary mt-1">Justificativa: {{ dia.status_justificativa }}</span>
+                                {% endif %}
+                        </td>
+
+                        <td style="min-width: 160px;">
+                            {% if dia.data_ciencia %}
+                                <span class="badge bg-success">Confirmada</span>
+                            {% elif dia.precisa_ciencia and dia.escala_id %}
+                                <form method="POST" action="{{ url_for('minha_semana_motorista') }}">
+                                    <input type="hidden" name="acao" value="confirmar_ciencia">
+                                    <input type="hidden" name="escala_id" value="{{ dia.escala_id }}">
+                                    <button type="submit" class="btn btn-sm btn-success fw-bold">
+                                        Confirmar ciência
+                                    </button>
+                                </form>
+                            {% else %}
+                                <span class="badge bg-secondary">Não se aplica</span>
+                            {% endif %}
+
+                                {% if dia.status_justificativa %}
+                                    <br>
+                                    <span class="badge bg-primary mt-1">Justificativa: {{ dia.status_justificativa }}</span>
+                                {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            Nenhuma informação encontrada para esta semana.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+
+<!-- MODAL LEITOR DE QR CODE -->
+<div class="modal fade" id="modalLeitorQrBase" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">
+                    <i class="fa-solid fa-qrcode me-1 text-warning"></i>
+                    Escanear QR Code da Base
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    Aponte a câmera do celular para o QR Code exibido no terminal da base.
+                </div>
+
+                <video id="videoLeitorQrBase"
+                       class="w-100 rounded bg-dark"
+                       autoplay
+                       playsinline
+                       muted
+                       style="max-height: 360px;"></video>
+
+                <canvas id="canvasLeitorQrBase" class="d-none"></canvas>
+
+                <div id="statusLeitorQrBase" class="small text-muted mt-2">
+                    Aguardando câmera...
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL SELFIE / GEOLOCALIZAÇÃO -->
+<div class="modal fade" id="modalSelfieChegada" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">
+                    <i class="fa-solid fa-camera me-1 text-warning"></i>
+                    Confirmar chegada na base
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    Para entrar na fila, o sistema precisa capturar sua localização e uma selfie no momento da chegada.
+                </div>
+
+                <video id="videoSelfieChegada" class="w-100 rounded bg-dark" autoplay playsinline style="max-height: 320px;"></video>
+                <canvas id="canvasSelfieChegada" class="d-none"></canvas>
+
+                <div id="statusGeoSelfie" class="small text-muted mt-2">
+                    Aguardando liberação da câmera e localização...
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+
+                <button type="button" class="btn btn-warning fw-bold" id="btnCapturarSelfieConfirmar">
+                    <i class="fa-solid fa-location-dot me-1"></i>
+                    Capturar selfie e confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let inputQrAtual = null;
+let streamQrAtual = null;
+let intervaloQrAtual = null;
+let detectorQrAtual = null;
+
+function pararLeitorQrBase() {
+    if (intervaloQrAtual) {
+        clearInterval(intervaloQrAtual);
+        intervaloQrAtual = null;
+    }
+
+    if (streamQrAtual) {
+        streamQrAtual.getTracks().forEach(track => track.stop());
+        streamQrAtual = null;
+    }
+
+    const video = document.getElementById('videoLeitorQrBase');
+    if (video) {
+        video.srcObject = null;
+    }
+}
+
+async function iniciarLeitorQrBase() {
+    const status = document.getElementById('statusLeitorQrBase');
+    const video = document.getElementById('videoLeitorQrBase');
+    const canvas = document.getElementById('canvasLeitorQrBase');
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        status.innerText = 'Este navegador não liberou câmera. Digite o código manualmente.';
+        return;
+    }
+
+    if (!('BarcodeDetector' in window)) {
+        status.innerText = 'Este navegador não suporta leitura automática de QR. Digite o código manualmente.';
+        return;
+    }
+
+    try {
+        detectorQrAtual = new BarcodeDetector({ formats: ['qr_code'] });
+    } catch (e) {
+        status.innerText = 'Leitor de QR indisponível neste navegador. Digite o código manualmente.';
+        return;
+    }
+
+    try {
+        streamQrAtual = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { ideal: 'environment' }
+            },
+            audio: false
+        });
+
+        video.srcObject = streamQrAtual;
+        await video.play();
+
+        status.innerText = 'Câmera aberta. Aponte para o QR Code exibido no terminal da base.';
+
+        intervaloQrAtual = setInterval(async function() {
+            try {
+                if (!video.videoWidth || !video.videoHeight) {
+                    return;
+                }
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const codigos = await detectorQrAtual.detect(canvas);
+
+                if (codigos && codigos.length > 0) {
+                    const valorLido = codigos[0].rawValue || '';
+
+                    if (valorLido && inputQrAtual) {
+                        inputQrAtual.value = valorLido.trim();
+                        inputQrAtual.classList.add('is-valid');
+
+                        status.innerText = 'QR Code lido com sucesso.';
+                        pararLeitorQrBase();
+
+                        const modalEl = document.getElementById('modalLeitorQrBase');
+                        const instanciaModal = bootstrap.Modal.getInstance(modalEl);
+                        if (instanciaModal) {
+                            instanciaModal.hide();
+                        }
+                    }
+                }
+            } catch (erroLeitura) {
+                // Continua tentando até encontrar um QR válido.
+            }
+        }, 450);
+
+    } catch (erroCamera) {
+        status.innerText = 'Não foi possível abrir a câmera. Verifique a permissão do navegador ou digite o código manualmente.';
+        console.log(erroCamera);
+    }
+}
+
+document.querySelectorAll('.btn-abrir-leitor-qr').forEach(function(botao) {
+    botao.addEventListener('click', function(event) {
+        event.preventDefault();
+
+        const form = botao.closest('form');
+        inputQrAtual = form.querySelector('input[name="codigo_qr_base"]');
+
+        const modalEl = document.getElementById('modalLeitorQrBase');
+        const modal = new bootstrap.Modal(modalEl);
+        const status = document.getElementById('statusLeitorQrBase');
+
+        status.innerText = 'Preparando câmera...';
+        modal.show();
+
+        setTimeout(function() {
+            iniciarLeitorQrBase();
+        }, 500);
+    });
+});
+
+document.getElementById('modalLeitorQrBase').addEventListener('hidden.bs.modal', function() {
+    pararLeitorQrBase();
+});
+</script>
+
+<script>
+let formChegadaAtual = null;
+let streamSelfieAtual = null;
+
+function pararCameraChegada() {
+    if (streamSelfieAtual) {
+        streamSelfieAtual.getTracks().forEach(track => track.stop());
+        streamSelfieAtual = null;
+    }
+}
+
+document.querySelectorAll('.btn-confirmar-chegada').forEach(function(botao) {
+    botao.addEventListener('click', function(event) {
+        event.preventDefault();
+
+        const form = botao.closest('form');
+        const qrInput = form.querySelector('input[name="codigo_qr_base"]');
+
+        if (!qrInput || !qrInput.value.trim()) {
+            alert('Informe o código QR da base antes de confirmar.');
+            return;
+        }
+
+        formChegadaAtual = form;
+
+        const modal = new bootstrap.Modal(document.getElementById('modalSelfieChegada'));
+        const status = document.getElementById('statusGeoSelfie');
+        const video = document.getElementById('videoSelfieChegada');
+
+        status.innerText = 'Solicitando câmera e localização...';
+
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+            .then(function(stream) {
+                streamSelfieAtual = stream;
+                video.srcObject = stream;
+                status.innerText = 'Câmera liberada. Agora confirme para capturar sua localização.';
+                modal.show();
+            })
+            .catch(function() {
+                alert('Não foi possível acessar a câmera. A selfie é obrigatória para confirmar chegada.');
+            });
+    });
+});
+
+document.getElementById('modalSelfieChegada').addEventListener('hidden.bs.modal', function() {
+    pararCameraChegada();
+});
+
+document.getElementById('btnCapturarSelfieConfirmar').addEventListener('click', function() {
+    if (!formChegadaAtual) {
+        return;
+    }
+
+    const status = document.getElementById('statusGeoSelfie');
+    const video = document.getElementById('videoSelfieChegada');
+    const canvas = document.getElementById('canvasSelfieChegada');
+
+    status.innerText = 'Capturando localização...';
+
+    if (!navigator.geolocation) {
+        alert('Seu navegador não permite geolocalização.');
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(function(posicao) {
+        const latitude = posicao.coords.latitude;
+        const longitude = posicao.coords.longitude;
+
+        const larguraOriginal = video.videoWidth || 640;
+        const alturaOriginal = video.videoHeight || 480;
+
+        const larguraMaxima = 420;
+        const proporcao = Math.min(1, larguraMaxima / larguraOriginal);
+
+        canvas.width = Math.round(larguraOriginal * proporcao);
+        canvas.height = Math.round(alturaOriginal * proporcao);
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // JPEG comprimido para evitar erro 413: Request Entity Too Large.
+        const selfieBase64 = canvas.toDataURL('image/jpeg', 0.55);
+
+        formChegadaAtual.querySelector('.latitude-confirmacao').value = latitude;
+        formChegadaAtual.querySelector('.longitude-confirmacao').value = longitude;
+        formChegadaAtual.querySelector('.selfie-base64').value = selfieBase64;
+
+        pararCameraChegada();
+
+        status.innerText = 'Dados capturados. Enviando confirmação...';
+        formChegadaAtual.submit();
+
+    }, function() {
+        alert('Não foi possível capturar sua localização. Ative a localização do celular e tente novamente.');
+    }, {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+    });
+});
+</script>
+
+{% endblock %}

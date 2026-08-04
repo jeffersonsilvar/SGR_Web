@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="mb-1 fw-bold">Movimentações de Caixa</h3>
+            <div class="text-muted small">Entradas e saídas geradas pelas baixas financeiras.</div>
+        </div>
+        <a href="{{ url_for('financeiro_titulos') }}" class="btn btn-outline-secondary">Títulos Financeiros</a>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted">Entradas operacionais</div><div class="h4 text-success fw-bold">{{ resumo.entradas|moeda_br }}</div></div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted">Saídas operacionais</div><div class="h4 text-danger fw-bold">{{ resumo.saidas|moeda_br }}</div></div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted">Estornos</div><div class="h4 text-warning fw-bold">{{ resumo.estornos|moeda_br }}</div></div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted">Saldo líquido</div><div class="h4 fw-bold">{{ resumo.saldo_movimentado|moeda_br }}</div><small class="text-muted">{{ resumo.total }} registro(s)</small></div></div></div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end">
+                {% if is_super_admin %}
+                <div class="col-md-2">
+                    <label class="form-label small">Empresa</label>
+                    <select name="empresa_id" class="form-select">
+                        <option value="">Todas</option>
+                        {% for empresa in empresas %}
+                            <option value="{{ empresa.id }}" {% if filtros.empresa_id|string == empresa.id|string %}selected{% endif %}>{{ empresa.nome_fantasia or empresa.razao_social }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="col-md-3">
+                    <label class="form-label small">Conta caixa</label>
+                    <select name="conta_caixa_id" class="form-select">
+                        <option value="">Todas</option>
+                        {% for conta in contas_caixa %}
+                            <option value="{{ conta.id }}" {% if filtros.conta_caixa_id|string == conta.id|string %}selected{% endif %}>{{ conta.nome_conta }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Tipo</label>
+                    <select name="tipo_movimentacao" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="ENTRADA" {% if filtros.tipo_movimentacao == 'ENTRADA' %}selected{% endif %}>Entrada</option>
+                        <option value="SAIDA" {% if filtros.tipo_movimentacao == 'SAIDA' %}selected{% endif %}>Saída</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Início</label>
+                    <input type="date" name="data_inicio" class="form-control" value="{{ filtros.data_inicio }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Fim</label>
+                    <input type="date" name="data_fim" class="form-control" value="{{ filtros.data_fim }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Pesquisa</label>
+                    <input type="text" name="pesquisa" class="form-control" value="{{ filtros.pesquisa }}" placeholder="Histórico, pessoa, documento...">
+                </div>
+                <div class="col-md-2 d-grid"><button class="btn btn-dark">Filtrar</button></div>
+                <div class="col-md-2 d-grid"><a href="{{ url_for('financeiro_movimentacoes_caixa') }}" class="btn btn-outline-secondary">Limpar</a></div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Data</th><th>Conta</th><th>Tipo</th><th>Pessoa/Documento</th><th>Histórico</th><th class="text-end">Valor</th><th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mov in movimentacoes %}
+                    <tr>
+                        <td>{{ mov.data_movimentacao|formatar_data_br }}</td>
+                        <td>{{ mov.conta_caixa_nome }}<br><small class="text-muted">{{ mov.forma_pagamento or '-' }}</small></td>
+                        <td>
+                            {% if mov.estorno_de_movimentacao_id or mov.status_movimentacao == 'Estorno' %}
+                                <span class="badge bg-warning text-dark">ESTORNO</span><br>
+                                <small class="text-muted">{{ mov.tipo_movimentacao }}</small>
+                            {% elif mov.status_movimentacao == 'Estornada' %}
+                                <span class="badge bg-secondary">{{ mov.tipo_movimentacao }}</span><br>
+                                <small class="text-muted">Estornada</small>
+                            {% else %}
+                                <span class="badge {% if mov.tipo_movimentacao == 'ENTRADA' %}bg-success{% else %}bg-danger{% endif %}">{{ mov.tipo_movimentacao }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ mov.pessoa_nome or '-' }}<br><small class="text-muted">{{ mov.numero_documento or '-' }}</small></td>
+                        <td>{{ mov.historico or mov.titulo_descricao or '-' }}</td>
+                        <td class="text-end fw-bold">{{ mov.valor_movimentacao|moeda_br }}</td>
+                        <td>
+                            {% if mov.titulo_financeiro_id %}
+                                <a href="{{ url_for('detalhes_titulo_financeiro', id=mov.titulo_financeiro_id) }}" class="btn btn-sm btn-outline-primary">Título</a>
+                            {% endif %}
+                            {% if mov.comprovante_url %}
+                                <a href="{{ mov.comprovante_url|arquivo_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">Comprovante</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" class="text-center text-muted py-4">Nenhuma movimentação encontrada.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
