@@ -38,8 +38,10 @@ Plataforma web multiempresa disponibilizada por assinatura para centralização 
 - [Segurança](#segurança)
 - [Limitações técnicas atuais](#limitações-técnicas-atuais)
 - [Plano de evolução técnica](#plano-de-evolução-técnica)
+- [Documentação funcional](#documentação-funcional)
 - [Status do projeto](#status-do-projeto)
 - [Autor](#autor)
+
 
 ---
 
@@ -1261,6 +1263,19 @@ A migração será realizada módulo a módulo, evitando uma reescrita total.
 - [ ] criar versionamento e changelog.
 
 ---
+
+## Documentação funcional
+
+A documentação detalhada do produto está disponível em:
+
+- [Índice da documentação](docs/INDEX.md)
+- [Operação Logística](docs/OPERACAO_LOGISTICA.md)
+- [Portal do Motorista](docs/PORTAL_MOTORISTA.md)
+- [Gestão Financeira](docs/GESTAO_FINANCEIRA.md)
+- [Administração e Acessos](docs/ADMINISTRACAO_ACESSOS.md)
+- [Relatórios e Auditorias](docs/RELATORIOS_AUDITORIAS.md)
+- [Regras de Negócio](docs/REGRAS_DE_NEGOCIO.md)
+- [Glossário](docs/GLOSSARIO.md)
 
 ## Status do projeto
 
