@@ -8701,35 +8701,32 @@ def garantir_schema_menus_modulos(cur):
 
 
 def endpoint_existe_no_app(endpoint, rota_url=None):
-    """Valida endpoints tradicionais e endpoints registrados por Blueprints.
-
-    Também aceita a URL cadastrada como alternativa de validação. Isso evita
-    falsos negativos durante a migração gradual do monólito para Blueprints.
-    """
+    """Valida endpoints tradicionais e endpoints registrados por Blueprints."""
     endpoint_normalizado = (endpoint or '').strip()
     rota_normalizada = (rota_url or '').strip()
 
     if endpoint_normalizado:
-        # Verificação principal: nome exato registrado pelo Flask.
+        # Correspondência exata: funciona para endpoints tradicionais e Blueprints.
         if endpoint_normalizado in app.view_functions:
             return True
 
-        # Compatibilidade temporária com cadastros antigos sem o namespace
-        # do Blueprint. Só considera válido quando existe uma única ocorrência.
+        # Compatibilidade durante a migração: um endpoint antigo sem namespace
+        # pode corresponder de forma única a "blueprint.endpoint".
         sufixo = f".{endpoint_normalizado}"
         correspondencias = [
-            nome
-            for nome in app.view_functions
-            if nome.endswith(sufixo)
+            nome_endpoint
+            for nome_endpoint in app.view_functions
+            if nome_endpoint.endswith(sufixo)
         ]
         if len(correspondencias) == 1:
             return True
 
-    # Validação complementar pela URL pública cadastrada no menu.
+    # Fallback pela URL pública cadastrada no banco.
     if rota_normalizada:
-        for regra in app.url_map.iter_rules():
-            if regra.rule == rota_normalizada:
-                return True
+        return any(
+            regra.rule == rota_normalizada
+            for regra in app.url_map.iter_rules()
+        )
 
     return False
 
@@ -8943,7 +8940,7 @@ def novo_menu_sistema():
             somente_super_admin = 1 if request.form.get('somente_super_admin') == '1' else 0
             somente_suporte = 1 if request.form.get('somente_suporte') == '1' else 0
             if endpoint and not endpoint_existe_no_app(endpoint, rota_url):
-                flash('Atenção: o endpoint informado ainda não está registrado na aplicação Flask. O menu foi salvo, mas confira a rota antes de liberar.', 'warning')
+                flash('Atenção: o endpoint ou a rota informada ainda não está registrada na aplicação Flask. O menu foi salvo, mas confira antes de liberar.', 'warning')
             if not titulo or not codigo or not grupo_menu:
                 flash('Informe título, código e grupo do menu.', 'warning')
                 return redirect(url_for('novo_menu_sistema'))
@@ -9004,7 +9001,7 @@ def editar_menu_sistema(menu_id):
             somente_super_admin = 1 if request.form.get('somente_super_admin') == '1' else 0
             somente_suporte = 1 if request.form.get('somente_suporte') == '1' else 0
             if endpoint and not endpoint_existe_no_app(endpoint, rota_url):
-                flash('Atenção: o endpoint informado ainda não está registrado na aplicação Flask.', 'warning')
+                flash('Atenção: o endpoint ou a rota informada ainda não está registrada na aplicação Flask.', 'warning')
             cur.execute("""
                 UPDATE sistema_menus
                    SET modulo_id=%s, menu_pai_id=%s, grupo_menu=%s, codigo=%s, titulo=%s, descricao=%s, endpoint=%s, rota_url=%s,
