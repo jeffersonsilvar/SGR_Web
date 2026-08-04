@@ -1,5 +1,0 @@
--- Dados demonstrativos do SGR Web
---
--- Este arquivo não contém dados reais.
--- Inclua aqui apenas registros totalmente fictícios e adequados para demonstração.
--- O preenchimento deve respeitar a ordem das chaves estrangeiras definida em schema.sql.
