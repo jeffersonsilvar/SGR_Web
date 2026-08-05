@@ -55,3 +55,4 @@ htmlcov/
 .pytest_cache/
 *.blueprint-backup
 
+*.movimentacoes-backup
