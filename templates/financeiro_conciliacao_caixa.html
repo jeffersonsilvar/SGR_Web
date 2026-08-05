@@ -155,7 +155,7 @@
         </div>
     </div>
 
-    <form method="post" action="{{ url_for('financeiro_conciliacao_caixa_acao') }}" id="formConciliacao">
+    <form method="post" action="{{ url_for('financeiro.financeiro_conciliacao_caixa_acao') }}" id="formConciliacao">
         <input type="hidden" name="filtro_conta_caixa_id" value="{{ filtros.conta_caixa_id }}">
         <input type="hidden" name="filtro_status_conciliacao" value="{{ filtros.status_conciliacao }}">
         <input type="hidden" name="filtro_status_movimentacao" value="{{ filtros.status_movimentacao }}">
