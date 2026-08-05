@@ -146,7 +146,7 @@
                     {% if nf.titulo_financeiro_id %}
                     <div class="alert alert-success small">
                         <strong>Título financeiro gerado:</strong><br>
-                        <a href="{{ url_for('detalhes_titulo_financeiro', id=nf.titulo_financeiro_id) }}" class="fw-bold">
+                        <a href="{{ url_for('financeiro.detalhes_titulo_financeiro', id=nf.titulo_financeiro_id) }}" class="fw-bold">
                             Ver título #{{ nf.titulo_financeiro_id }}
                         </a>
                         <span class="text-muted">— {{ nf.titulo_financeiro_status }}</span>
@@ -283,7 +283,7 @@
                         </button>
 
                         {% if nf.titulo_financeiro_id %}
-                        <a href="{{ url_for('detalhes_titulo_financeiro', id=nf.titulo_financeiro_id) }}" class="btn btn-success fw-bold">
+                        <a href="{{ url_for('financeiro.detalhes_titulo_financeiro', id=nf.titulo_financeiro_id) }}" class="btn btn-success fw-bold">
                             <i class="fa-solid fa-receipt me-1"></i>
                             Ver título financeiro
                         </a>

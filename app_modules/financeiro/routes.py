@@ -1282,4 +1282,116 @@ def criar_financeiro_blueprint(services):
         )
 
 
+    @financeiro_bp.route("/financeiro/titulos/<int:id>", methods=["GET"])
+    @login_required
+    @perfis_permitidos("Administrador", "Operacional", "Financeiro", "Consulta")
+    def detalhes_titulo_financeiro(id):
+        usuario_logado = session.get('usuario_nome', 'Usuário')
+        empresa_logada_id = session.get('empresa_id')
+        is_super_admin = services["usuario_eh_super_admin_global"]()
+
+        con = services["obter_conexao"]()
+        if con is None:
+            flash("Erro de conexão com o banco de dados.", "danger")
+            return redirect(url_for('financeiro.financeiro_titulos'))
+
+        cur = con.cursor(dictionary=True)
+        try:
+            query = """
+                SELECT t.*,
+                       p.nome_completo AS pessoa_nome,
+                       p.cpf_cnpj AS pessoa_cpf_cnpj,
+                       p.tipo_cadastro AS pessoa_tipo,
+                       cx.nome_conta AS conta_caixa_nome,
+                       cxb.nome_conta AS conta_caixa_baixa_nome,
+                       e.nome_fantasia AS empresa_nome,
+                       e.razao_social AS empresa_razao_social,
+                       u.login AS usuario_criacao_login,
+                       ub.login AS usuario_baixa_login,
+                       ue.login AS usuario_estorno_login
+                FROM titulos_financeiros t
+                LEFT JOIN pessoas p ON p.id = t.pessoa_id AND p.empresa_id = t.empresa_id
+                LEFT JOIN contas_caixa cx ON cx.id = t.conta_caixa_prevista_id AND cx.empresa_id = t.empresa_id
+                LEFT JOIN contas_caixa cxb ON cxb.id = t.conta_caixa_baixa_id AND cxb.empresa_id = t.empresa_id
+                LEFT JOIN empresas e ON e.id = t.empresa_id
+                LEFT JOIN usuarios u ON u.id = t.usuario_criacao_id
+                LEFT JOIN usuarios ub ON ub.id = t.usuario_baixa_id
+                LEFT JOIN usuarios ue ON ue.id = t.usuario_estorno_id
+                WHERE t.id = %s
+            """
+            params = [id]
+            if not is_super_admin:
+                query += " AND t.empresa_id = %s"
+                params.append(empresa_logada_id)
+            query += " LIMIT 1"
+
+            cur.execute(query, params)
+            titulo = cur.fetchone()
+            if not titulo:
+                flash("Título financeiro não encontrado ou não pertence à empresa logada.", "danger")
+                return redirect(url_for('financeiro.financeiro_titulos'))
+
+            cur.execute("""
+                SELECT id, tipo_vinculo, origem_tabela, origem_id, descricao, valor_vinculo
+                FROM titulos_financeiros_vinculos
+                WHERE titulo_financeiro_id = %s
+                  AND empresa_id = %s
+                ORDER BY id ASC
+            """, (id, titulo['empresa_id']))
+            vinculos = cur.fetchall()
+
+            cur.execute("""
+                SELECT m.*,
+                       cx.nome_conta AS conta_caixa_nome,
+                       u.login AS usuario_login
+                FROM movimentacoes_caixa m
+                INNER JOIN contas_caixa cx ON cx.id = m.conta_caixa_id AND cx.empresa_id = m.empresa_id
+                LEFT JOIN usuarios u ON u.id = m.usuario_criacao_id
+                WHERE m.titulo_financeiro_id = %s
+                  AND m.empresa_id = %s
+                ORDER BY m.data_movimentacao DESC, m.id DESC
+            """, (id, titulo['empresa_id']))
+            movimentacoes = cur.fetchall()
+
+            parametros_financeiros = services["carregar_parametros_financeiros_empresa"](titulo['empresa_id'], cur=cur)
+            conta_padrao_id = str(parametros_financeiros.get('caixa.conta_padrao_id', {}).get('valor') or '')
+            forma_pagamento_padrao = parametros_financeiros.get('caixa.forma_pagamento_padrao', {}).get('valor') or (titulo.get('forma_pagamento') or 'PIX')
+
+            contas_caixa = []
+            if titulo.get('status_titulo') not in ['Pago', 'Recebido', 'Cancelado', 'Estornado']:
+                cur.execute("""
+                    SELECT id, nome_conta, tipo_conta, banco, agencia, numero_conta, saldo_inicial, status_conta
+                    FROM contas_caixa
+                    WHERE empresa_id = %s
+                      AND status_conta = 'Ativa'
+                    ORDER BY nome_conta ASC
+                """, (titulo['empresa_id'],))
+                contas_caixa = cur.fetchall()
+                for conta in contas_caixa:
+                    saldo_info = services["calcular_saldo_conta_caixa"](cur, conta['id'], titulo['empresa_id'])
+                    conta['saldo_atual'] = (saldo_info or {}).get('saldo_atual', Decimal('0.00'))
+
+        except Exception as e:
+            print(f"Erro ao carregar detalhes do título financeiro: {e}")
+            flash(f"Erro técnico ao carregar título financeiro: {e}", "danger")
+            return redirect(url_for('financeiro.financeiro_titulos'))
+        finally:
+            services["fechar_cursor_conexao"](cur, con)
+
+        return render_template(
+            'financeiro_titulo_detalhes.html',
+            usuario_logado=usuario_logado,
+            titulo=titulo,
+            vinculos=vinculos,
+            movimentacoes=movimentacoes,
+            contas_caixa=contas_caixa,
+            formas_pagamento=services["financeiro_base_formas_pagamento"](),
+            parametros_financeiros=parametros_financeiros,
+            parametro_bool=services["parametro_bool"],
+            conta_padrao_id=conta_padrao_id,
+            forma_pagamento_padrao=forma_pagamento_padrao,
+            is_super_admin=is_super_admin,
+            hoje=date.today().strftime('%Y-%m-%d')
+        )
+
     return financeiro_bp

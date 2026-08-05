@@ -125,7 +125,7 @@
                                 <td>{{ titulo.pessoa_nome or '-' }}</td>
                                 <td>{{ titulo.descricao or titulo.numero_documento or '-' }}</td>
                                 <td class="text-end fw-bold">{{ titulo.valor_liquido|moeda_br }}</td>
-                                <td><a href="{{ url_for('detalhes_titulo_financeiro', id=titulo.id) }}" class="btn btn-sm btn-outline-primary">Abrir</a></td>
+                                <td><a href="{{ url_for('financeiro.detalhes_titulo_financeiro', id=titulo.id) }}" class="btn btn-sm btn-outline-primary">Abrir</a></td>
                             </tr>
                         {% else %}
                             <tr><td colspan="5" class="text-center text-muted py-4">Nenhum título vencendo nos próximos 7 dias.</td></tr>
