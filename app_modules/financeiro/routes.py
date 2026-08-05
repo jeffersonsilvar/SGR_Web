@@ -510,4 +510,225 @@ def criar_financeiro_blueprint(services):
             is_super_admin=is_super_admin,
         )
 
+    @financeiro_bp.route(
+        "/financeiro/conciliacao-caixa/acao",
+        methods=["POST"],
+    )
+    @login_required
+    @perfis_permitidos("Administrador", "Operacional", "Financeiro")
+    def financeiro_conciliacao_caixa_acao():
+        empresa_logada_id = session.get("empresa_id")
+        usuario_id = session.get("usuario_id")
+        is_super_admin = services["usuario_eh_super_admin_global"]()
+
+        ids = request.form.getlist("movimentacao_ids")
+        acao = (request.form.get("acao") or "").strip()
+        observacao = (
+            request.form.get("observacao_conciliacao") or ""
+        ).strip()
+
+        conta_caixa_id = (
+            request.form.get("filtro_conta_caixa_id") or ""
+        )
+        status_conciliacao = (
+            request.form.get("filtro_status_conciliacao") or ""
+        )
+        status_movimentacao = (
+            request.form.get("filtro_status_movimentacao") or ""
+        )
+        tipo_movimentacao = (
+            request.form.get("filtro_tipo_movimentacao") or ""
+        )
+        data_inicio = request.form.get("filtro_data_inicio") or ""
+        data_fim = request.form.get("filtro_data_fim") or ""
+        pesquisa = request.form.get("filtro_pesquisa") or ""
+        empresa_id_filtro = (
+            request.form.get("filtro_empresa_id") or ""
+        )
+
+        redirect_params = {
+            "conta_caixa_id": conta_caixa_id,
+            "status_conciliacao": status_conciliacao,
+            "status_movimentacao": status_movimentacao,
+            "tipo_movimentacao": tipo_movimentacao,
+            "data_inicio": data_inicio,
+            "data_fim": data_fim,
+            "pesquisa": pesquisa,
+            "empresa_id": empresa_id_filtro,
+        }
+        redirect_params = {
+            chave: valor
+            for chave, valor in redirect_params.items()
+            if valor
+        }
+
+        ids_validos = []
+        for item in ids:
+            try:
+                ids_validos.append(int(item))
+            except (TypeError, ValueError):
+                continue
+
+        if not ids_validos:
+            flash(
+                "Selecione pelo menos uma movimentação para conciliar.",
+                "warning",
+            )
+            return redirect(
+                url_for(
+                    "financeiro.financeiro_conciliacao_caixa",
+                    **redirect_params,
+                )
+            )
+
+        mapa_status = {
+            "conciliar": "Conciliada",
+            "divergente": "Divergente",
+            "pendente": "Pendente",
+            "nao_conciliavel": "Nao conciliavel",
+        }
+        novo_status = mapa_status.get(acao)
+
+        if not novo_status:
+            flash("Ação de conciliação inválida.", "danger")
+            return redirect(
+                url_for(
+                    "financeiro.financeiro_conciliacao_caixa",
+                    **redirect_params,
+                )
+            )
+
+        if (
+            acao in ["divergente", "nao_conciliavel"]
+            and not observacao
+        ):
+            flash(
+                "Informe uma observação para marcar movimentação "
+                "como divergente ou não conciliável.",
+                "warning",
+            )
+            return redirect(
+                url_for(
+                    "financeiro.financeiro_conciliacao_caixa",
+                    **redirect_params,
+                )
+            )
+
+        con = services["obter_conexao"]()
+        if con is None:
+            flash("Erro de conexão com o banco de dados.", "danger")
+            return redirect(
+                url_for(
+                    "financeiro.financeiro_conciliacao_caixa",
+                    **redirect_params,
+                )
+            )
+
+        cur = con.cursor(dictionary=True)
+        try:
+            placeholders = ",".join(["%s"] * len(ids_validos))
+            params = list(ids_validos)
+            filtro_empresa_sql = ""
+
+            if not is_super_admin:
+                filtro_empresa_sql = " AND empresa_id = %s"
+                params.append(empresa_logada_id)
+            elif (
+                empresa_id_filtro
+                and str(empresa_id_filtro).isdigit()
+            ):
+                filtro_empresa_sql = " AND empresa_id = %s"
+                params.append(int(empresa_id_filtro))
+
+            if novo_status == "Pendente":
+                sql = f"""
+                    UPDATE movimentacoes_caixa
+                    SET status_conciliacao = 'Pendente',
+                        data_conciliacao = NULL,
+                        usuario_conciliacao_id = NULL,
+                        observacao_conciliacao = %s
+                    WHERE id IN ({placeholders})
+                    {filtro_empresa_sql}
+                """
+                params_update = [observacao or None] + params
+            else:
+                sql = f"""
+                    UPDATE movimentacoes_caixa
+                    SET status_conciliacao = %s,
+                        data_conciliacao = NOW(),
+                        usuario_conciliacao_id = %s,
+                        observacao_conciliacao = %s
+                    WHERE id IN ({placeholders})
+                    {filtro_empresa_sql}
+                """
+                params_update = [
+                    novo_status,
+                    usuario_id,
+                    observacao or None,
+                ] + params
+
+            cur.execute(sql, params_update)
+            afetadas = cur.rowcount
+
+            empresa_auditoria = empresa_logada_id
+            if (
+                is_super_admin
+                and empresa_id_filtro
+                and str(empresa_id_filtro).isdigit()
+            ):
+                empresa_auditoria = int(empresa_id_filtro)
+
+            services["registrar_auditoria_financeira"](
+                cur,
+                empresa_id=empresa_auditoria,
+                usuario_id=usuario_id,
+                acao="CONCILIACAO_CAIXA_ATUALIZADA",
+                modulo="CONCILIACAO_CAIXA",
+                entidade_tipo="MOVIMENTACOES_CAIXA",
+                entidade_id=None,
+                status_novo=novo_status,
+                motivo=f"Ação de conciliação: {acao}",
+                observacao=(
+                    observacao
+                    or f"{afetadas} movimentação(ões) atualizada(s)."
+                ),
+                dados_depois={
+                    "ids": ids_validos,
+                    "acao": acao,
+                    "novo_status": novo_status,
+                    "quantidade": afetadas,
+                },
+            )
+            con.commit()
+
+            label = (
+                "Não conciliável"
+                if novo_status == "Nao conciliavel"
+                else novo_status
+            )
+            flash(
+                f"{afetadas} movimentação(ões) atualizada(s) "
+                f"para {label}.",
+                "success",
+            )
+        except Exception as exc:
+            try:
+                con.rollback()
+            except Exception:
+                pass
+            print(f"Erro ao aplicar conciliação de caixa: {exc}")
+            flash(
+                f"Erro técnico ao aplicar conciliação: {exc}",
+                "danger",
+            )
+        finally:
+            services["fechar_cursor_conexao"](cur, con)
+
+        return redirect(
+            url_for(
+                "financeiro.financeiro_conciliacao_caixa",
+                **redirect_params,
+            )
+        )
+
     return financeiro_bp
