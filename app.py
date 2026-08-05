@@ -18417,7 +18417,7 @@ def solicitar_pagamento_nf_motorista(id):
         )
 
         flash(f"Pagamento solicitado com sucesso. {msg}", "success")
-        return redirect(url_for('detalhes_titulo_financeiro', id=titulo_id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=titulo_id))
 
     except Exception as e:
         con.rollback()
@@ -20048,7 +20048,7 @@ def novo_titulo_financeiro():
             con.commit()
 
             flash(f"Título financeiro #{titulo_id} criado com sucesso.", "success")
-            return redirect(url_for('detalhes_titulo_financeiro', id=titulo_id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=titulo_id))
 
         except Exception as e:
             con.rollback()
@@ -20341,117 +20341,6 @@ def aplicar_baixa_em_documento_motorista_e_rotas(cur, *, titulo_id, empresa_id, 
         """, [empresa_id] + rota_ids)
 
 
-@app.route('/financeiro/titulos/<int:id>', methods=['GET'])
-@login_required
-@perfis_permitidos('Administrador', 'Operacional', 'Financeiro', 'Consulta')
-def detalhes_titulo_financeiro(id):
-    usuario_logado = session.get('usuario_nome', 'Usuário')
-    empresa_logada_id = session.get('empresa_id')
-    is_super_admin = usuario_eh_super_admin_global()
-
-    con = obter_conexao()
-    if con is None:
-        flash("Erro de conexão com o banco de dados.", "danger")
-        return redirect(url_for('financeiro.financeiro_titulos'))
-
-    cur = con.cursor(dictionary=True)
-    try:
-        query = """
-            SELECT t.*,
-                   p.nome_completo AS pessoa_nome,
-                   p.cpf_cnpj AS pessoa_cpf_cnpj,
-                   p.tipo_cadastro AS pessoa_tipo,
-                   cx.nome_conta AS conta_caixa_nome,
-                   cxb.nome_conta AS conta_caixa_baixa_nome,
-                   e.nome_fantasia AS empresa_nome,
-                   e.razao_social AS empresa_razao_social,
-                   u.login AS usuario_criacao_login,
-                   ub.login AS usuario_baixa_login,
-                   ue.login AS usuario_estorno_login
-            FROM titulos_financeiros t
-            LEFT JOIN pessoas p ON p.id = t.pessoa_id AND p.empresa_id = t.empresa_id
-            LEFT JOIN contas_caixa cx ON cx.id = t.conta_caixa_prevista_id AND cx.empresa_id = t.empresa_id
-            LEFT JOIN contas_caixa cxb ON cxb.id = t.conta_caixa_baixa_id AND cxb.empresa_id = t.empresa_id
-            LEFT JOIN empresas e ON e.id = t.empresa_id
-            LEFT JOIN usuarios u ON u.id = t.usuario_criacao_id
-            LEFT JOIN usuarios ub ON ub.id = t.usuario_baixa_id
-            LEFT JOIN usuarios ue ON ue.id = t.usuario_estorno_id
-            WHERE t.id = %s
-        """
-        params = [id]
-        if not is_super_admin:
-            query += " AND t.empresa_id = %s"
-            params.append(empresa_logada_id)
-        query += " LIMIT 1"
-
-        cur.execute(query, params)
-        titulo = cur.fetchone()
-        if not titulo:
-            flash("Título financeiro não encontrado ou não pertence à empresa logada.", "danger")
-            return redirect(url_for('financeiro.financeiro_titulos'))
-
-        cur.execute("""
-            SELECT id, tipo_vinculo, origem_tabela, origem_id, descricao, valor_vinculo
-            FROM titulos_financeiros_vinculos
-            WHERE titulo_financeiro_id = %s
-              AND empresa_id = %s
-            ORDER BY id ASC
-        """, (id, titulo['empresa_id']))
-        vinculos = cur.fetchall()
-
-        cur.execute("""
-            SELECT m.*,
-                   cx.nome_conta AS conta_caixa_nome,
-                   u.login AS usuario_login
-            FROM movimentacoes_caixa m
-            INNER JOIN contas_caixa cx ON cx.id = m.conta_caixa_id AND cx.empresa_id = m.empresa_id
-            LEFT JOIN usuarios u ON u.id = m.usuario_criacao_id
-            WHERE m.titulo_financeiro_id = %s
-              AND m.empresa_id = %s
-            ORDER BY m.data_movimentacao DESC, m.id DESC
-        """, (id, titulo['empresa_id']))
-        movimentacoes = cur.fetchall()
-
-        parametros_financeiros = carregar_parametros_financeiros_empresa(titulo['empresa_id'], cur=cur)
-        conta_padrao_id = str(parametros_financeiros.get('caixa.conta_padrao_id', {}).get('valor') or '')
-        forma_pagamento_padrao = parametros_financeiros.get('caixa.forma_pagamento_padrao', {}).get('valor') or (titulo.get('forma_pagamento') or 'PIX')
-
-        contas_caixa = []
-        if titulo.get('status_titulo') not in ['Pago', 'Recebido', 'Cancelado', 'Estornado']:
-            cur.execute("""
-                SELECT id, nome_conta, tipo_conta, banco, agencia, numero_conta, saldo_inicial, status_conta
-                FROM contas_caixa
-                WHERE empresa_id = %s
-                  AND status_conta = 'Ativa'
-                ORDER BY nome_conta ASC
-            """, (titulo['empresa_id'],))
-            contas_caixa = cur.fetchall()
-            for conta in contas_caixa:
-                saldo_info = calcular_saldo_conta_caixa(cur, conta['id'], titulo['empresa_id'])
-                conta['saldo_atual'] = (saldo_info or {}).get('saldo_atual', Decimal('0.00'))
-
-    except Exception as e:
-        print(f"Erro ao carregar detalhes do título financeiro: {e}")
-        flash(f"Erro técnico ao carregar título financeiro: {e}", "danger")
-        return redirect(url_for('financeiro.financeiro_titulos'))
-    finally:
-        fechar_cursor_conexao(cur, con)
-
-    return render_template(
-        'financeiro_titulo_detalhes.html',
-        usuario_logado=usuario_logado,
-        titulo=titulo,
-        vinculos=vinculos,
-        movimentacoes=movimentacoes,
-        contas_caixa=contas_caixa,
-        formas_pagamento=financeiro_base_formas_pagamento(),
-        parametros_financeiros=parametros_financeiros,
-        parametro_bool=parametro_bool,
-        conta_padrao_id=conta_padrao_id,
-        forma_pagamento_padrao=forma_pagamento_padrao,
-        is_super_admin=is_super_admin,
-        hoje=date.today().strftime('%Y-%m-%d')
-    )
 
 @app.route('/financeiro/titulos/<int:id>/cancelar', methods=['POST'])
 @login_required
@@ -20464,7 +20353,7 @@ def cancelar_titulo_financeiro(id):
 
     if len(motivo) < 5:
         flash("Informe um motivo de cancelamento com pelo menos 5 caracteres.", "warning")
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
     con = obter_conexao()
     if con is None:
@@ -20488,7 +20377,7 @@ def cancelar_titulo_financeiro(id):
 
         if titulo.get('status_titulo') in ['Pago', 'Recebido', 'Cancelado', 'Estornado']:
             flash(f"Este título não pode ser cancelado. Status atual: {titulo.get('status_titulo')}.", "warning")
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         cur.execute("""
             UPDATE titulos_financeiros
@@ -20523,7 +20412,7 @@ def cancelar_titulo_financeiro(id):
     finally:
         fechar_cursor_conexao(cur, con)
 
-    return redirect(url_for('detalhes_titulo_financeiro', id=id))
+    return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
 
 
@@ -20545,16 +20434,16 @@ def baixar_titulo_financeiro(id):
 
     if not conta_caixa_id or not conta_caixa_id.isdigit():
         flash("Selecione uma conta caixa válida para baixar o título.", "danger")
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
     conta_caixa_id = int(conta_caixa_id)
 
     if not data_pagamento or not validar_data_iso(data_pagamento):
         flash("Informe uma data de pagamento/recebimento válida.", "danger")
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
     if forma_pagamento not in financeiro_base_formas_pagamento():
         flash("Selecione uma forma de pagamento válida.", "danger")
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
     con = obter_conexao()
     if con is None:
@@ -20590,16 +20479,16 @@ def baixar_titulo_financeiro(id):
 
         if not permitir_data_retroativa and data_pagamento < date.today().strftime('%Y-%m-%d'):
             flash('Baixa retroativa bloqueada pelas configurações financeiras da empresa.', 'warning')
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         if exigir_comprovante_baixa and (not comprovante or not getattr(comprovante, 'filename', '')):
             flash('Comprovante obrigatório para baixa, conforme configuração financeira da empresa.', 'warning')
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         status_atual = titulo.get('status_titulo') or 'Aberto'
         if status_atual in ['Pago', 'Recebido', 'Cancelado', 'Estornado']:
             flash(f"Este título não pode ser baixado. Status atual: {status_atual}.", "warning")
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         # Proteção contra duplicidade: se já existe movimentação ativa para este título,
         # não cria outra baixa mesmo que o status do título ainda não tenha sido atualizado.
@@ -20615,23 +20504,23 @@ def baixar_titulo_financeiro(id):
                 "A baixa não foi duplicada. Abra as movimentações do título para conferir.",
                 "warning"
             )
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         valor_liquido = converter_decimal(titulo.get('valor_liquido'))
         if valor_pago <= 0:
             flash("Informe um valor de baixa maior que zero.", "danger")
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         if valor_pago != valor_liquido:
             if valor_pago < valor_liquido and permitir_pagamento_parcial:
                 flash('Pagamento parcial registrado como baixa total ainda não está disponível nesta etapa. A configuração já foi preparada, mas a conciliação parcial será liberada em bloco próprio.', 'warning')
-                return redirect(url_for('detalhes_titulo_financeiro', id=id))
+                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
             if not permitir_valor_diferente:
                 flash(
                     'O valor baixado precisa ser igual ao valor líquido do título, conforme configuração financeira da empresa.',
                     'warning'
                 )
-                return redirect(url_for('detalhes_titulo_financeiro', id=id))
+                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         cur.execute("""
             SELECT id, nome_conta, status_conta
@@ -20644,7 +20533,7 @@ def baixar_titulo_financeiro(id):
         conta = cur.fetchone()
         if not conta:
             flash("Conta caixa inválida, inativa ou não pertence à empresa do título.", "danger")
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         tipo_movimentacao = 'SAIDA' if titulo.get('tipo_titulo') == 'PAGAR' else 'ENTRADA'
         novo_status = 'Pago' if titulo.get('tipo_titulo') == 'PAGAR' else 'Recebido'
@@ -20659,7 +20548,7 @@ def baixar_titulo_financeiro(id):
                     "A empresa está configurada para não permitir caixa negativo.",
                     "danger"
                 )
-                return redirect(url_for('detalhes_titulo_financeiro', id=id))
+                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         comprovante_url = salvar_comprovante_baixa_titulo(
             cur,
@@ -20685,7 +20574,7 @@ def baixar_titulo_financeiro(id):
                 "Este título já possui baixa registrada. A operação não foi duplicada.",
                 "warning"
             )
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         cur.execute("""
             INSERT INTO movimentacoes_caixa
@@ -20770,7 +20659,7 @@ def baixar_titulo_financeiro(id):
         )
         con.commit()
         flash(f"Título financeiro #{id} baixado com sucesso como {novo_status}.", "success")
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
     except Exception as e:
         try:
@@ -20784,7 +20673,7 @@ def baixar_titulo_financeiro(id):
             "A operação foi interrompida com segurança; confira se o título possui movimentação antes de tentar novamente.",
             "danger"
         )
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
     finally:
         fechar_cursor_conexao(cur, con)
@@ -21001,15 +20890,15 @@ def estornar_baixa_titulo_financeiro(id):
 
     if len(motivo) < 5:
         flash("Informe um motivo de estorno com pelo menos 5 caracteres.", "warning")
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
     if not data_estorno or not validar_data_iso(data_estorno):
         flash("Informe uma data de estorno válida.", "danger")
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
     if destino not in ['reabrir', 'encerrar']:
         flash("Selecione o destino do título após o estorno.", "danger")
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
     tratativas_validas = ['manter_bloqueadas', 'reabrir_mesmo_documento', 'exigir_nova_nf', 'cancelar_rotas']
     if tratativa_pos_estorno not in tratativas_validas:
@@ -21043,24 +20932,24 @@ def estornar_baixa_titulo_financeiro(id):
         parametros_financeiros = carregar_parametros_financeiros_empresa(titulo['empresa_id'], cur=cur)
         if not parametro_bool(parametros_financeiros.get('estorno.permitir_estorno_baixa', {}).get('valor')):
             flash('Estorno de baixa bloqueado pelas configurações financeiras da empresa.', 'warning')
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
         if destino == 'reabrir' and not parametro_bool(parametros_financeiros.get('estorno.permitir_reabrir_titulo', {}).get('valor')):
             flash('Reabrir título após estorno está bloqueado nas configurações financeiras da empresa.', 'warning')
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
         if destino == 'encerrar' and not parametro_bool(parametros_financeiros.get('estorno.permitir_encerrar_estornado', {}).get('valor')):
             flash('Encerrar título como estornado está bloqueado nas configurações financeiras da empresa.', 'warning')
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
         if destino == 'encerrar' and tratativa_pos_estorno != 'manter_bloqueadas' and not parametro_bool(parametros_financeiros.get('estorno.permitir_tratativa_pos_estorno', {}).get('valor')):
             flash('Tratativa pós-estorno está bloqueada nas configurações financeiras da empresa.', 'warning')
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
         if tratativa_pos_estorno == 'reabrir_mesmo_documento' and not parametro_bool(parametros_financeiros.get('documentos.permitir_reaproveitar_pos_estorno', {}).get('valor')):
             flash('Reaproveitar documento após estorno está bloqueado nas configurações financeiras da empresa.', 'warning')
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         status_atual = titulo.get('status_titulo') or ''
         if status_atual not in ['Pago', 'Recebido']:
             flash(f"Somente títulos pagos ou recebidos podem ter a baixa estornada. Status atual: {status_atual}.", "warning")
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         movimentacoes = buscar_movimentacoes_baixa_nao_estornadas(
             cur,
@@ -21069,7 +20958,7 @@ def estornar_baixa_titulo_financeiro(id):
         )
         if not movimentacoes:
             flash("Nenhuma movimentação de baixa ativa foi encontrada para estornar este título.", "warning")
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         for mov in movimentacoes:
             tipo_inverso = 'ENTRADA' if mov.get('tipo_movimentacao') == 'SAIDA' else 'SAIDA'
@@ -21249,7 +21138,7 @@ def estornar_baixa_titulo_financeiro(id):
             flash(f"Baixa do título #{id} estornada com sucesso. O título foi reaberto para nova baixa.", "success")
         else:
             flash(f"Baixa do título #{id} estornada com sucesso. O título foi encerrado como Estornado.", "success")
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
     except Exception as e:
         try:
@@ -21258,7 +21147,7 @@ def estornar_baixa_titulo_financeiro(id):
             print(f"Aviso: não foi possível executar rollback do estorno do título {id}: {rollback_error}")
         print(f"Erro ao estornar baixa do título financeiro {id}: {e}")
         flash("Erro técnico ao estornar baixa financeira.", "danger")
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
     finally:
         fechar_cursor_conexao(cur, con)
 
@@ -21288,11 +21177,11 @@ def tratar_pos_estorno_titulo_financeiro(id):
 
     if tratativa not in tratativas_validas:
         flash('Selecione uma tratativa válida para o pós-estorno.', 'warning')
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
     if len(motivo) < 5:
         flash('Informe um motivo com pelo menos 5 caracteres para a tratativa.', 'warning')
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
     con = obter_conexao()
     if con is None:
@@ -21325,11 +21214,11 @@ def tratar_pos_estorno_titulo_financeiro(id):
 
         if titulo.get('status_titulo') != 'Estornado':
             flash('A tratativa pós-estorno só pode ser aplicada em títulos com status Estornado.', 'warning')
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         if titulo.get('origem') not in ['NF_MOTORISTA', 'SEM_NF_MOTORISTA']:
             flash('Este título não possui documento de motorista vinculado para tratativa pós-estorno.', 'warning')
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         tratativa_ja_aplicada = bool(titulo.get('tratativa_pos_estorno_aplicada'))
         if not tratativa_ja_aplicada and titulo.get('observacao_baixa') and 'Tratativa pós-estorno aplicada' in str(titulo.get('observacao_baixa')):
@@ -21337,15 +21226,15 @@ def tratar_pos_estorno_titulo_financeiro(id):
 
         if tratativa_ja_aplicada:
             flash('Este título já possui tratativa pós-estorno aplicada. A decisão é final e não pode ser alterada por esta tela.', 'warning')
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         parametros_financeiros = carregar_parametros_financeiros_empresa(titulo['empresa_id'], cur=cur)
         if not parametro_bool(parametros_financeiros.get('estorno.permitir_tratativa_pos_estorno', {}).get('valor')):
             flash('Tratativa pós-estorno está bloqueada pelas configurações financeiras da empresa.', 'warning')
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
         if tratativa == 'reabrir_mesmo_documento' and not parametro_bool(parametros_financeiros.get('documentos.permitir_reaproveitar_pos_estorno', {}).get('valor')):
             flash('Reaproveitar documento após estorno está bloqueado nas configurações financeiras da empresa.', 'warning')
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         texto_tratativa = tratativas_validas.get(tratativa, tratativa)
         obs_titulo = (
@@ -21389,7 +21278,7 @@ def tratar_pos_estorno_titulo_financeiro(id):
         if cur.rowcount == 0:
             con.rollback()
             flash('Este título já recebeu uma tratativa pós-estorno. A decisão anterior foi preservada.', 'warning')
-            return redirect(url_for('detalhes_titulo_financeiro', id=id))
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
         cur.execute("""
             INSERT INTO historico_operacoes
@@ -21420,7 +21309,7 @@ def tratar_pos_estorno_titulo_financeiro(id):
         )
         con.commit()
         flash(f'Tratativa pós-estorno aplicada com sucesso: {texto_tratativa}.', 'success')
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
     except Exception as e:
         try:
@@ -21429,7 +21318,7 @@ def tratar_pos_estorno_titulo_financeiro(id):
             print(f"Aviso: não foi possível executar rollback da tratativa pós-estorno do título {id}: {rollback_error}")
         print(f"Erro na tratativa pós-estorno do título financeiro {id}: {e}")
         flash('Erro técnico ao aplicar tratativa pós-estorno.', 'danger')
-        return redirect(url_for('detalhes_titulo_financeiro', id=id))
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
     finally:
         fechar_cursor_conexao(cur, con)
 
@@ -21640,6 +21529,8 @@ financeiro_services = {
     "financeiro_base_status_titulos": financeiro_base_status_titulos,
     "financeiro_base_formas_pagamento": financeiro_base_formas_pagamento,
     "carregar_pessoas_financeiro": carregar_pessoas_financeiro,
+    "carregar_parametros_financeiros_empresa": carregar_parametros_financeiros_empresa,
+    "parametro_bool": parametro_bool,
 }
 
 app.extensions["financeiro_services"] = financeiro_services

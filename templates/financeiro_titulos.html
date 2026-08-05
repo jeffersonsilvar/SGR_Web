@@ -170,7 +170,7 @@
                         <td><span class="badge bg-secondary-subtle text-dark">{{ titulo.status_titulo }}</span></td>
                         <td><span class="badge bg-light text-dark border">{{ titulo.origem }}</span></td>
                         <td class="text-end">
-                            <a href="{{ url_for('detalhes_titulo_financeiro', id=titulo.id) }}" class="btn btn-sm btn-outline-primary">Ver</a>
+                            <a href="{{ url_for('financeiro.detalhes_titulo_financeiro', id=titulo.id) }}" class="btn btn-sm btn-outline-primary">Ver</a>
                         </td>
                     </tr>
                     {% else %}

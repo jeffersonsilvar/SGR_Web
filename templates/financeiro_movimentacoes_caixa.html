@@ -94,7 +94,7 @@
                         <td class="text-end fw-bold">{{ mov.valor_movimentacao|moeda_br }}</td>
                         <td>
                             {% if mov.titulo_financeiro_id %}
-                                <a href="{{ url_for('detalhes_titulo_financeiro', id=mov.titulo_financeiro_id) }}" class="btn btn-sm btn-outline-primary">Título</a>
+                                <a href="{{ url_for('financeiro.detalhes_titulo_financeiro', id=mov.titulo_financeiro_id) }}" class="btn btn-sm btn-outline-primary">Título</a>
                             {% endif %}
                             {% if mov.comprovante_url %}
                                 <a href="{{ mov.comprovante_url|arquivo_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">Comprovante</a>
