@@ -433,7 +433,7 @@
     {% endif %}
 
     <div class="quick-actions">
-        {% if acl.financeiro %}<a class="quick-link" href="{{ url_for('financeiro_titulos') }}"><i class="fa-solid fa-money-check-dollar text-primary me-2"></i><strong>Títulos</strong><small>Gestão financeira</small></a>{% endif %}
+        {% if acl.financeiro %}<a class="quick-link" href="{{ url_for('financeiro.financeiro_titulos') }}"><i class="fa-solid fa-money-check-dollar text-primary me-2"></i><strong>Títulos</strong><small>Gestão financeira</small></a>{% endif %}
         {% if acl.operacao %}<a class="quick-link" href="{{ url_for('visualizar_rotas') }}"><i class="fa-solid fa-truck-fast text-success me-2"></i><strong>Rotas</strong><small>Operação</small></a>{% endif %}
         {% if acl.documentos %}<a class="quick-link" href="{{ url_for('financeiro_nfs_motoristas') }}"><i class="fa-solid fa-file-invoice text-warning me-2"></i><strong>Documentos/NF</strong><small>Aprovação e recusa</small></a>{% endif %}
         {% if acl.auditoria %}<a class="quick-link" href="{{ url_for('financeiro_auditoria') }}"><i class="fa-solid fa-shield text-danger me-2"></i><strong>Auditoria</strong><small>Ações críticas</small></a>{% endif %}

@@ -1070,7 +1070,7 @@ MENU_SISTEMA_PADRAO = [
 
     ('FINANCEIRO', None, 'gestao_financeira', 'Gestão Financeira', None, 'fa-solid fa-sack-dollar', 10, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro.financeiro_dashboard', 'Dashboard Financeiro', 'financeiro.financeiro_dashboard', 'fa-solid fa-chart-line', 10, ['Administrador', 'Financeiro']),
-    ('FINANCEIRO', 'gestao_financeira', 'financeiro_titulos', 'Títulos Financeiros', 'financeiro_titulos', 'fa-solid fa-list-check', 20, ['Administrador', 'Financeiro']),
+    ('FINANCEIRO', 'gestao_financeira', 'financeiro.financeiro_titulos', 'Títulos Financeiros', 'financeiro.financeiro_titulos', 'fa-solid fa-list-check', 20, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_contas_caixa', 'Contas Caixa', 'financeiro.financeiro_contas_caixa', 'fa-solid fa-building-columns', 30, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro.financeiro_movimentacoes_caixa', 'Movimentações Caixa', 'financeiro.financeiro_movimentacoes_caixa', 'fa-solid fa-right-left', 40, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro.financeiro_conciliacao_caixa', 'Conciliação de Caixa', 'financeiro.financeiro_conciliacao_caixa', 'fa-solid fa-scale-balanced', 50, ['Administrador', 'Financeiro']),
@@ -18922,7 +18922,7 @@ def financeiro_configuracoes():
     con = obter_conexao()
     if con is None:
         flash('Erro de conexão com o banco de dados.', 'danger')
-        return redirect(url_for('financeiro_titulos'))
+        return redirect(url_for('financeiro.financeiro_titulos'))
 
     cur = con.cursor(dictionary=True)
     try:
@@ -18939,7 +18939,7 @@ def financeiro_configuracoes():
         empresa_config = cur.fetchone()
         if not empresa_config:
             flash('Empresa não encontrada para configuração.', 'danger')
-            return redirect(url_for('financeiro_titulos'))
+            return redirect(url_for('financeiro.financeiro_titulos'))
 
         if request.method == 'POST':
             for chave, base in PARAMETROS_FINANCEIROS_PADRAO.items():
@@ -19015,7 +19015,7 @@ def financeiro_configuracoes():
             pass
         print(f'Erro ao carregar/salvar configurações financeiras: {e}')
         flash('Erro técnico ao processar configurações financeiras.', 'danger')
-        return redirect(url_for('financeiro_titulos'))
+        return redirect(url_for('financeiro.financeiro_titulos'))
     finally:
         fechar_cursor_conexao(cur, con)
 
@@ -19859,231 +19859,6 @@ def financeiro_auditoria():
 
 
 
-@app.route('/financeiro/titulos', methods=['GET'])
-@login_required
-@perfis_permitidos('Administrador', 'Operacional', 'Financeiro', 'Consulta')
-def financeiro_titulos():
-    usuario_logado = session.get('usuario_nome', 'Usuário')
-    empresa_logada_id = session.get('empresa_id')
-    is_super_admin = usuario_eh_super_admin_global()
-
-    if not empresa_logada_id:
-        flash("Empresa não identificada na sessão. Faça login novamente.", "danger")
-        return redirect(url_for('logout'))
-
-    tipo_titulo = (request.args.get('tipo_titulo') or '').strip()
-    status_titulo = (request.args.get('status_titulo') or '').strip()
-    origem = (request.args.get('origem') or '').strip()
-    pessoa_id = (request.args.get('pessoa_id') or '').strip()
-    data_inicio = (request.args.get('data_inicio') or '').strip()
-    data_fim = (request.args.get('data_fim') or '').strip()
-    vencimento_inicio = (request.args.get('vencimento_inicio') or '').strip()
-    vencimento_fim = (request.args.get('vencimento_fim') or '').strip()
-    pesquisa = (request.args.get('pesquisa') or '').strip()
-    empresa_id_filtro = (request.args.get('empresa_id') or '').strip()
-
-    con = obter_conexao()
-    if con is None:
-        flash("Erro de conexão com o banco de dados.", "danger")
-        return redirect(url_for('dashboard'))
-
-    cur = con.cursor(dictionary=True)
-
-    try:
-        query = """
-            SELECT t.id,
-                   t.empresa_id,
-                   t.tipo_titulo,
-                   t.origem,
-                   t.origem_id,
-                   t.pessoa_id,
-                   t.numero_documento,
-                   t.descricao,
-                   t.historico,
-                   t.valor_original,
-                   t.valor_desconto,
-                   t.valor_acrescimo,
-                   t.valor_liquido,
-                   t.data_emissao,
-                   t.data_competencia,
-                   t.data_vencimento,
-                   t.forma_pagamento,
-                   t.status_titulo,
-                   t.observacao,
-                   t.created_at,
-                   p.nome_completo AS pessoa_nome,
-                   p.cpf_cnpj AS pessoa_cpf_cnpj,
-                   p.tipo_cadastro AS pessoa_tipo,
-                   cx.nome_conta AS conta_caixa_nome,
-                   e.nome_fantasia AS empresa_nome,
-                   e.razao_social AS empresa_razao_social
-            FROM titulos_financeiros t
-            LEFT JOIN pessoas p ON p.id = t.pessoa_id AND p.empresa_id = t.empresa_id
-            LEFT JOIN contas_caixa cx ON cx.id = t.conta_caixa_prevista_id AND cx.empresa_id = t.empresa_id
-            INNER JOIN empresas e ON e.id = t.empresa_id
-            WHERE 1 = 1
-        """
-        params = []
-
-        if is_super_admin:
-            if empresa_id_filtro and empresa_id_filtro.isdigit():
-                query += " AND t.empresa_id = %s"
-                params.append(int(empresa_id_filtro))
-        else:
-            query += " AND t.empresa_id = %s"
-            params.append(empresa_logada_id)
-
-        if tipo_titulo in ['PAGAR', 'RECEBER']:
-            query += " AND t.tipo_titulo = %s"
-            params.append(tipo_titulo)
-
-        if status_titulo in financeiro_base_status_titulos():
-            query += " AND t.status_titulo = %s"
-            params.append(status_titulo)
-
-        if origem in financeiro_base_origens():
-            query += " AND t.origem = %s"
-            params.append(origem)
-
-        if pessoa_id and pessoa_id.isdigit():
-            query += " AND t.pessoa_id = %s"
-            params.append(int(pessoa_id))
-
-        if data_inicio:
-            query += " AND t.data_emissao >= %s"
-            params.append(data_inicio)
-
-        if data_fim:
-            query += " AND t.data_emissao <= %s"
-            params.append(data_fim)
-
-        if vencimento_inicio:
-            query += " AND t.data_vencimento >= %s"
-            params.append(vencimento_inicio)
-
-        if vencimento_fim:
-            query += " AND t.data_vencimento <= %s"
-            params.append(vencimento_fim)
-
-        if pesquisa:
-            query += """
-                AND (
-                    t.numero_documento LIKE %s
-                    OR t.descricao LIKE %s
-                    OR t.historico LIKE %s
-                    OR p.nome_completo LIKE %s
-                    OR p.cpf_cnpj LIKE %s
-                )
-            """
-            termo = f"%{pesquisa}%"
-            params.extend([termo, termo, termo, termo, termo])
-
-        query += " ORDER BY t.data_vencimento ASC, t.id DESC"
-        cur.execute(query, params)
-        titulos = cur.fetchall()
-
-        resumo = {
-            'pagar_aberto': Decimal('0.00'),
-            'receber_aberto': Decimal('0.00'),
-            'vencidos': Decimal('0.00'),
-            'qtd_vencidos': 0,
-            'pagos_recebidos_mes': Decimal('0.00'),
-            # Total filtrado mantém todos os registros da listagem, inclusive cancelados,
-            # para preservar a visão histórica do filtro aplicado.
-            'total_titulos': len(titulos),
-            # Indicadores gerenciais: somente títulos que ainda exigem ação.
-            'qtd_abertos': 0,
-            'qtd_cancelados': 0,
-            'qtd_baixados': 0
-        }
-
-        hoje = date.today()
-        mes_atual = hoje.strftime('%Y-%m')
-
-        for titulo in titulos:
-            status = titulo.get('status_titulo') or 'Aberto'
-            tipo = titulo.get('tipo_titulo') or ''
-            valor = converter_decimal(titulo.get('valor_liquido'))
-            vencimento = titulo.get('data_vencimento')
-
-            if status not in ['Pago', 'Recebido', 'Cancelado', 'Estornado']:
-                resumo['qtd_abertos'] += 1
-
-                if tipo == 'PAGAR':
-                    resumo['pagar_aberto'] += valor
-                elif tipo == 'RECEBER':
-                    resumo['receber_aberto'] += valor
-
-                if vencimento and vencimento < hoje:
-                    resumo['vencidos'] += valor
-                    resumo['qtd_vencidos'] += 1
-
-            elif status in ['Cancelado', 'Estornado']:
-                resumo['qtd_cancelados'] += 1
-
-            elif status in ['Pago', 'Recebido']:
-                resumo['qtd_baixados'] += 1
-                data_emissao = titulo.get('data_emissao')
-                if data_emissao and str(data_emissao)[:7] == mes_atual:
-                    resumo['pagos_recebidos_mes'] += valor
-
-        pessoas = carregar_pessoas_financeiro(empresa_logada_id, is_super_admin)
-        contas_caixa = carregar_contas_caixa_financeiro(empresa_logada_id, is_super_admin)
-        empresas = []
-        if is_super_admin:
-            cur.execute("SELECT id, razao_social, nome_fantasia FROM empresas ORDER BY nome_fantasia ASC, razao_social ASC")
-            empresas = cur.fetchall()
-
-    except Exception as e:
-        print(f"Erro ao carregar títulos financeiros: {e}")
-        flash(f"Erro técnico ao carregar títulos financeiros: {e}", "danger")
-        titulos = []
-        resumo = {
-            'pagar_aberto': 0,
-            'receber_aberto': 0,
-            'vencidos': 0,
-            'qtd_vencidos': 0,
-            'pagos_recebidos_mes': 0,
-            'total_titulos': 0,
-            'qtd_abertos': 0,
-            'qtd_cancelados': 0,
-            'qtd_baixados': 0
-        }
-        pessoas = []
-        contas_caixa = []
-        empresas = []
-
-    finally:
-        fechar_cursor_conexao(cur, con)
-
-    filtros = {
-        'tipo_titulo': tipo_titulo,
-        'status_titulo': status_titulo,
-        'origem': origem,
-        'pessoa_id': pessoa_id,
-        'data_inicio': data_inicio,
-        'data_fim': data_fim,
-        'vencimento_inicio': vencimento_inicio,
-        'vencimento_fim': vencimento_fim,
-        'pesquisa': pesquisa,
-        'empresa_id': empresa_id_filtro
-    }
-
-    return render_template(
-        'financeiro_titulos.html',
-        usuario_logado=usuario_logado,
-        titulos=titulos,
-        resumo=resumo,
-        filtros=filtros,
-        pessoas=pessoas,
-        contas_caixa=contas_caixa,
-        empresas=empresas,
-        status_titulos=financeiro_base_status_titulos(),
-        origens=financeiro_base_origens(),
-        formas_pagamento=financeiro_base_formas_pagamento(),
-        is_super_admin=is_super_admin
-    )
-
 
 @app.route('/financeiro/titulos/novo', methods=['GET', 'POST'])
 @login_required
@@ -20175,7 +19950,7 @@ def novo_titulo_financeiro():
         con = obter_conexao()
         if con is None:
             flash("Erro de conexão com o banco de dados.", "danger")
-            return redirect(url_for('financeiro_titulos'))
+            return redirect(url_for('financeiro.financeiro_titulos'))
 
         cur = con.cursor(dictionary=True)
         try:
@@ -20577,7 +20352,7 @@ def detalhes_titulo_financeiro(id):
     con = obter_conexao()
     if con is None:
         flash("Erro de conexão com o banco de dados.", "danger")
-        return redirect(url_for('financeiro_titulos'))
+        return redirect(url_for('financeiro.financeiro_titulos'))
 
     cur = con.cursor(dictionary=True)
     try:
@@ -20613,7 +20388,7 @@ def detalhes_titulo_financeiro(id):
         titulo = cur.fetchone()
         if not titulo:
             flash("Título financeiro não encontrado ou não pertence à empresa logada.", "danger")
-            return redirect(url_for('financeiro_titulos'))
+            return redirect(url_for('financeiro.financeiro_titulos'))
 
         cur.execute("""
             SELECT id, tipo_vinculo, origem_tabela, origem_id, descricao, valor_vinculo
@@ -20658,7 +20433,7 @@ def detalhes_titulo_financeiro(id):
     except Exception as e:
         print(f"Erro ao carregar detalhes do título financeiro: {e}")
         flash(f"Erro técnico ao carregar título financeiro: {e}", "danger")
-        return redirect(url_for('financeiro_titulos'))
+        return redirect(url_for('financeiro.financeiro_titulos'))
     finally:
         fechar_cursor_conexao(cur, con)
 
@@ -20694,7 +20469,7 @@ def cancelar_titulo_financeiro(id):
     con = obter_conexao()
     if con is None:
         flash("Erro de conexão com o banco de dados.", "danger")
-        return redirect(url_for('financeiro_titulos'))
+        return redirect(url_for('financeiro.financeiro_titulos'))
 
     cur = con.cursor(dictionary=True)
     try:
@@ -20709,7 +20484,7 @@ def cancelar_titulo_financeiro(id):
 
         if not titulo:
             flash("Título financeiro não encontrado ou não pertence à empresa logada.", "danger")
-            return redirect(url_for('financeiro_titulos'))
+            return redirect(url_for('financeiro.financeiro_titulos'))
 
         if titulo.get('status_titulo') in ['Pago', 'Recebido', 'Cancelado', 'Estornado']:
             flash(f"Este título não pode ser cancelado. Status atual: {titulo.get('status_titulo')}.", "warning")
@@ -20784,7 +20559,7 @@ def baixar_titulo_financeiro(id):
     con = obter_conexao()
     if con is None:
         flash("Erro de conexão com o banco de dados.", "danger")
-        return redirect(url_for('financeiro_titulos'))
+        return redirect(url_for('financeiro.financeiro_titulos'))
 
     cur = con.cursor(dictionary=True)
     try:
@@ -20804,7 +20579,7 @@ def baixar_titulo_financeiro(id):
 
         if not titulo:
             flash("Título financeiro não encontrado ou não pertence à empresa logada.", "danger")
-            return redirect(url_for('financeiro_titulos'))
+            return redirect(url_for('financeiro.financeiro_titulos'))
 
         parametros_financeiros = carregar_parametros_financeiros_empresa(titulo['empresa_id'], cur=cur)
         exigir_comprovante_baixa = parametro_bool(parametros_financeiros.get('baixa.exigir_comprovante', {}).get('valor'))
@@ -21243,7 +21018,7 @@ def estornar_baixa_titulo_financeiro(id):
     con = obter_conexao()
     if con is None:
         flash("Erro de conexão com o banco de dados.", "danger")
-        return redirect(url_for('financeiro_titulos'))
+        return redirect(url_for('financeiro.financeiro_titulos'))
 
     cur = con.cursor(dictionary=True)
     try:
@@ -21263,7 +21038,7 @@ def estornar_baixa_titulo_financeiro(id):
 
         if not titulo:
             flash("Título financeiro não encontrado ou não pertence à empresa logada.", "danger")
-            return redirect(url_for('financeiro_titulos'))
+            return redirect(url_for('financeiro.financeiro_titulos'))
 
         parametros_financeiros = carregar_parametros_financeiros_empresa(titulo['empresa_id'], cur=cur)
         if not parametro_bool(parametros_financeiros.get('estorno.permitir_estorno_baixa', {}).get('valor')):
@@ -21522,7 +21297,7 @@ def tratar_pos_estorno_titulo_financeiro(id):
     con = obter_conexao()
     if con is None:
         flash('Erro de conexão com o banco de dados.', 'danger')
-        return redirect(url_for('financeiro_titulos'))
+        return redirect(url_for('financeiro.financeiro_titulos'))
 
     cur = con.cursor(dictionary=True)
     try:
@@ -21546,7 +21321,7 @@ def tratar_pos_estorno_titulo_financeiro(id):
 
         if not titulo:
             flash('Título financeiro não encontrado ou não pertence à empresa logada.', 'danger')
-            return redirect(url_for('financeiro_titulos'))
+            return redirect(url_for('financeiro.financeiro_titulos'))
 
         if titulo.get('status_titulo') != 'Estornado':
             flash('A tratativa pós-estorno só pode ser aplicada em títulos com status Estornado.', 'warning')
@@ -21862,6 +21637,9 @@ financeiro_services = {
     "registrar_auditoria_financeira": registrar_auditoria_financeira,
     "validar_data_iso": validar_data_iso,
     "financeiro_base_origens": financeiro_base_origens,
+    "financeiro_base_status_titulos": financeiro_base_status_titulos,
+    "financeiro_base_formas_pagamento": financeiro_base_formas_pagamento,
+    "carregar_pessoas_financeiro": carregar_pessoas_financeiro,
 }
 
 app.extensions["financeiro_services"] = financeiro_services
