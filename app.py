@@ -8,7 +8,6 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, date, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
-from flask import jsonify
 
 
 from danfse_parser import parse_danfse_xml
