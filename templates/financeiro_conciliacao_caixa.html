@@ -10,7 +10,7 @@
             <a href="{{ url_for('financeiro_dashboard') }}" class="btn btn-outline-secondary">
                 <i class="fa-solid fa-chart-line me-1"></i> Dashboard
             </a>
-            <a href="{{ url_for('financeiro_movimentacoes_caixa') }}" class="btn btn-outline-secondary">
+            <a href="{{ url_for('financeiro.financeiro_movimentacoes_caixa') }}" class="btn btn-outline-secondary">
                 <i class="fa-solid fa-right-left me-1"></i> Movimentações
             </a>
         </div>
@@ -87,7 +87,7 @@
                     <button type="submit" class="btn btn-dark"><i class="fa-solid fa-filter me-1"></i> Filtrar</button>
                 </div>
                 <div class="col-md-2 d-grid">
-                    <a href="{{ url_for('financeiro_conciliacao_caixa') }}" class="btn btn-outline-secondary">Limpar</a>
+                    <a href="{{ url_for('financeiro.financeiro_conciliacao_caixa') }}" class="btn btn-outline-secondary">Limpar</a>
                 </div>
             </form>
         </div>
