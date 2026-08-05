@@ -306,7 +306,7 @@
 'baixar_pagamento_ajudante',
 'estornar_baixa_pagamento_ajudante',
 'estornar_lancamento_ajudante',
-'financeiro_dashboard',
+'financeiro.financeiro_dashboard',
 'financeiro_titulos',
 'novo_titulo_financeiro',
 'detalhes_titulo_financeiro',
@@ -618,8 +618,8 @@
 
                         <div class="collapse {% if endpoint in financeiro_menu %}show{% endif %}" id="menuFinanceiro">
                             <div class="submenu">
-                                <a class="nav-link {% if endpoint == 'financeiro_dashboard' %}active{% endif %}"
-                                   href="{{ url_for('financeiro_dashboard') }}">
+                                <a class="nav-link {% if endpoint == 'financeiro.financeiro_dashboard' %}active{% endif %}"
+                                   href="{{ url_for('financeiro.financeiro_dashboard') }}">
                                     <i class="fa-solid fa-chart-line me-2"></i>
                                     Dashboard Financeiro
                                 </a>
