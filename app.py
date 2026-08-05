@@ -8,6 +8,8 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, date, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
+from flask import jsonify
+
 
 from danfse_parser import parse_danfse_xml
 
@@ -407,6 +409,12 @@ def fechar_cursor_conexao(cur=None, con=None):
     except Exception:
         pass
 
+@app.get("/health")
+def health():
+    return jsonify(
+        status="ok",
+        service="SGR_Web"
+    ), 200
 
 # ==========================================================
 # BLOCO 6.2 — PESSOAS: CATEGORIAS, PRESTADORES E BUSCA
