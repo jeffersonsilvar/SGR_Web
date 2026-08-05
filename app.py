@@ -410,7 +410,7 @@ def fechar_cursor_conexao(cur=None, con=None):
         pass
 
 @app.get("/health")
-def health():
+def health_check():
     return jsonify(
         status="ok",
         service="SGR_Web"
