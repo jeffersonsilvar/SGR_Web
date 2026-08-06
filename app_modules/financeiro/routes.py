@@ -1394,4 +1394,486 @@ def criar_financeiro_blueprint(services):
             hoje=date.today().strftime('%Y-%m-%d')
         )
 
+    @financeiro_bp.route("/financeiro/titulos/novo", methods=["GET", "POST"])
+    @login_required
+    @perfis_permitidos("Administrador", "Operacional", "Financeiro")
+    def novo_titulo_financeiro():
+        usuario_logado = session.get('usuario_nome', 'Usuário')
+        empresa_logada_id = session.get('empresa_id')
+        usuario_id = session.get('usuario_id')
+        is_super_admin = services["usuario_eh_super_admin_global"]()
+
+        if not empresa_logada_id:
+            flash("Empresa não identificada na sessão. Faça login novamente.", "danger")
+            return redirect(url_for('logout'))
+
+        if request.method == 'POST':
+            empresa_id = request.form.get('empresa_id') if is_super_admin else empresa_logada_id
+            tipo_titulo = (request.form.get('tipo_titulo') or '').strip()
+            pessoa_id = (request.form.get('pessoa_id') or '').strip()
+            numero_documento = (request.form.get('numero_documento') or '').strip()
+            descricao = (request.form.get('descricao') or '').strip()
+            historico = (request.form.get('historico') or '').strip()
+            data_emissao = (request.form.get('data_emissao') or '').strip()
+            data_competencia = (request.form.get('data_competencia') or '').strip()
+            data_vencimento = (request.form.get('data_vencimento') or '').strip()
+            forma_pagamento = (request.form.get('forma_pagamento') or '').strip()
+            conta_caixa_prevista_id = (request.form.get('conta_caixa_prevista_id') or '').strip()
+            valor_original = services["converter_decimal"](request.form.get('valor_original'))
+            valor_desconto = services["converter_decimal"](request.form.get('valor_desconto'))
+            valor_acrescimo = services["converter_decimal"](request.form.get('valor_acrescimo'))
+            observacao = (request.form.get('observacao') or '').strip()
+
+            if not empresa_id or not str(empresa_id).isdigit():
+                flash("Selecione uma empresa válida.", "danger")
+                return redirect(url_for('financeiro.novo_titulo_financeiro'))
+            empresa_id = int(empresa_id)
+
+            if tipo_titulo not in ['PAGAR', 'RECEBER']:
+                flash("Selecione se o título é Conta a Pagar ou Conta a Receber.", "danger")
+                return redirect(url_for('financeiro.novo_titulo_financeiro'))
+
+            if not pessoa_id or not pessoa_id.isdigit():
+                flash("Selecione a pessoa responsável pelo título.", "danger")
+                return redirect(url_for('financeiro.novo_titulo_financeiro'))
+            pessoa_id = int(pessoa_id)
+
+            if not numero_documento:
+                flash("Informe o número do documento.", "danger")
+                return redirect(url_for('financeiro.novo_titulo_financeiro'))
+
+            if not descricao:
+                flash("Informe uma descrição para o título.", "danger")
+                return redirect(url_for('financeiro.novo_titulo_financeiro'))
+
+            if not data_emissao or not services["validar_data_iso"](data_emissao):
+                flash("Informe uma data de emissão válida.", "danger")
+                return redirect(url_for('financeiro.novo_titulo_financeiro'))
+
+            if not data_competencia:
+                data_competencia = data_emissao
+
+            if not services["validar_data_iso"](data_competencia):
+                flash("Informe uma data de competência válida.", "danger")
+                return redirect(url_for('financeiro.novo_titulo_financeiro'))
+
+            if not data_vencimento or not services["validar_data_iso"](data_vencimento):
+                flash("Informe uma data de vencimento válida.", "danger")
+                return redirect(url_for('financeiro.novo_titulo_financeiro'))
+
+            if valor_original <= 0:
+                flash("Informe um valor maior que zero.", "danger")
+                return redirect(url_for('financeiro.novo_titulo_financeiro'))
+
+            if forma_pagamento and forma_pagamento not in services["financeiro_base_formas_pagamento"]():
+                flash("Forma de pagamento inválida.", "danger")
+                return redirect(url_for('financeiro.novo_titulo_financeiro'))
+
+            conta_caixa_prevista_id_int = None
+            if conta_caixa_prevista_id:
+                if not conta_caixa_prevista_id.isdigit():
+                    flash("Conta caixa inválida.", "danger")
+                    return redirect(url_for('financeiro.novo_titulo_financeiro'))
+                conta_caixa_prevista_id_int = int(conta_caixa_prevista_id)
+
+            valor_liquido = (valor_original - valor_desconto + valor_acrescimo).quantize(Decimal('0.01'))
+            if valor_liquido <= 0:
+                flash("O valor líquido do título precisa ser maior que zero.", "danger")
+                return redirect(url_for('financeiro.novo_titulo_financeiro'))
+
+            con = services["obter_conexao"]()
+            if con is None:
+                flash("Erro de conexão com o banco de dados.", "danger")
+                return redirect(url_for('financeiro.financeiro_titulos'))
+
+            cur = con.cursor(dictionary=True)
+            try:
+                cur.execute("SELECT id FROM empresas WHERE id = %s AND status_empresa = 'Ativa' LIMIT 1", (empresa_id,))
+                if not cur.fetchone():
+                    flash("Empresa inválida ou inativa.", "danger")
+                    return redirect(url_for('financeiro.novo_titulo_financeiro'))
+
+                cur.execute("""
+                    SELECT id, nome_completo
+                    FROM pessoas
+                    WHERE id = %s
+                      AND empresa_id = %s
+                      AND status_cadastro = 'Ativo'
+                    LIMIT 1
+                """, (pessoa_id, empresa_id))
+                pessoa = cur.fetchone()
+                if not pessoa:
+                    flash("Pessoa inválida ou não pertence à empresa informada.", "danger")
+                    return redirect(url_for('financeiro.novo_titulo_financeiro'))
+
+                if conta_caixa_prevista_id_int:
+                    cur.execute("""
+                        SELECT id
+                        FROM contas_caixa
+                        WHERE id = %s
+                          AND empresa_id = %s
+                          AND status_conta = 'Ativa'
+                        LIMIT 1
+                    """, (conta_caixa_prevista_id_int, empresa_id))
+                    if not cur.fetchone():
+                        flash("Conta caixa inválida ou inativa.", "danger")
+                        return redirect(url_for('financeiro.novo_titulo_financeiro'))
+
+                if not historico:
+                    historico = f"{descricao} - Documento {numero_documento} - {pessoa['nome_completo']}"
+
+                cur.execute("""
+                    INSERT INTO titulos_financeiros
+                        (empresa_id, tipo_titulo, origem, origem_id, pessoa_id, numero_documento,
+                         descricao, historico, valor_original, valor_desconto, valor_acrescimo,
+                         valor_liquido, data_emissao, data_competencia, data_vencimento,
+                         forma_pagamento, conta_caixa_prevista_id, status_titulo, observacao,
+                         usuario_criacao_id)
+                    VALUES
+                        (%s, %s, 'MANUAL', NULL, %s, %s,
+                         %s, %s, %s, %s, %s,
+                         %s, %s, %s, %s,
+                         %s, %s, 'Aberto', %s,
+                         %s)
+                """, (
+                    empresa_id,
+                    tipo_titulo,
+                    pessoa_id,
+                    numero_documento,
+                    descricao,
+                    historico,
+                    valor_original,
+                    valor_desconto,
+                    valor_acrescimo,
+                    valor_liquido,
+                    data_emissao,
+                    data_competencia,
+                    data_vencimento,
+                    forma_pagamento or None,
+                    conta_caixa_prevista_id_int,
+                    observacao or None,
+                    usuario_id
+                ))
+
+                titulo_id = cur.lastrowid
+                services["registrar_auditoria_financeira"](
+                    cur,
+                    empresa_id=empresa_id,
+                    usuario_id=usuario_id,
+                    acao='TITULO_MANUAL_CRIADO',
+                    modulo='TITULOS_FINANCEIROS',
+                    entidade_tipo='TITULO_FINANCEIRO',
+                    entidade_id=titulo_id,
+                    titulo_financeiro_id=titulo_id,
+                    pessoa_id=pessoa_id,
+                    status_novo='Aberto',
+                    valor_novo=valor_liquido,
+                    motivo='Criação manual de título financeiro',
+                    observacao=f'Título manual #{titulo_id} criado. Documento: {numero_documento}.',
+                    dados_depois={
+                        'tipo_titulo': tipo_titulo,
+                        'numero_documento': numero_documento,
+                        'descricao': descricao,
+                        'valor_original': str(valor_original),
+                        'valor_liquido': str(valor_liquido),
+                        'data_vencimento': data_vencimento,
+                    }
+                )
+                con.commit()
+
+                flash(f"Título financeiro #{titulo_id} criado com sucesso.", "success")
+                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=titulo_id))
+
+            except Exception as e:
+                con.rollback()
+                print(f"Erro ao criar título financeiro: {e}")
+                flash(f"Erro técnico ao criar título financeiro: {e}", "danger")
+                return redirect(url_for('financeiro.novo_titulo_financeiro'))
+            finally:
+                services["fechar_cursor_conexao"](cur, con)
+
+        pessoas = services["carregar_pessoas_financeiro"](empresa_logada_id, is_super_admin)
+        contas_caixa = services["carregar_contas_caixa_financeiro"](empresa_logada_id, is_super_admin)
+        parametros_financeiros = services["carregar_parametros_financeiros_empresa"](empresa_logada_id)
+        conta_padrao_id = (parametros_financeiros.get('caixa.conta_padrao_id', {}) or {}).get('valor') or ''
+        forma_pagamento_padrao = (parametros_financeiros.get('caixa.forma_pagamento_padrao', {}) or {}).get('valor') or 'PIX'
+        empresas = []
+        if is_super_admin:
+            empresas = services["carregar_empresas_ativas"]()
+
+        return render_template(
+            'financeiro_titulo_form.html',
+            usuario_logado=usuario_logado,
+            pessoas=pessoas,
+            contas_caixa=contas_caixa,
+            empresas=empresas,
+            formas_pagamento=services["financeiro_base_formas_pagamento"](),
+            is_super_admin=is_super_admin,
+            parametros_financeiros=parametros_financeiros,
+            parametro_bool=services["parametro_bool"],
+            conta_padrao_id=conta_padrao_id,
+            forma_pagamento_padrao=forma_pagamento_padrao,
+            hoje=date.today().strftime('%Y-%m-%d')
+        )
+
+
+
+
+    # ----------------------------------------------------------
+    # Bloco 5 — Calcula saldo atual de uma conta caixa.
+    # Saldo = saldo inicial + entradas baixadas - saídas baixadas.
+    # ----------------------------------------------------------
+    def calcular_saldo_conta_caixa(cur, conta_caixa_id, empresa_id):
+        cur.execute("""
+            SELECT
+                c.id,
+                c.nome_conta,
+                c.saldo_inicial,
+                COALESCE(SUM(
+                    CASE
+                        WHEN m.tipo_movimentacao = 'ENTRADA'
+                            THEN COALESCE(m.valor_movimentacao, 0)
+                        WHEN m.tipo_movimentacao = 'SAIDA'
+                            THEN -COALESCE(m.valor_movimentacao, 0)
+                        ELSE 0
+                    END
+                ), 0) AS saldo_movimentado
+            FROM contas_caixa c
+            LEFT JOIN movimentacoes_caixa m
+                   ON m.conta_caixa_id = c.id
+                  AND m.empresa_id = c.empresa_id
+            WHERE c.id = %s
+              AND c.empresa_id = %s
+            GROUP BY c.id, c.nome_conta, c.saldo_inicial
+            LIMIT 1
+        """, (conta_caixa_id, empresa_id))
+        row = cur.fetchone()
+        if not row:
+            return None
+
+        saldo = services["converter_decimal"](row.get('saldo_inicial')) + services["converter_decimal"](row.get('saldo_movimentado'))
+        row['saldo_atual'] = saldo.quantize(Decimal('0.01'))
+        return row
+
+
+    # ----------------------------------------------------------
+    # Bloco 5 — Salva comprovante de baixa financeira.
+    # Usa Google Drive quando habilitado e mantém fallback local.
+    # ----------------------------------------------------------
+    def salvar_comprovante_baixa_titulo(cur, arquivo, *, empresa_id, titulo_id, pessoa_id=None, usuario_id=None):
+        if not arquivo or not arquivo.filename:
+            return None
+
+        nome_original = str(arquivo.filename or 'comprovante').strip()
+        nome_seguro = nome_original.replace('\\', '_').replace('/', '_')
+        nome_seguro = re.sub(r'[^a-zA-Z0-9_.-]+', '_', nome_seguro) or 'comprovante'
+
+        pasta = os.path.join(app.root_path, 'uploads', 'comprovantes_financeiros')
+        os.makedirs(pasta, exist_ok=True)
+
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        nome_final = f"empresa_{empresa_id}_titulo_{titulo_id}_{timestamp}_{nome_seguro}"
+        caminho_final = os.path.join(pasta, nome_final)
+        arquivo.save(caminho_final)
+
+        caminho_relativo = f"uploads/comprovantes_financeiros/{nome_final}"
+
+        try:
+            return tentar_enviar_arquivo_google_drive(
+                cur,
+                caminho_final,
+                caminho_relativo,
+                empresa_id=empresa_id,
+                motorista_id=pessoa_id,
+                origem='COMPROVANTE_FINANCEIRO',
+                origem_id=titulo_id,
+                tipo_arquivo='COMPROVANTE_FINANCEIRO',
+                nome_original=nome_original,
+                mime_type=getattr(arquivo, 'mimetype', None) or 'application/octet-stream',
+                criado_por_usuario_id=usuario_id or session.get('usuario_id'),
+            )
+        except Exception as exc:
+            print(f"[Financeiro] Falha ao enviar comprovante do título {titulo_id}: {exc}")
+            return caminho_relativo
+
+
+    # ----------------------------------------------------------
+    # Bloco 5 — Atualiza documento do motorista e rotas após baixa.
+    # Usado quando o título nasceu de NF_MOTORISTA ou SEM_NF_MOTORISTA.
+    # ----------------------------------------------------------
+    def aplicar_baixa_em_documento_motorista_e_rotas(cur, *, titulo_id, empresa_id, usuario_id):
+        """
+        Bloco 5.1.2 — Sincronização robusta de baixa para documentos de motorista.
+
+        Esta versão evita processamento rota a rota com várias consultas e não abre novas
+        conexões dentro da transação principal. Ela faz a sincronização em massa:
+        - Documento do motorista -> Pagamento confirmado;
+        - Rotas vinculadas -> Pagamento confirmado / Quitada;
+        - Histórico registrado usando a mesma conexão/cursor da baixa.
+        """
+        cur.execute("""
+            SELECT id, empresa_id, origem, origem_id, numero_documento, status_titulo
+            FROM titulos_financeiros
+            WHERE id = %s
+              AND empresa_id = %s
+            LIMIT 1
+        """, (titulo_id, empresa_id))
+        titulo = cur.fetchone() or {}
+
+        origem_titulo = str(titulo.get('origem') or '').strip()
+        status_titulo = str(titulo.get('status_titulo') or '').strip()
+
+        if origem_titulo not in ['NF_MOTORISTA', 'SEM_NF_MOTORISTA']:
+            return
+
+        if status_titulo not in ['Pago', 'Recebido']:
+            return
+
+        # ----------------------------------------------------------
+        # 1. Localiza documento(s) do motorista vinculados ao título.
+        # ----------------------------------------------------------
+        nf_ids = []
+
+        if titulo.get('origem_id'):
+            try:
+                nf_ids.append(int(titulo.get('origem_id')))
+            except Exception:
+                pass
+
+        cur.execute("""
+            SELECT origem_id
+            FROM titulos_financeiros_vinculos
+            WHERE titulo_financeiro_id = %s
+              AND empresa_id = %s
+              AND origem_id IS NOT NULL
+              AND (
+                    origem_tabela = 'motorista_notas_fiscais'
+                    OR tipo_vinculo IN ('NF_MOTORISTA', 'SEM_NF_MOTORISTA')
+                  )
+        """, (titulo_id, empresa_id))
+
+        for row in cur.fetchall():
+            try:
+                nf_ids.append(int(row.get('origem_id')))
+            except Exception:
+                pass
+
+        nf_ids = sorted(set([x for x in nf_ids if x]))
+
+        # ----------------------------------------------------------
+        # 2. Localiza rotas vinculadas ao título ou aos documentos.
+        # ----------------------------------------------------------
+        rota_ids = []
+
+        cur.execute("""
+            SELECT origem_id
+            FROM titulos_financeiros_vinculos
+            WHERE titulo_financeiro_id = %s
+              AND empresa_id = %s
+              AND origem_id IS NOT NULL
+              AND (origem_tabela = 'rotas' OR tipo_vinculo = 'ROTA')
+        """, (titulo_id, empresa_id))
+
+        for row in cur.fetchall():
+            try:
+                rota_ids.append(int(row.get('origem_id')))
+            except Exception:
+                pass
+
+        if nf_ids:
+            placeholders_nf = ','.join(['%s'] * len(nf_ids))
+            cur.execute(f"""
+                SELECT DISTINCT rota_id
+                FROM motorista_nf_rotas
+                WHERE empresa_id = %s
+                  AND motorista_nf_id IN ({placeholders_nf})
+                  AND rota_id IS NOT NULL
+            """, [empresa_id] + nf_ids)
+
+            for row in cur.fetchall():
+                try:
+                    rota_ids.append(int(row.get('rota_id')))
+                except Exception:
+                    pass
+
+        rota_ids = sorted(set([x for x in rota_ids if x]))
+
+        # ----------------------------------------------------------
+        # 3. Histórico e atualização dos documentos em lote.
+        # ----------------------------------------------------------
+        if nf_ids:
+            placeholders_nf = ','.join(['%s'] * len(nf_ids))
+
+            # Registra histórico antes da atualização para guardar status anterior.
+            cur.execute(f"""
+                INSERT INTO historico_operacoes
+                    (empresa_id, tipo_operacao, usuario_id, status_anterior, status_novo, motivo, observacao)
+                SELECT
+                    empresa_id,
+                    'NF_MOTORISTA',
+                    %s,
+                    status_nf,
+                    'Pagamento confirmado',
+                    'Baixa financeira do título',
+                    CONCAT('NF Motorista ID ', id, '. Pagamento confirmado pela baixa do título financeiro #', %s, '.')
+                FROM motorista_notas_fiscais
+                WHERE empresa_id = %s
+                  AND id IN ({placeholders_nf})
+                  AND COALESCE(status_nf, '') NOT IN ('Pagamento confirmado', 'Recusada', 'Estornada', 'Cancelada')
+            """, [usuario_id, titulo_id, empresa_id] + nf_ids)
+
+            cur.execute(f"""
+                UPDATE motorista_notas_fiscais
+                SET status_nf = 'Pagamento confirmado',
+                    data_pagamento = COALESCE(data_pagamento, NOW()),
+                    usuario_pagamento_id = COALESCE(usuario_pagamento_id, %s),
+                    observacao = CONCAT(
+                        COALESCE(observacao, ''),
+                        CASE WHEN COALESCE(observacao, '') = '' THEN '' ELSE '\n' END,
+                        'Pagamento confirmado em ',
+                        DATE_FORMAT(NOW(), '%d/%m/%Y %H:%i'),
+                        '. Título financeiro baixado: #',
+                        %s
+                    )
+                WHERE empresa_id = %s
+                  AND id IN ({placeholders_nf})
+                  AND COALESCE(status_nf, '') NOT IN ('Pagamento confirmado', 'Recusada', 'Estornada', 'Cancelada')
+            """, [usuario_id, titulo_id, empresa_id] + nf_ids)
+
+        # ----------------------------------------------------------
+        # 4. Histórico e atualização das rotas em lote.
+        # ----------------------------------------------------------
+        if rota_ids:
+            placeholders_rota = ','.join(['%s'] * len(rota_ids))
+
+            cur.execute(f"""
+                INSERT INTO historico_operacoes
+                    (empresa_id, tipo_operacao, rota_id, usuario_id, status_anterior, status_novo, motivo, observacao)
+                SELECT
+                    empresa_id,
+                    'STATUS_MOTORISTA_ROTA',
+                    id,
+                    %s,
+                    status_motorista,
+                    'Pagamento confirmado',
+                    'Baixa financeira do título',
+                    CONCAT('Rota quitada pela baixa do título financeiro #', %s, '.')
+                FROM rotas
+                WHERE empresa_id = %s
+                  AND id IN ({placeholders_rota})
+                  AND COALESCE(situacao_rota, '') <> 'Cancelada'
+                  AND COALESCE(status_motorista, '') <> 'Pagamento confirmado'
+            """, [usuario_id, titulo_id, empresa_id] + rota_ids)
+
+            cur.execute(f"""
+                UPDATE rotas
+                SET status_motorista = 'Pagamento confirmado',
+                    situacao_rota = 'Quitada'
+                WHERE empresa_id = %s
+                  AND id IN ({placeholders_rota})
+                  AND COALESCE(situacao_rota, '') <> 'Cancelada'
+            """, [empresa_id] + rota_ids)
+
+
+
     return financeiro_bp
