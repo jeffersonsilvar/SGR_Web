@@ -19861,79 +19861,221 @@ def financeiro_auditoria():
 
 
 
-@app.route('/financeiro/titulos/<int:id>/cancelar', methods=['POST'])
-@login_required
-@perfis_permitidos('Administrador', 'Operacional', 'Financeiro')
-def cancelar_titulo_financeiro(id):
-    empresa_logada_id = session.get('empresa_id')
-    usuario_id = session.get('usuario_id')
-    is_super_admin = usuario_eh_super_admin_global()
-    motivo = (request.form.get('motivo_cancelamento') or '').strip()
 
-    if len(motivo) < 5:
-        flash("Informe um motivo de cancelamento com pelo menos 5 caracteres.", "warning")
-        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+def salvar_comprovante_baixa_titulo(cur, arquivo, *, empresa_id, titulo_id, pessoa_id=None, usuario_id=None):
+    if not arquivo or not arquivo.filename:
+        return None
 
-    con = obter_conexao()
-    if con is None:
-        flash("Erro de conexão com o banco de dados.", "danger")
-        return redirect(url_for('financeiro.financeiro_titulos'))
+    nome_original = str(arquivo.filename or 'comprovante').strip()
+    nome_seguro = nome_original.replace('\\', '_').replace('/', '_')
+    nome_seguro = re.sub(r'[^a-zA-Z0-9_.-]+', '_', nome_seguro) or 'comprovante'
 
-    cur = con.cursor(dictionary=True)
+    pasta = os.path.join(app.root_path, 'uploads', 'comprovantes_financeiros')
+    os.makedirs(pasta, exist_ok=True)
+
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    nome_final = f"empresa_{empresa_id}_titulo_{titulo_id}_{timestamp}_{nome_seguro}"
+    caminho_final = os.path.join(pasta, nome_final)
+    arquivo.save(caminho_final)
+
+    caminho_relativo = f"uploads/comprovantes_financeiros/{nome_final}"
+
     try:
-        query = "SELECT id, empresa_id, status_titulo FROM titulos_financeiros WHERE id = %s"
-        params = [id]
-        if not is_super_admin:
-            query += " AND empresa_id = %s"
-            params.append(empresa_logada_id)
-        query += " LIMIT 1"
-        cur.execute(query, params)
-        titulo = cur.fetchone()
-
-        if not titulo:
-            flash("Título financeiro não encontrado ou não pertence à empresa logada.", "danger")
-            return redirect(url_for('financeiro.financeiro_titulos'))
-
-        if titulo.get('status_titulo') in ['Pago', 'Recebido', 'Cancelado', 'Estornado']:
-            flash(f"Este título não pode ser cancelado. Status atual: {titulo.get('status_titulo')}.", "warning")
-            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-
-        cur.execute("""
-            UPDATE titulos_financeiros
-            SET status_titulo = 'Cancelado',
-                motivo_cancelamento = %s,
-                data_cancelamento = NOW(),
-                usuario_cancelamento_id = %s,
-                updated_at = NOW()
-            WHERE id = %s
-              AND empresa_id = %s
-        """, (motivo, usuario_id, id, titulo['empresa_id']))
-        registrar_auditoria_financeira(
+        return tentar_enviar_arquivo_google_drive(
             cur,
-            empresa_id=titulo['empresa_id'],
-            usuario_id=usuario_id,
-            acao='TITULO_CANCELADO',
-            modulo='TITULOS_FINANCEIROS',
-            entidade_tipo='TITULO_FINANCEIRO',
-            entidade_id=id,
-            titulo_financeiro_id=id,
-            status_anterior=titulo.get('status_titulo'),
-            status_novo='Cancelado',
-            motivo=motivo,
-            observacao=f'Título financeiro #{id} cancelado.',
+            caminho_final,
+            caminho_relativo,
+            empresa_id=empresa_id,
+            motorista_id=pessoa_id,
+            origem='COMPROVANTE_FINANCEIRO',
+            origem_id=titulo_id,
+            tipo_arquivo='COMPROVANTE_FINANCEIRO',
+            nome_original=nome_original,
+            mime_type=getattr(arquivo, 'mimetype', None) or 'application/octet-stream',
+            criado_por_usuario_id=usuario_id or session.get('usuario_id'),
         )
-        con.commit()
-        flash("Título financeiro cancelado com sucesso.", "success")
-    except Exception as e:
-        con.rollback()
-        print(f"Erro ao cancelar título financeiro: {e}")
-        flash("Erro técnico ao cancelar título financeiro.", "danger")
-    finally:
-        fechar_cursor_conexao(cur, con)
-
-    return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+    except Exception as exc:
+        print(f"[Financeiro] Falha ao enviar comprovante do título {titulo_id}: {exc}")
+        return caminho_relativo
 
 
+# ----------------------------------------------------------
+# Bloco 5 — Atualiza documento do motorista e rotas após baixa.
+# Usado quando o título nasceu de NF_MOTORISTA ou SEM_NF_MOTORISTA.
+# ----------------------------------------------------------
+
+def aplicar_baixa_em_documento_motorista_e_rotas(cur, *, titulo_id, empresa_id, usuario_id):
+    """
+    Bloco 5.1.2 — Sincronização robusta de baixa para documentos de motorista.
+
+    Esta versão evita processamento rota a rota com várias consultas e não abre novas
+    conexões dentro da transação principal. Ela faz a sincronização em massa:
+    - Documento do motorista -> Pagamento confirmado;
+    - Rotas vinculadas -> Pagamento confirmado / Quitada;
+    - Histórico registrado usando a mesma conexão/cursor da baixa.
+    """
+    cur.execute("""
+        SELECT id, empresa_id, origem, origem_id, numero_documento, status_titulo
+        FROM titulos_financeiros
+        WHERE id = %s
+          AND empresa_id = %s
+        LIMIT 1
+    """, (titulo_id, empresa_id))
+    titulo = cur.fetchone() or {}
+
+    origem_titulo = str(titulo.get('origem') or '').strip()
+    status_titulo = str(titulo.get('status_titulo') or '').strip()
+
+    if origem_titulo not in ['NF_MOTORISTA', 'SEM_NF_MOTORISTA']:
+        return
+
+    if status_titulo not in ['Pago', 'Recebido']:
+        return
+
+    # ----------------------------------------------------------
+    # 1. Localiza documento(s) do motorista vinculados ao título.
+    # ----------------------------------------------------------
+    nf_ids = []
+
+    if titulo.get('origem_id'):
+        try:
+            nf_ids.append(int(titulo.get('origem_id')))
+        except Exception:
+            pass
+
+    cur.execute("""
+        SELECT origem_id
+        FROM titulos_financeiros_vinculos
+        WHERE titulo_financeiro_id = %s
+          AND empresa_id = %s
+          AND origem_id IS NOT NULL
+          AND (
+                origem_tabela = 'motorista_notas_fiscais'
+                OR tipo_vinculo IN ('NF_MOTORISTA', 'SEM_NF_MOTORISTA')
+              )
+    """, (titulo_id, empresa_id))
+
+    for row in cur.fetchall():
+        try:
+            nf_ids.append(int(row.get('origem_id')))
+        except Exception:
+            pass
+
+    nf_ids = sorted(set([x for x in nf_ids if x]))
+
+    # ----------------------------------------------------------
+    # 2. Localiza rotas vinculadas ao título ou aos documentos.
+    # ----------------------------------------------------------
+    rota_ids = []
+
+    cur.execute("""
+        SELECT origem_id
+        FROM titulos_financeiros_vinculos
+        WHERE titulo_financeiro_id = %s
+          AND empresa_id = %s
+          AND origem_id IS NOT NULL
+          AND (origem_tabela = 'rotas' OR tipo_vinculo = 'ROTA')
+    """, (titulo_id, empresa_id))
+
+    for row in cur.fetchall():
+        try:
+            rota_ids.append(int(row.get('origem_id')))
+        except Exception:
+            pass
+
+    if nf_ids:
+        placeholders_nf = ','.join(['%s'] * len(nf_ids))
+        cur.execute(f"""
+            SELECT DISTINCT rota_id
+            FROM motorista_nf_rotas
+            WHERE empresa_id = %s
+              AND motorista_nf_id IN ({placeholders_nf})
+              AND rota_id IS NOT NULL
+        """, [empresa_id] + nf_ids)
+
+        for row in cur.fetchall():
+            try:
+                rota_ids.append(int(row.get('rota_id')))
+            except Exception:
+                pass
+
+    rota_ids = sorted(set([x for x in rota_ids if x]))
+
+    # ----------------------------------------------------------
+    # 3. Histórico e atualização dos documentos em lote.
+    # ----------------------------------------------------------
+    if nf_ids:
+        placeholders_nf = ','.join(['%s'] * len(nf_ids))
+
+        # Registra histórico antes da atualização para guardar status anterior.
+        cur.execute(f"""
+            INSERT INTO historico_operacoes
+                (empresa_id, tipo_operacao, usuario_id, status_anterior, status_novo, motivo, observacao)
+            SELECT
+                empresa_id,
+                'NF_MOTORISTA',
+                %s,
+                status_nf,
+                'Pagamento confirmado',
+                'Baixa financeira do título',
+                CONCAT('NF Motorista ID ', id, '. Pagamento confirmado pela baixa do título financeiro #', %s, '.')
+            FROM motorista_notas_fiscais
+            WHERE empresa_id = %s
+              AND id IN ({placeholders_nf})
+              AND COALESCE(status_nf, '') NOT IN ('Pagamento confirmado', 'Recusada', 'Estornada', 'Cancelada')
+        """, [usuario_id, titulo_id, empresa_id] + nf_ids)
+
+        cur.execute(f"""
+            UPDATE motorista_notas_fiscais
+            SET status_nf = 'Pagamento confirmado',
+                data_pagamento = COALESCE(data_pagamento, NOW()),
+                usuario_pagamento_id = COALESCE(usuario_pagamento_id, %s),
+                observacao = CONCAT(
+                    COALESCE(observacao, ''),
+                    CASE WHEN COALESCE(observacao, '') = '' THEN '' ELSE '\n' END,
+                    'Pagamento confirmado em ',
+                    DATE_FORMAT(NOW(), '%d/%m/%Y %H:%i'),
+                    '. Título financeiro baixado: #',
+                    %s
+                )
+            WHERE empresa_id = %s
+              AND id IN ({placeholders_nf})
+              AND COALESCE(status_nf, '') NOT IN ('Pagamento confirmado', 'Recusada', 'Estornada', 'Cancelada')
+        """, [usuario_id, titulo_id, empresa_id] + nf_ids)
+
+    # ----------------------------------------------------------
+    # 4. Histórico e atualização das rotas em lote.
+    # ----------------------------------------------------------
+    if rota_ids:
+        placeholders_rota = ','.join(['%s'] * len(rota_ids))
+
+        cur.execute(f"""
+            INSERT INTO historico_operacoes
+                (empresa_id, tipo_operacao, rota_id, usuario_id, status_anterior, status_novo, motivo, observacao)
+            SELECT
+                empresa_id,
+                'STATUS_MOTORISTA_ROTA',
+                id,
+                %s,
+                status_motorista,
+                'Pagamento confirmado',
+                'Baixa financeira do título',
+                CONCAT('Rota quitada pela baixa do título financeiro #', %s, '.')
+            FROM rotas
+            WHERE empresa_id = %s
+              AND id IN ({placeholders_rota})
+              AND COALESCE(situacao_rota, '') <> 'Cancelada'
+              AND COALESCE(status_motorista, '') <> 'Pagamento confirmado'
+        """, [usuario_id, titulo_id, empresa_id] + rota_ids)
+
+        cur.execute(f"""
+            UPDATE rotas
+            SET status_motorista = 'Pagamento confirmado',
+                situacao_rota = 'Quitada'
+            WHERE empresa_id = %s
+              AND id IN ({placeholders_rota})
+              AND COALESCE(situacao_rota, '') <> 'Cancelada'
+        """, [empresa_id] + rota_ids)
 
 
 @app.route('/financeiro/titulos/<int:id>/baixar', methods=['POST'])

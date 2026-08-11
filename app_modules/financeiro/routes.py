@@ -1876,4 +1876,79 @@ def criar_financeiro_blueprint(services):
 
 
 
+    @financeiro_bp.route("/financeiro/titulos/<int:id>/cancelar", methods=["POST"])
+    @login_required
+    @perfis_permitidos("Administrador", "Operacional", "Financeiro")
+    def cancelar_titulo_financeiro(id):
+        empresa_logada_id = session.get('empresa_id')
+        usuario_id = session.get('usuario_id')
+        is_super_admin = services["usuario_eh_super_admin_global"]()
+        motivo = (request.form.get('motivo_cancelamento') or '').strip()
+
+        if len(motivo) < 5:
+            flash("Informe um motivo de cancelamento com pelo menos 5 caracteres.", "warning")
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+        con = services["obter_conexao"]()
+        if con is None:
+            flash("Erro de conexão com o banco de dados.", "danger")
+            return redirect(url_for('financeiro.financeiro_titulos'))
+
+        cur = con.cursor(dictionary=True)
+        try:
+            query = "SELECT id, empresa_id, status_titulo FROM titulos_financeiros WHERE id = %s"
+            params = [id]
+            if not is_super_admin:
+                query += " AND empresa_id = %s"
+                params.append(empresa_logada_id)
+            query += " LIMIT 1"
+            cur.execute(query, params)
+            titulo = cur.fetchone()
+
+            if not titulo:
+                flash("Título financeiro não encontrado ou não pertence à empresa logada.", "danger")
+                return redirect(url_for('financeiro.financeiro_titulos'))
+
+            if titulo.get('status_titulo') in ['Pago', 'Recebido', 'Cancelado', 'Estornado']:
+                flash(f"Este título não pode ser cancelado. Status atual: {titulo.get('status_titulo')}.", "warning")
+                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+            cur.execute("""
+                UPDATE titulos_financeiros
+                SET status_titulo = 'Cancelado',
+                    motivo_cancelamento = %s,
+                    data_cancelamento = NOW(),
+                    usuario_cancelamento_id = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+                  AND empresa_id = %s
+            """, (motivo, usuario_id, id, titulo['empresa_id']))
+            services["registrar_auditoria_financeira"](
+                cur,
+                empresa_id=titulo['empresa_id'],
+                usuario_id=usuario_id,
+                acao='TITULO_CANCELADO',
+                modulo='TITULOS_FINANCEIROS',
+                entidade_tipo='TITULO_FINANCEIRO',
+                entidade_id=id,
+                titulo_financeiro_id=id,
+                status_anterior=titulo.get('status_titulo'),
+                status_novo='Cancelado',
+                motivo=motivo,
+                observacao=f'Título financeiro #{id} cancelado.',
+            )
+            con.commit()
+            flash("Título financeiro cancelado com sucesso.", "success")
+        except Exception as e:
+            con.rollback()
+            print(f"Erro ao cancelar título financeiro: {e}")
+            flash("Erro técnico ao cancelar título financeiro.", "danger")
+        finally:
+            services["fechar_cursor_conexao"](cur, con)
+
+        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+
+
+
     return financeiro_bp
