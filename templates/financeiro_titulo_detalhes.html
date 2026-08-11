@@ -6,7 +6,6 @@
 {% set cfg_tratativa_estorno = parametro_bool(parametros_financeiros.get('estorno.permitir_tratativa_pos_estorno', {}).get('valor')) %}
 {% set cfg_reaproveitar_doc = parametro_bool(parametros_financeiros.get('documentos.permitir_reaproveitar_pos_estorno', {}).get('valor')) %}
 {% set cfg_exigir_comprovante = parametro_bool(parametros_financeiros.get('baixa.exigir_comprovante', {}).get('valor')) %}
-{% set cfg_cancelar_manual = parametro_bool(parametros_financeiros.get('titulos.permitir_cancelar_manual', {}).get('valor')) %}
 <div class="container-fluid py-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
@@ -328,18 +327,32 @@
                 </div>
             </div>
 
-            {% if titulo.origem != 'MANUAL' or cfg_cancelar_manual %}
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white fw-semibold text-danger">Cancelar título</div>
                 <div class="card-body">
-                    <form method="post" action="{{ url_for('cancelar_titulo_financeiro', id=titulo.id) }}">
-                        <label class="form-label small">Motivo</label>
-                        <textarea name="motivo_cancelamento" class="form-control mb-2" rows="3" required></textarea>
-                        <button class="btn btn-outline-danger w-100" onclick="return confirm('Confirmar cancelamento deste título?')">Cancelar título</button>
+                    <form method="post" action="{{ url_for('financeiro.cancelar_titulo_financeiro', id=titulo.id) }}">
+                        <label class="form-label small">Motivo do cancelamento *</label>
+                        <textarea
+                            name="motivo_cancelamento"
+                            class="form-control mb-2"
+                            rows="3"
+                            minlength="5"
+                            required
+                            placeholder="Informe o motivo do cancelamento (mínimo 5 caracteres)."
+                        ></textarea>
+                        <div class="form-text mb-3">
+                            O cancelamento é permitido apenas enquanto o título não estiver pago, recebido, cancelado ou estornado.
+                        </div>
+                        <button
+                            type="submit"
+                            class="btn btn-outline-danger w-100"
+                            onclick="return confirm('Confirmar cancelamento deste título? Esta ação altera o status para Cancelado.')"
+                        >
+                            Cancelar título
+                        </button>
                     </form>
                 </div>
             </div>
-            {% endif %}
             {% endif %}
         </div>
     </div>
