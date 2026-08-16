@@ -1951,4 +1951,265 @@ def criar_financeiro_blueprint(services):
 
 
 
+    @financeiro_bp.route("/financeiro/titulos/<int:id>/baixar", methods=["POST"])
+    @login_required
+    @perfis_permitidos("Administrador", "Operacional", "Financeiro")
+    def baixar_titulo_financeiro(id):
+        empresa_logada_id = session.get('empresa_id')
+        usuario_id = session.get('usuario_id')
+        is_super_admin = services["usuario_eh_super_admin_global"]()
+
+        conta_caixa_id = (request.form.get('conta_caixa_id') or '').strip()
+        data_pagamento = (request.form.get('data_pagamento') or '').strip()
+        forma_pagamento = (request.form.get('forma_pagamento') or '').strip()
+        valor_pago = services["converter_decimal"](request.form.get('valor_pago'))
+        observacao_baixa = (request.form.get('observacao_baixa') or '').strip()
+        comprovante = request.files.get('comprovante')
+
+        if not conta_caixa_id or not conta_caixa_id.isdigit():
+            flash("Selecione uma conta caixa válida para baixar o título.", "danger")
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+        conta_caixa_id = int(conta_caixa_id)
+
+        if not data_pagamento or not services["validar_data_iso"](data_pagamento):
+            flash("Informe uma data de pagamento/recebimento válida.", "danger")
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+        if forma_pagamento not in services["financeiro_base_formas_pagamento"]():
+            flash("Selecione uma forma de pagamento válida.", "danger")
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+        con = services["obter_conexao"]()
+        if con is None:
+            flash("Erro de conexão com o banco de dados.", "danger")
+            return redirect(url_for('financeiro.financeiro_titulos'))
+
+        cur = con.cursor(dictionary=True)
+        try:
+            query = """
+                SELECT id, empresa_id, tipo_titulo, origem, origem_id, pessoa_id, numero_documento,
+                       descricao, historico, valor_liquido, status_titulo
+                FROM titulos_financeiros
+                WHERE id = %s
+            """
+            params = [id]
+            if not is_super_admin:
+                query += " AND empresa_id = %s"
+                params.append(empresa_logada_id)
+            query += " LIMIT 1"
+            cur.execute(query, params)
+            titulo = cur.fetchone()
+
+            if not titulo:
+                flash("Título financeiro não encontrado ou não pertence à empresa logada.", "danger")
+                return redirect(url_for('financeiro.financeiro_titulos'))
+
+            parametros_financeiros = services["carregar_parametros_financeiros_empresa"](titulo['empresa_id'], cur=cur)
+            exigir_comprovante_baixa = services["parametro_bool"](parametros_financeiros.get('baixa.exigir_comprovante', {}).get('valor'))
+            permitir_pagamento_parcial = services["parametro_bool"](parametros_financeiros.get('baixa.permitir_pagamento_parcial', {}).get('valor'))
+            permitir_valor_diferente = services["parametro_bool"](parametros_financeiros.get('baixa.permitir_valor_diferente', {}).get('valor'))
+            permitir_saldo_negativo = services["parametro_bool"](parametros_financeiros.get('caixa.permitir_saldo_negativo', {}).get('valor'))
+            permitir_data_retroativa = services["parametro_bool"](parametros_financeiros.get('baixa.permitir_data_retroativa', {}).get('valor'))
+
+            if not permitir_data_retroativa and data_pagamento < date.today().strftime('%Y-%m-%d'):
+                flash('Baixa retroativa bloqueada pelas configurações financeiras da empresa.', 'warning')
+                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+            if exigir_comprovante_baixa and (not comprovante or not getattr(comprovante, 'filename', '')):
+                flash('Comprovante obrigatório para baixa, conforme configuração financeira da empresa.', 'warning')
+                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+            status_atual = titulo.get('status_titulo') or 'Aberto'
+            if status_atual in ['Pago', 'Recebido', 'Cancelado', 'Estornado']:
+                flash(f"Este título não pode ser baixado. Status atual: {status_atual}.", "warning")
+                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+            # Proteção contra duplicidade: se já existe movimentação ativa para este título,
+            # não cria outra baixa mesmo que o status do título ainda não tenha sido atualizado.
+            movimentacoes_ativas = services["buscar_movimentacoes_baixa_nao_estornadas"](
+                cur,
+                titulo_id=id,
+                empresa_id=titulo['empresa_id']
+            )
+            movimentacao_existente = movimentacoes_ativas[0] if movimentacoes_ativas else None
+            if movimentacao_existente:
+                flash(
+                    "Este título já possui uma movimentação de caixa ativa vinculada. "
+                    "A baixa não foi duplicada. Abra as movimentações do título para conferir.",
+                    "warning"
+                )
+                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+            valor_liquido = services["converter_decimal"](titulo.get('valor_liquido'))
+            if valor_pago <= 0:
+                flash("Informe um valor de baixa maior que zero.", "danger")
+                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+            if valor_pago != valor_liquido:
+                if valor_pago < valor_liquido and permitir_pagamento_parcial:
+                    flash('Pagamento parcial registrado como baixa total ainda não está disponível nesta etapa. A configuração já foi preparada, mas a conciliação parcial será liberada em bloco próprio.', 'warning')
+                    return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+                if not permitir_valor_diferente:
+                    flash(
+                        'O valor baixado precisa ser igual ao valor líquido do título, conforme configuração financeira da empresa.',
+                        'warning'
+                    )
+                    return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+            cur.execute("""
+                SELECT id, nome_conta, status_conta
+                FROM contas_caixa
+                WHERE id = %s
+                  AND empresa_id = %s
+                  AND status_conta = 'Ativa'
+                LIMIT 1
+            """, (conta_caixa_id, titulo['empresa_id']))
+            conta = cur.fetchone()
+            if not conta:
+                flash("Conta caixa inválida, inativa ou não pertence à empresa do título.", "danger")
+                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+            tipo_movimentacao = 'SAIDA' if titulo.get('tipo_titulo') == 'PAGAR' else 'ENTRADA'
+            novo_status = 'Pago' if titulo.get('tipo_titulo') == 'PAGAR' else 'Recebido'
+
+            if tipo_movimentacao == 'SAIDA':
+                saldo_info = services["calcular_saldo_conta_caixa"](cur, conta_caixa_id, titulo['empresa_id'])
+                saldo_atual = services["converter_decimal"]((saldo_info or {}).get('saldo_atual'))
+                if saldo_atual < valor_pago and not permitir_saldo_negativo:
+                    flash(
+                        f"Baixa bloqueada: a conta caixa '{conta['nome_conta']}' possui saldo de {services["moeda_br"](saldo_atual)}, "
+                        f"menor que o valor do pagamento {services["moeda_br"](valor_pago)}. "
+                        "A empresa está configurada para não permitir caixa negativo.",
+                        "danger"
+                    )
+                    return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+            comprovante_url = services["salvar_comprovante_baixa_titulo"](
+                cur,
+                comprovante,
+                empresa_id=titulo['empresa_id'],
+                titulo_id=id,
+                pessoa_id=titulo.get('pessoa_id'),
+                usuario_id=usuario_id,
+            )
+
+            historico_mov = (
+                f"Baixa do título #{id} - {titulo.get('descricao') or titulo.get('numero_documento')}"
+            )
+
+            # Segunda checagem dentro do fluxo imediatamente antes de inserir,
+            # reduzindo risco de duplicidade em duplo clique ou retentativa do navegador.
+            if services["buscar_movimentacoes_baixa_nao_estornadas"](
+                cur,
+                titulo_id=id,
+                empresa_id=titulo['empresa_id']
+            ):
+                flash(
+                    "Este título já possui baixa registrada. A operação não foi duplicada.",
+                    "warning"
+                )
+                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+            cur.execute("""
+                INSERT INTO movimentacoes_caixa
+                    (empresa_id, conta_caixa_id, titulo_financeiro_id, tipo_movimentacao,
+                     data_movimentacao, valor_movimentacao, forma_pagamento, historico,
+                     observacao, comprovante_url, status_movimentacao, usuario_criacao_id)
+                VALUES
+                    (%s, %s, %s, %s,
+                     %s, %s, %s, %s,
+                     %s, %s, 'Ativa', %s)
+            """, (
+                titulo['empresa_id'],
+                conta_caixa_id,
+                id,
+                tipo_movimentacao,
+                data_pagamento,
+                valor_pago,
+                forma_pagamento,
+                historico_mov,
+                observacao_baixa or None,
+                comprovante_url,
+                usuario_id
+            ))
+
+            cur.execute("""
+                UPDATE titulos_financeiros
+                SET status_titulo = %s,
+                    conta_caixa_baixa_id = %s,
+                    data_baixa = %s,
+                    valor_baixado = %s,
+                    forma_pagamento = %s,
+                    observacao_baixa = %s,
+                    comprovante_url = %s,
+                    usuario_baixa_id = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+                  AND empresa_id = %s
+            """, (
+                novo_status,
+                conta_caixa_id,
+                data_pagamento,
+                valor_pago,
+                forma_pagamento,
+                observacao_baixa or None,
+                comprovante_url,
+                usuario_id,
+                id,
+                titulo['empresa_id']
+            ))
+
+            if titulo.get('origem') in ['NF_MOTORISTA', 'SEM_NF_MOTORISTA']:
+                services["aplicar_baixa_em_documento_motorista_e_rotas"](
+                    cur,
+                    titulo_id=id,
+                    empresa_id=titulo['empresa_id'],
+                    usuario_id=usuario_id
+                )
+
+            services["registrar_auditoria_financeira"](
+                cur,
+                empresa_id=titulo['empresa_id'],
+                usuario_id=usuario_id,
+                acao='BAIXA_TITULO',
+                modulo='BAIXA_FINANCEIRA',
+                entidade_tipo='TITULO_FINANCEIRO',
+                entidade_id=id,
+                titulo_financeiro_id=id,
+                pessoa_id=titulo.get('pessoa_id'),
+                status_anterior=status_atual,
+                status_novo=novo_status,
+                valor_anterior=titulo.get('valor_liquido'),
+                valor_novo=valor_pago,
+                motivo='Baixa financeira de título',
+                observacao=observacao_baixa or f'Título #{id} baixado como {novo_status}.',
+                dados_depois={
+                    'conta_caixa_id': conta_caixa_id,
+                    'data_pagamento': data_pagamento,
+                    'forma_pagamento': forma_pagamento,
+                    'tipo_movimentacao': tipo_movimentacao,
+                    'comprovante_url': comprovante_url,
+                }
+            )
+            con.commit()
+            flash(f"Título financeiro #{id} baixado com sucesso como {novo_status}.", "success")
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+        except Exception as e:
+            try:
+                con.rollback()
+            except Exception as rollback_error:
+                print(f"Aviso: não foi possível executar rollback da baixa do título {id}: {rollback_error}")
+
+            print(f"Erro ao baixar título financeiro {id}: {e}")
+            flash(
+                "Erro técnico ao baixar título financeiro. "
+                "A operação foi interrompida com segurança; confira se o título possui movimentação antes de tentar novamente.",
+                "danger"
+            )
+            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+
+        finally:
+            services["fechar_cursor_conexao"](cur, con)
+
     return financeiro_bp
