@@ -288,7 +288,7 @@
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-header bg-white fw-semibold text-success">Baixar título</div>
                 <div class="card-body">
-                    <form method="post" action="{{ url_for('baixar_titulo_financeiro', id=titulo.id) }}" enctype="multipart/form-data">
+                    <form method="post" action="{{ url_for('financeiro.baixar_titulo_financeiro', id=titulo.id) }}" enctype="multipart/form-data">
                         <label class="form-label small">Conta caixa *</label>
                         <select name="conta_caixa_id" class="form-select mb-2" required>
                             <option value="">Selecione...</option>
