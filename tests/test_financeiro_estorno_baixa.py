@@ -15,7 +15,6 @@ def dados_estorno(destino="reabrir"):
         "motivo_estorno": "Baixa registrada incorretamente",
         "data_estorno": "2026-08-16",
         "destino_estorno": destino,
-        "tratativa_pos_estorno": "manter_bloqueadas",
         "observacao_estorno": "Estorno de teste",
     }
 
@@ -390,71 +389,51 @@ def test_estorno_encerrar_define_status_estornado(client, app, monkeypatch):
     assert "Estornado" in update_titulo[1]
 
 
-def test_estorno_origem_motorista_sincroniza_documento_e_rotas(
+def test_estorno_motorista_reabrir_sincroniza_imediatamente(
     client, app, monkeypatch
 ):
     services = preparar_servicos_basicos(app, monkeypatch)
     chamadas = []
-
     titulo = {
-        "id": 8,
-        "empresa_id": 10,
-        "tipo_titulo": "PAGAR",
-        "origem": "NF_MOTORISTA",
-        "origem_id": 99,
-        "pessoa_id": 5,
-        "numero_documento": "NF-99",
-        "descricao": "Pagamento motorista",
-        "historico": "",
-        "valor_liquido": Decimal("300.00"),
-        "status_titulo": "Pago",
-        "data_baixa": "2026-08-16",
+        "id": 8, "empresa_id": 10, "tipo_titulo": "PAGAR",
+        "origem": "NF_MOTORISTA", "origem_id": 99, "pessoa_id": 5,
+        "numero_documento": "NF-99", "descricao": "Pagamento motorista",
+        "historico": "", "valor_liquido": Decimal("300.00"),
+        "status_titulo": "Pago", "data_baixa": "2026-08-16",
         "valor_baixado": Decimal("300.00"),
     }
 
     class Cursor:
         def execute(self, query, params=None):
             pass
-
         def fetchone(self):
             return titulo
 
     class Conexao:
         def cursor(self, dictionary=False):
             return Cursor()
-
         def commit(self):
             pass
-
         def rollback(self):
             pass
 
     monkeypatch.setitem(services, "obter_conexao", lambda: Conexao())
     monkeypatch.setitem(
-        services,
-        "buscar_movimentacoes_baixa_nao_estornadas",
+        services, "buscar_movimentacoes_baixa_nao_estornadas",
         lambda cur, titulo_id, empresa_id: [{
-            "id": 70,
-            "conta_caixa_id": 3,
-            "tipo_movimentacao": "SAIDA",
-            "valor_movimentacao": Decimal("300.00"),
-            "forma_pagamento": "PIX",
+            "id": 70, "conta_caixa_id": 3, "tipo_movimentacao": "SAIDA",
+            "valor_movimentacao": Decimal("300.00"), "forma_pagamento": "PIX",
         }],
     )
     monkeypatch.setitem(
-        services,
-        "aplicar_estorno_em_documento_motorista_e_rotas",
+        services, "aplicar_estorno_em_documento_motorista_e_rotas",
         lambda cur, **kwargs: chamadas.append(kwargs),
     )
     monkeypatch.setitem(
-        services,
-        "registrar_auditoria_financeira",
-        lambda cur, **kwargs: None,
+        services, "registrar_auditoria_financeira", lambda cur, **kwargs: None,
     )
     monkeypatch.setitem(
-        services,
-        "converter_decimal",
-        lambda valor: Decimal(str(valor or 0)),
+        services, "converter_decimal", lambda valor: Decimal(str(valor or 0)),
     )
 
     autenticar(client)
@@ -466,8 +445,78 @@ def test_estorno_origem_motorista_sincroniza_documento_e_rotas(
 
     assert resposta.status_code == 302
     assert len(chamadas) == 1
-    assert chamadas[0]["titulo_id"] == 8
     assert chamadas[0]["destino"] == "reabrir"
+    assert chamadas[0]["tratativa_pos_estorno"] == "manter_bloqueadas"
+
+
+def test_estorno_motorista_encerrar_deixa_tratativa_pendente(
+    client, app, monkeypatch
+):
+    services = preparar_servicos_basicos(app, monkeypatch)
+    chamadas = []
+    execucoes = []
+    auditoria = {}
+    titulo = {
+        "id": 8, "empresa_id": 10, "tipo_titulo": "PAGAR",
+        "origem": "NF_MOTORISTA", "origem_id": 99, "pessoa_id": 5,
+        "numero_documento": "NF-99", "descricao": "Pagamento motorista",
+        "historico": "", "valor_liquido": Decimal("300.00"),
+        "status_titulo": "Pago", "data_baixa": "2026-08-16",
+        "valor_baixado": Decimal("300.00"),
+    }
+
+    class Cursor:
+        def execute(self, query, params=None):
+            execucoes.append((query, tuple(params or ())))
+        def fetchone(self):
+            return titulo
+
+    class Conexao:
+        def cursor(self, dictionary=False):
+            return Cursor()
+        def commit(self):
+            pass
+        def rollback(self):
+            pass
+
+    monkeypatch.setitem(services, "obter_conexao", lambda: Conexao())
+    monkeypatch.setitem(
+        services, "buscar_movimentacoes_baixa_nao_estornadas",
+        lambda cur, titulo_id, empresa_id: [{
+            "id": 70, "conta_caixa_id": 3, "tipo_movimentacao": "SAIDA",
+            "valor_movimentacao": Decimal("300.00"), "forma_pagamento": "PIX",
+        }],
+    )
+    monkeypatch.setitem(
+        services, "aplicar_estorno_em_documento_motorista_e_rotas",
+        lambda cur, **kwargs: chamadas.append(kwargs),
+    )
+    monkeypatch.setitem(
+        services, "registrar_auditoria_financeira",
+        lambda cur, **kwargs: auditoria.update(kwargs),
+    )
+    monkeypatch.setitem(
+        services, "converter_decimal", lambda valor: Decimal(str(valor or 0)),
+    )
+
+    autenticar(client)
+    resposta = client.post(
+        "/financeiro/titulos/8/estornar",
+        data=dados_estorno("encerrar"),
+        follow_redirects=False,
+    )
+
+    assert resposta.status_code == 302
+    assert len(chamadas) == 1
+    assert chamadas[0]["destino"] == "encerrar"
+    assert chamadas[0]["tratativa_pos_estorno"] == "manter_bloqueadas"
+
+    update_titulo = next(
+        item for item in execucoes if "UPDATE titulos_financeiros" in item[0]
+    )
+    assert "tratativa_pos_estorno_aplicada = 0" in update_titulo[0]
+    assert "tipo_tratativa_pos_estorno = NULL" in update_titulo[0]
+    assert auditoria["dados_depois"]["tratativa_pos_estorno"] == "pendente"
 
 
 def test_estorno_faz_rollback_em_erro(client, app, monkeypatch):
@@ -513,3 +562,4 @@ def test_template_estorno_usa_endpoint_do_blueprint(app):
 
     assert "url_for('financeiro.estornar_baixa_titulo_financeiro'" in fonte
     assert "url_for('estornar_baixa_titulo_financeiro'" not in fonte
+    assert 'name="tratativa_pos_estorno"' not in fonte

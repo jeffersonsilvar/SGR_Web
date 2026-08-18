@@ -10668,6 +10668,11 @@ def detalhes_nf_motorista(id):
                     ''', (id, nf['empresa_id']))
         rotas = cur.fetchall()
 
+        parametros_financeiros = carregar_parametros_financeiros_empresa(
+            nf['empresa_id'],
+            cur=cur
+        )
+
     except Exception as e:
         print(f'Erro ao carregar detalhes da NF do motorista: {e}')
         flash('Erro técnico ao carregar detalhes da NF.', 'danger')
@@ -10677,7 +10682,14 @@ def detalhes_nf_motorista(id):
         cur.close()
         con.close()
 
-    return render_template('detalhes_nf_motorista.html', usuario_logado=usuario_logado, nf=nf, rotas=rotas)
+    return render_template(
+        'detalhes_nf_motorista.html',
+        usuario_logado=usuario_logado,
+        nf=nf,
+        rotas=rotas,
+        parametros_financeiros=parametros_financeiros,
+        parametro_bool=parametro_bool
+    )
 
 
 @app.route('/financeiro/nfs-motoristas/<int:id>/marcar-analise', methods=['POST'])
@@ -20281,171 +20293,6 @@ def aplicar_estorno_em_documento_motorista_e_rotas(cur, *, titulo_id, empresa_id
 # Bloco 5.2.2 — Tratativa manual pós-estorno.
 # Permite decidir o destino de documentos/rotas já estornados.
 # ----------------------------------------------------------
-@app.route('/financeiro/titulos/<int:id>/tratativa-pos-estorno', methods=['POST'])
-@login_required
-@perfis_permitidos('Administrador', 'Operacional', 'Financeiro')
-def tratar_pos_estorno_titulo_financeiro(id):
-    empresa_logada_id = session.get('empresa_id')
-    usuario_id = session.get('usuario_id')
-    is_super_admin = usuario_eh_super_admin_global()
-
-    tratativa = (request.form.get('tratativa_pos_estorno_manual') or '').strip()
-    motivo = (request.form.get('motivo_tratativa_pos_estorno') or '').strip()
-    observacao = (request.form.get('observacao_tratativa_pos_estorno') or '').strip()
-
-    tratativas_validas = {
-        'manter_bloqueadas': 'Manter rotas bloqueadas para análise',
-        'reabrir_mesmo_documento': 'Reaproveitar mesmo documento para nova solicitação',
-        'exigir_nova_nf': 'Liberar rotas exigindo novo documento/NF',
-        'cancelar_rotas': 'Cancelar rotas definitivamente',
-    }
-
-    if tratativa not in tratativas_validas:
-        flash('Selecione uma tratativa válida para o pós-estorno.', 'warning')
-        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-
-    if len(motivo) < 5:
-        flash('Informe um motivo com pelo menos 5 caracteres para a tratativa.', 'warning')
-        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-
-    con = obter_conexao()
-    if con is None:
-        flash('Erro de conexão com o banco de dados.', 'danger')
-        return redirect(url_for('financeiro.financeiro_titulos'))
-
-    cur = con.cursor(dictionary=True)
-    try:
-        query = """
-            SELECT id, empresa_id, origem, origem_id, status_titulo, numero_documento, descricao,
-                   tratativa_pos_estorno_aplicada, tipo_tratativa_pos_estorno,
-                   data_tratativa_pos_estorno, usuario_tratativa_pos_estorno_id,
-                   motivo_tratativa_pos_estorno, observacao_tratativa_pos_estorno,
-                   observacao_baixa
-            FROM titulos_financeiros
-            WHERE id = %s
-        """
-        params = [id]
-        if not is_super_admin:
-            query += " AND empresa_id = %s"
-            params.append(empresa_logada_id)
-        query += " LIMIT 1"
-
-        cur.execute(query, params)
-        titulo = cur.fetchone()
-
-        if not titulo:
-            flash('Título financeiro não encontrado ou não pertence à empresa logada.', 'danger')
-            return redirect(url_for('financeiro.financeiro_titulos'))
-
-        if titulo.get('status_titulo') != 'Estornado':
-            flash('A tratativa pós-estorno só pode ser aplicada em títulos com status Estornado.', 'warning')
-            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-
-        if titulo.get('origem') not in ['NF_MOTORISTA', 'SEM_NF_MOTORISTA']:
-            flash('Este título não possui documento de motorista vinculado para tratativa pós-estorno.', 'warning')
-            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-
-        tratativa_ja_aplicada = bool(titulo.get('tratativa_pos_estorno_aplicada'))
-        if not tratativa_ja_aplicada and titulo.get('observacao_baixa') and 'Tratativa pós-estorno aplicada' in str(titulo.get('observacao_baixa')):
-            tratativa_ja_aplicada = True
-
-        if tratativa_ja_aplicada:
-            flash('Este título já possui tratativa pós-estorno aplicada. A decisão é final e não pode ser alterada por esta tela.', 'warning')
-            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-
-        parametros_financeiros = carregar_parametros_financeiros_empresa(titulo['empresa_id'], cur=cur)
-        if not parametro_bool(parametros_financeiros.get('estorno.permitir_tratativa_pos_estorno', {}).get('valor')):
-            flash('Tratativa pós-estorno está bloqueada pelas configurações financeiras da empresa.', 'warning')
-            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-        if tratativa == 'reabrir_mesmo_documento' and not parametro_bool(parametros_financeiros.get('documentos.permitir_reaproveitar_pos_estorno', {}).get('valor')):
-            flash('Reaproveitar documento após estorno está bloqueado nas configurações financeiras da empresa.', 'warning')
-            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-
-        texto_tratativa = tratativas_validas.get(tratativa, tratativa)
-        obs_titulo = (
-            f"Tratativa pós-estorno aplicada em {datetime.now().strftime('%d/%m/%Y %H:%M')}. "
-            f"Tratativa: {texto_tratativa}. Motivo: {motivo}"
-        )
-        if observacao:
-            obs_titulo += f". Observação: {observacao}"
-
-        # Reutiliza a mesma regra central do estorno definitivo, mas sem gerar nova movimentação de caixa.
-        aplicar_estorno_em_documento_motorista_e_rotas(
-            cur,
-            titulo_id=id,
-            empresa_id=titulo['empresa_id'],
-            usuario_id=usuario_id,
-            motivo=motivo,
-            destino='encerrar',
-            tratativa_pos_estorno=tratativa
-        )
-
-        cur.execute("""
-            UPDATE titulos_financeiros
-            SET tratativa_pos_estorno_aplicada = 1,
-                tipo_tratativa_pos_estorno = %s,
-                data_tratativa_pos_estorno = NOW(),
-                usuario_tratativa_pos_estorno_id = %s,
-                motivo_tratativa_pos_estorno = %s,
-                observacao_tratativa_pos_estorno = %s,
-                observacao_baixa = CONCAT(
-                    COALESCE(observacao_baixa, ''),
-                    CASE WHEN COALESCE(observacao_baixa, '') = '' THEN '' ELSE '
-' END,
-                    %s
-                ),
-                updated_at = NOW()
-            WHERE id = %s
-              AND empresa_id = %s
-              AND COALESCE(tratativa_pos_estorno_aplicada, 0) = 0
-        """, (tratativa, usuario_id, motivo, observacao or None, obs_titulo, id, titulo['empresa_id']))
-
-        if cur.rowcount == 0:
-            con.rollback()
-            flash('Este título já recebeu uma tratativa pós-estorno. A decisão anterior foi preservada.', 'warning')
-            return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-
-        cur.execute("""
-            INSERT INTO historico_operacoes
-                (empresa_id, tipo_operacao, usuario_id, status_anterior, status_novo, motivo, observacao)
-            VALUES
-                (%s, 'TRATATIVA_POS_ESTORNO', %s, 'Estornado', 'Estornado', %s, %s)
-        """, (
-            titulo['empresa_id'],
-            usuario_id,
-            motivo,
-            f"Título #{id}. {obs_titulo}"
-        ))
-
-        registrar_auditoria_financeira(
-            cur,
-            empresa_id=titulo['empresa_id'],
-            usuario_id=usuario_id,
-            acao='TRATATIVA_POS_ESTORNO_APLICADA',
-            modulo='ESTORNO_FINANCEIRO',
-            entidade_tipo='TITULO_FINANCEIRO',
-            entidade_id=id,
-            titulo_financeiro_id=id,
-            status_anterior='Estornado',
-            status_novo='Estornado',
-            motivo=motivo,
-            observacao=f'Título #{id}. {obs_titulo}',
-            dados_depois={'tratativa': tratativa, 'texto_tratativa': texto_tratativa}
-        )
-        con.commit()
-        flash(f'Tratativa pós-estorno aplicada com sucesso: {texto_tratativa}.', 'success')
-        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-
-    except Exception as e:
-        try:
-            con.rollback()
-        except Exception as rollback_error:
-            print(f"Aviso: não foi possível executar rollback da tratativa pós-estorno do título {id}: {rollback_error}")
-        print(f"Erro na tratativa pós-estorno do título financeiro {id}: {e}")
-        flash('Erro técnico ao aplicar tratativa pós-estorno.', 'danger')
-        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-    finally:
-        fechar_cursor_conexao(cur, con)
 
 
 

@@ -181,15 +181,10 @@
                         </div>
 
                         {% if titulo.origem in ['NF_MOTORISTA', 'SEM_NF_MOTORISTA'] %}
-                        <label class="form-label small">Tratativa das rotas/documento após estorno definitivo</label>
-                        <select name="tratativa_pos_estorno" class="form-select mb-2">
-                            <option value="manter_bloqueadas">Manter rotas bloqueadas para análise</option>
-                            {% if cfg_reaproveitar_doc %}<option value="reabrir_mesmo_documento">Reaproveitar mesmo documento para nova solicitação</option>{% endif %}
-                            <option value="exigir_nova_nf">Liberar rotas exigindo novo documento/NF</option>
-                            <option value="cancelar_rotas">Cancelar rotas definitivamente</option>
-                        </select>
-                        <div class="form-text mb-2">
-                            Usado quando o destino for “Encerrar como estornado”. Se a NF estiver correta e o erro for interno, reaproveite o mesmo documento. Se a NF estiver fiscalmente incorreta, exija novo documento/NF.
+                        <div class="alert alert-info small mb-2">
+                            Se o destino for <strong>Encerrar como estornado</strong>, a NF e as rotas
+                            ficarão temporariamente bloqueadas. A decisão operacional será feita
+                            depois, na seção <strong>Tratativa pós-estorno</strong>.
                         </div>
                         {% endif %}
 
@@ -254,10 +249,11 @@
                         </div>
                         {% endif %}
                     {% else %}
-                        <div class="alert alert-info small mb-3">
-                            Use esta ação para decidir o destino das rotas/documento após um estorno definitivo. O título continua estornado e o histórico financeiro permanece preservado.
+                        <div class="alert alert-primary small mb-3">
+                            <strong>Tratativa pendente.</strong> O estorno financeiro já foi concluído.
+                            Escolha agora o destino operacional da NF e das rotas vinculadas.
                         </div>
-                        <form method="post" action="{{ url_for('tratar_pos_estorno_titulo_financeiro', id=titulo.id) }}">
+                        <form method="post" action="{{ url_for('financeiro.tratar_pos_estorno_titulo_financeiro', id=titulo.id) }}">
                             <label class="form-label small">Destino das rotas/documento *</label>
                             <select name="tratativa_pos_estorno_manual" class="form-select mb-2" required>
                                 <option value="manter_bloqueadas">Manter rotas bloqueadas para análise</option>
