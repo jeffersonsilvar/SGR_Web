@@ -318,6 +318,7 @@
 'financeiro.financeiro_conciliacao_caixa',
 'financeiro.financeiro_conciliacao_caixa_acao',
 'financeiro.baixar_titulo_financeiro',
+'financeiro.estornar_baixa_titulo_financeiro',
 'financeiro_configuracoes'
 ] %}
 
@@ -624,7 +625,7 @@
                                     Dashboard Financeiro
                                 </a>
 
-                                <a class="nav-link {% if endpoint == 'financeiro.financeiro_titulos' or endpoint == 'financeiro.novo_titulo_financeiro' or endpoint == 'financeiro.detalhes_titulo_financeiro' or endpoint == 'financeiro.cancelar_titulo_financeiro' or endpoint == 'financeiro.baixar_titulo_financeiro' %}active{% endif %}"
+                                <a class="nav-link {% if endpoint == 'financeiro.financeiro_titulos' or endpoint == 'financeiro.novo_titulo_financeiro' or endpoint == 'financeiro.detalhes_titulo_financeiro' or endpoint == 'financeiro.cancelar_titulo_financeiro' or endpoint == 'financeiro.baixar_titulo_financeiro' or endpoint == 'financeiro.estornar_baixa_titulo_financeiro' %}active{% endif %}"
                                    href="{{ url_for('financeiro.financeiro_titulos') }}">
                                     <i class="fa-solid fa-list-check me-2"></i>
                                     Títulos Financeiros
