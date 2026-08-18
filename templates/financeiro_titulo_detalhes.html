@@ -167,7 +167,7 @@
                     <div class="alert alert-warning small mb-3">
                         O estorno cria uma movimentação inversa no caixa e preserva o histórico da baixa original.
                     </div>
-                    <form method="post" action="{{ url_for('estornar_baixa_titulo_financeiro', id=titulo.id) }}">
+                    <form method="post" action="{{ url_for('financeiro.estornar_baixa_titulo_financeiro', id=titulo.id) }}">
                         <label class="form-label small">Data do estorno *</label>
                         <input type="date" name="data_estorno" class="form-control mb-2" value="{{ hoje }}" required>
 
