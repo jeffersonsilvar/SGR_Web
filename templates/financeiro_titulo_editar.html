@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<div class="container-fluid py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h3 class="mb-1 fw-bold">Editar Título Financeiro #{{ titulo.id }}</h3>
+            <div class="text-muted small">Somente títulos manuais em aberto e sem movimentação de caixa podem ser alterados.</div>
+        </div>
+        <a href="{{ url_for('financeiro.detalhes_titulo_financeiro', id=titulo.id) }}" class="btn btn-outline-secondary">Voltar</a>
+    </div>
+
+    <div class="alert alert-info small">
+        <strong>Tipo do título:</strong>
+        {% if titulo.tipo_titulo == 'PAGAR' %}Conta a pagar{% else %}Conta a receber{% endif %}.
+        O tipo, a empresa, a origem e o status são preservados e não podem ser alterados por esta tela.
+    </div>
+
+    <form method="post" class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Pessoa responsável *</label>
+                    <select name="pessoa_id" class="form-select" required>
+                        {% for pessoa in pessoas %}
+                            <option value="{{ pessoa.id }}" {% if pessoa.id|string == titulo.pessoa_id|string %}selected{% endif %}>
+                                {{ pessoa.nome_completo }}{% if pessoa.cpf_cnpj %} — {{ pessoa.cpf_cnpj }}{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Número do documento *</label>
+                    <input type="text" name="numero_documento" class="form-control" value="{{ titulo.numero_documento or '' }}" required>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Forma de pagamento</label>
+                    <select name="forma_pagamento" class="form-select">
+                        <option value="">A definir</option>
+                        {% for forma in formas_pagamento %}
+                            <option value="{{ forma }}" {% if forma == titulo.forma_pagamento %}selected{% endif %}>{{ forma }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-12">
+                    <label class="form-label">Descrição *</label>
+                    <input type="text" name="descricao" class="form-control" value="{{ titulo.descricao or '' }}" required>
+                </div>
+
+                <div class="col-md-12">
+                    <label class="form-label">Histórico</label>
+                    <textarea name="historico" class="form-control" rows="3">{{ titulo.historico or '' }}</textarea>
+                    <div class="form-text">Se ficar vazio, o sistema recria o histórico automaticamente.</div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Valor original *</label>
+                    <input type="text" name="valor_original" class="form-control" value="{{ '%.2f'|format(titulo.valor_original or 0) }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Desconto</label>
+                    <input type="text" name="valor_desconto" class="form-control" value="{{ '%.2f'|format(titulo.valor_desconto or 0) }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Acréscimo</label>
+                    <input type="text" name="valor_acrescimo" class="form-control" value="{{ '%.2f'|format(titulo.valor_acrescimo or 0) }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Líquido atual</label>
+                    <input type="text" class="form-control" value="{{ titulo.valor_liquido|moeda_br }}" disabled>
+                    <div class="form-text">Será recalculado ao salvar.</div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Emissão *</label>
+                    <input type="date" name="data_emissao" class="form-control" value="{{ titulo.data_emissao }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Competência</label>
+                    <input type="date" name="data_competencia" class="form-control" value="{{ titulo.data_competencia or titulo.data_emissao }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Vencimento *</label>
+                    <input type="date" name="data_vencimento" class="form-control" value="{{ titulo.data_vencimento }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Conta caixa prevista</label>
+                    <select name="conta_caixa_prevista_id" class="form-select">
+                        <option value="">A definir na baixa</option>
+                        {% for conta in contas_caixa %}
+                            <option value="{{ conta.id }}" {% if conta.id|string == titulo.conta_caixa_prevista_id|string %}selected{% endif %}>{{ conta.nome_conta }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-12">
+                    <label class="form-label">Observação</label>
+                    <textarea name="observacao" class="form-control" rows="3">{{ titulo.observacao or '' }}</textarea>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer bg-white d-flex justify-content-end gap-2">
+            <a href="{{ url_for('financeiro.detalhes_titulo_financeiro', id=titulo.id) }}" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary" onclick="return confirm('Salvar as alterações deste título manual?')">
+                <i class="fa-solid fa-floppy-disk me-1"></i> Salvar alterações
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
