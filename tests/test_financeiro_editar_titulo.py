@@ -52,6 +52,8 @@ class CursorEdicao:
                 "origem": self.origem,
                 "status_titulo": self.status,
                 "pessoa_id": 5,
+                "pessoa_nome": "Fornecedor Teste",
+                "pessoa_cpf_cnpj": "12345678901",
                 "numero_documento": "DOC-100",
                 "descricao": "Serviço original",
                 "historico": "Histórico original",
@@ -149,6 +151,9 @@ def test_get_edicao_renderiza_titulo_manual(client, app, monkeypatch):
     assert resposta.status_code == 200
     assert b"Editar T" in resposta.data
     assert b"DOC-100" in resposta.data
+    assert b"sgr-busca-pessoa" in resposta.data
+    assert b"Digite nome, CPF/CNPJ ou ID" in resposta.data
+    assert b"Fornecedor Teste" in resposta.data
 
 
 def test_edicao_bloqueia_titulo_automatico(client, app, monkeypatch):
