@@ -17,7 +17,6 @@ def dados_tratativa(tratativa="manter_bloqueadas"):
 
 def parametros_liberados():
     return {
-        "estorno.permitir_tratativa_pos_estorno": {"valor": "1"},
         "documentos.permitir_reaproveitar_pos_estorno": {"valor": "1"},
     }
 
@@ -258,47 +257,6 @@ def test_tratativa_bloqueia_reaplicacao(client, app, monkeypatch):
     assert "/financeiro/titulos/8" in resposta.headers["Location"]
 
 
-def test_tratativa_respeita_configuracao_bloqueada(
-    client, app, monkeypatch
-):
-    services = preparar_servicos(app, monkeypatch)
-    titulo = titulo_estornado()
-
-    class Cursor:
-        def execute(self, query, params=None):
-            pass
-
-        def fetchone(self):
-            return titulo
-
-    class Conexao:
-        def cursor(self, dictionary=False):
-            return Cursor()
-
-        def rollback(self):
-            pass
-
-    monkeypatch.setitem(services, "obter_conexao", lambda: Conexao())
-    monkeypatch.setitem(
-        services,
-        "carregar_parametros_financeiros_empresa",
-        lambda empresa_id, cur=None: {
-            "estorno.permitir_tratativa_pos_estorno": {"valor": "0"},
-            "documentos.permitir_reaproveitar_pos_estorno": {"valor": "1"},
-        },
-    )
-    autenticar(client)
-
-    resposta = client.post(
-        "/financeiro/titulos/8/tratativa-pos-estorno",
-        data=dados_tratativa(),
-        follow_redirects=False,
-    )
-
-    assert resposta.status_code == 302
-    assert "/financeiro/titulos/8" in resposta.headers["Location"]
-
-
 def test_tratativa_reaproveitar_respeita_configuracao(
     client, app, monkeypatch
 ):
@@ -324,7 +282,6 @@ def test_tratativa_reaproveitar_respeita_configuracao(
         services,
         "carregar_parametros_financeiros_empresa",
         lambda empresa_id, cur=None: {
-            "estorno.permitir_tratativa_pos_estorno": {"valor": "1"},
             "documentos.permitir_reaproveitar_pos_estorno": {"valor": "0"},
         },
     )

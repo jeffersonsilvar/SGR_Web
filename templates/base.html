@@ -319,7 +319,7 @@
 'financeiro.financeiro_conciliacao_caixa_acao',
 'financeiro.baixar_titulo_financeiro',
 'financeiro.estornar_baixa_titulo_financeiro',
-'financeiro_configuracoes'
+'financeiro.financeiro_configuracoes'
 ] %}
 
 {% set relatorios_menu = [
@@ -651,8 +651,8 @@
                                     Conciliação de Caixa
                                 </a>
 
-                                <a class="nav-link {% if endpoint == 'financeiro_configuracoes' %}active{% endif %}"
-                                   href="{{ url_for('financeiro_configuracoes') }}">
+                                <a class="nav-link {% if endpoint == 'financeiro.financeiro_configuracoes' %}active{% endif %}"
+                                   href="{{ url_for('financeiro.financeiro_configuracoes') }}">
                                     <i class="fa-solid fa-gear me-2"></i>
                                     Configurações Financeiras
                                 </a>

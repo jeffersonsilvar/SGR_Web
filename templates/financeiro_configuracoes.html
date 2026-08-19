@@ -4,124 +4,62 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h3 class="mb-1 fw-bold">Configurações Financeiras</h3>
-            <div class="text-muted">Parâmetros financeiros por empresa para baixa, estorno, caixa, documentos e títulos automáticos.</div>
+            <div class="text-muted">Somente políticas reais da empresa. Regras de integridade, auditoria e segurança não podem ser desligadas.</div>
         </div>
         <a href="{{ url_for('financeiro.financeiro_titulos') }}" class="btn btn-outline-secondary">Títulos Financeiros</a>
     </div>
 
     <div class="alert alert-info border-0 shadow-sm">
         <strong>Empresa:</strong> {{ empresa_config.nome_fantasia or empresa_config.razao_social }}
-        <div class="small mt-1">As regras abaixo são aplicadas somente à empresa selecionada. Novos módulos poderão usar a mesma base de parâmetros.</div>
+        <div class="small mt-1">Cancelamento, estorno, conta obrigatória na baixa, motivo e auditoria são regras estruturais do SGR e não aparecem como interruptores.</div>
     </div>
 
     {% if is_super_admin and empresas %}
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body">
-            <form method="get" class="row g-2 align-items-end">
-                <div class="col-md-6">
-                    <label class="form-label">Empresa para configurar</label>
-                    <select name="empresa_id" class="form-select">
-                        {% for emp in empresas %}
-                            <option value="{{ emp.id }}" {% if emp.id == empresa_id_config %}selected{% endif %}>{{ emp.nome_fantasia or emp.razao_social }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <button class="btn btn-dark w-100" type="submit">Carregar empresa</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <div class="card border-0 shadow-sm mb-3"><div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-6"><label class="form-label">Empresa para configurar</label>
+                <select name="empresa_id" class="form-select">{% for emp in empresas %}<option value="{{ emp.id }}" {% if emp.id == empresa_id_config %}selected{% endif %}>{{ emp.nome_fantasia or emp.razao_social }}</option>{% endfor %}</select>
+            </div>
+            <div class="col-md-3"><button class="btn btn-dark w-100" type="submit">Carregar empresa</button></div>
+        </form>
+    </div></div>
     {% endif %}
 
     <form method="post">
-        {% if is_super_admin %}
-            <input type="hidden" name="empresa_id" value="{{ empresa_id_config }}">
-        {% endif %}
-
-        <ul class="nav nav-pills mb-3" id="configTabs" role="tablist">
-            {% for grupo, titulo in grupos.items() %}
-            <li class="nav-item" role="presentation">
-                <button class="nav-link {% if loop.first %}active{% endif %}" id="tab-{{ grupo }}" data-bs-toggle="pill" data-bs-target="#grupo-{{ grupo }}" type="button" role="tab">
-                    {{ titulo }}
-                </button>
-            </li>
-            {% endfor %}
-        </ul>
-
+        {% if is_super_admin %}<input type="hidden" name="empresa_id" value="{{ empresa_id_config }}">{% endif %}
+        <ul class="nav nav-pills mb-3">{% for grupo, titulo in grupos.items() %}<li class="nav-item"><button class="nav-link {% if loop.first %}active{% endif %}" data-bs-toggle="pill" data-bs-target="#grupo-{{ grupo }}" type="button">{{ titulo }}</button></li>{% endfor %}</ul>
         <div class="tab-content">
-            {% for grupo, titulo in grupos.items() %}
-            <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="grupo-{{ grupo }}" role="tabpanel">
+        {% for grupo, titulo in grupos.items() %}
+            <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="grupo-{{ grupo }}">
                 <div class="card border-0 shadow-sm mb-3">
-                    <div class="card-header bg-white">
-                        <strong>{{ titulo }}</strong>
-                    </div>
-                    <div class="card-body">
-                        <div class="row g-3">
-                            {% for chave, param in parametros.items() if param.grupo == grupo and chave != 'caixa.conta_padrao_id' %}
-                                {% set valor = param.valor|string %}
-                                <div class="col-lg-6">
-                                    <div class="border rounded p-3 h-100 bg-white">
-                                        <div class="d-flex justify-content-between gap-3 align-items-start">
-                                            <div>
-                                                <label class="form-label fw-semibold mb-1">{{ param.descricao }}</label>
-                                                <div class="small text-muted"><code>{{ chave }}</code></div>
-                                            </div>
-                                            {% if param.tipo == 'boolean' %}
-                                            <div class="form-check form-switch fs-5">
-                                                <input class="form-check-input" type="checkbox" name="{{ chave }}" value="1" {% if valor in ['1','true','True','sim','on'] %}checked{% endif %}>
-                                            </div>
-                                            {% endif %}
-                                        </div>
-
-                                        {% if param.tipo == 'integer' %}
-                                            <input type="number" min="0" step="1" name="{{ chave }}" class="form-control mt-2" value="{{ valor }}">
-                                        {% elif param.tipo == 'string' %}
-                                            {% if chave == 'caixa.forma_pagamento_padrao' %}
-                                                <select name="{{ chave }}" class="form-select mt-2">
-                                                    {% for forma in formas_pagamento %}
-                                                        <option value="{{ forma }}" {% if valor == forma %}selected{% endif %}>{{ forma }}</option>
-                                                    {% endfor %}
-                                                </select>
-                                            {% else %}
-                                                <input type="text" name="{{ chave }}" class="form-control mt-2" value="{{ valor }}">
-                                            {% endif %}
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            {% endfor %}
-
-                            {% if grupo == 'caixa' %}
-                            <div class="col-lg-6">
-                                <div class="border rounded p-3 h-100 bg-white">
-                                    <label class="form-label fw-semibold mb-1">Conta caixa padrão sugerida nas baixas financeiras</label>
-                                    <div class="small text-muted mb-2"><code>caixa.conta_padrao_id</code></div>
-                                    {% set conta_padrao = parametros.get('caixa.conta_padrao_id', {}).get('valor', '')|string %}
-                                    <select name="caixa.conta_padrao_id" class="form-select">
-                                        <option value="">A definir na baixa</option>
-                                        {% for conta in contas_caixa %}
-                                            <option value="{{ conta.id }}" {% if conta_padrao == conta.id|string %}selected{% endif %}>{{ conta.nome_conta }}{% if conta.banco %} — {{ conta.banco }}{% endif %}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
+                    <div class="card-header bg-white"><strong>{{ titulo }}</strong></div>
+                    <div class="card-body"><div class="row g-3">
+                    {% for chave, param in parametros.items() if param.grupo == grupo %}
+                        {% set valor = param.valor|string %}
+                        <div class="col-lg-6"><div class="border rounded p-3 h-100 bg-white">
+                            <div class="d-flex justify-content-between gap-3 align-items-start">
+                                <div><label class="form-label fw-semibold mb-1">{{ param.descricao }}</label><div class="small text-muted"><code>{{ chave }}</code></div></div>
+                                {% if param.tipo == 'boolean' %}<div class="form-check form-switch fs-5"><input class="form-check-input" type="checkbox" name="{{ chave }}" value="1" {% if valor in ['1','true','True','sim','on'] %}checked{% endif %}></div>{% endif %}
                             </div>
+                            {% if chave == 'caixa.conta_padrao_id' %}
+                            <select name="{{ chave }}" class="form-select mt-2"><option value="">A definir na baixa</option>{% for conta in contas_caixa %}<option value="{{ conta.id }}" {% if valor == conta.id|string %}selected{% endif %}>{{ conta.nome_conta }}{% if conta.banco %} — {{ conta.banco }}{% endif %}</option>{% endfor %}</select>
+                            {% elif chave == 'caixa.forma_pagamento_padrao' %}
+                            <select name="{{ chave }}" class="form-select mt-2">{% for forma in formas_pagamento %}<option value="{{ forma }}" {% if valor == forma %}selected{% endif %}>{{ forma }}</option>{% endfor %}</select>
+                            {% elif chave == 'titulos.modo_geracao_documento' %}
+                            <select name="{{ chave }}" class="form-select mt-2"><option value="AUTOMATICO" {% if valor == 'AUTOMATICO' %}selected{% endif %}>Automática — gerar direto com os padrões</option><option value="ASSISTIDO" {% if valor == 'ASSISTIDO' %}selected{% endif %}>Assistida — solicitar vencimento e forma antes de gerar</option></select>
+                            {% elif param.tipo == 'integer' %}
+                            <input type="number" min="0" step="1" name="{{ chave }}" class="form-control mt-2" value="{{ valor }}">
+                            {% elif param.tipo == 'string' %}
+                            <input type="text" name="{{ chave }}" class="form-control mt-2" value="{{ valor }}">
                             {% endif %}
-                        </div>
-                    </div>
+                        </div></div>
+                    {% endfor %}
+                    </div></div>
                 </div>
             </div>
-            {% endfor %}
+        {% endfor %}
         </div>
-
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div>
-                    <strong>Salvar parâmetros financeiros</strong>
-                    <div class="text-muted small">As alterações passam a valer para as próximas operações financeiras da empresa.</div>
-                </div>
-                <button type="submit" class="btn btn-primary px-4">Salvar configurações</button>
-            </div>
-        </div>
+        <div class="card border-0 shadow-sm mb-4"><div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2"><div><strong>Salvar políticas financeiras</strong><div class="text-muted small">As alterações passam a valer nas próximas operações da empresa.</div></div><button type="submit" class="btn btn-primary px-4">Salvar configurações</button></div></div>
     </form>
 </div>
 {% endblock %}

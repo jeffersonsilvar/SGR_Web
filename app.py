@@ -1074,7 +1074,7 @@ MENU_SISTEMA_PADRAO = [
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_contas_caixa', 'Contas Caixa', 'financeiro.financeiro_contas_caixa', 'fa-solid fa-building-columns', 30, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro.financeiro_movimentacoes_caixa', 'Movimentações Caixa', 'financeiro.financeiro_movimentacoes_caixa', 'fa-solid fa-right-left', 40, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro.financeiro_conciliacao_caixa', 'Conciliação de Caixa', 'financeiro.financeiro_conciliacao_caixa', 'fa-solid fa-scale-balanced', 50, ['Administrador', 'Financeiro']),
-    ('FINANCEIRO', 'gestao_financeira', 'financeiro_configuracoes', 'Configurações Financeiras', 'financeiro_configuracoes', 'fa-solid fa-gear', 60, ['Administrador']),
+    ('FINANCEIRO', 'gestao_financeira', 'financeiro_configuracoes', 'Configurações Financeiras', 'financeiro.financeiro_configuracoes', 'fa-solid fa-gear', 60, ['Administrador']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_auditoria', 'Auditoria Financeira', 'financeiro_auditoria', 'fa-solid fa-shield-halved', 70, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'financeiro_nfs_motoristas', 'Documentos Motoristas', 'financeiro_nfs_motoristas', 'fa-solid fa-file-signature', 80, ['Administrador', 'Financeiro']),
     ('FINANCEIRO', 'gestao_financeira', 'pagamentos_ajudante', 'Pagamentos Ajudante', 'pagamentos_ajudante', 'fa-solid fa-people-carry-box', 90, ['Administrador', 'Financeiro']),
@@ -10818,6 +10818,28 @@ def solicitar_pagamento_sem_nf_motorista():
         flash("Seu usuário não está vinculado a um motorista ativo nesta empresa.", "danger")
         return redirect(url_for('portal_motorista'))
 
+    parametros_financeiros = carregar_parametros_financeiros_empresa(
+        empresa_id
+    )
+    if not parametro_bool(
+        parametros_financeiros.get(
+            'documentos.permitir_sem_nf_pf',
+            {},
+        ).get('valor')
+    ):
+        flash(
+            'Solicitação de pagamento sem NF está desabilitada para esta empresa.',
+            'warning'
+        )
+        return redirect(url_for('portal_motorista'))
+
+    if len(somente_digitos(motorista.get('cpf_cnpj'))) != 11:
+        flash(
+            'Pagamento sem NF é permitido somente para prestador pessoa física (CPF).',
+            'warning'
+        )
+        return redirect(url_for('portal_motorista'))
+
     motorista_id = motorista['id']
     rota_id_preselecionada = request.args.get('rota_id', '').strip()
 
@@ -18156,16 +18178,25 @@ def historico_motorista_detalhe(motorista_id):
 # BLOCO 4 - SOLICITAR PAGAMENTO DE NF MOTORISTA
 # NF aprovada gera título financeiro automático
 # ==========================================================
-def _dias_vencimento_pagamento_nf_motorista():
-    """Prazo padrão para vencimento do título gerado a partir da NF do motorista."""
-    return 3
+def _dias_vencimento_pagamento_nf_motorista(empresa_id, cur=None):
+    """Prazo configurado por empresa para títulos gerados por documento de motorista."""
+    try:
+        return max(0, int(obter_parametro_empresa(
+            empresa_id,
+            'titulos.dias_padrao_vencimento_motorista',
+            5,
+            cur=cur,
+        )))
+    except Exception:
+        return 5
+
 
 
 def _status_nf_motorista_com_pagamento_solicitado():
     return 'Pagamento solicitado'
 
 
-def gerar_titulo_financeiro_por_nf_motorista(cur, nf_id, empresa_id, usuario_id, data_vencimento=None, forma_pagamento='PIX'):
+def gerar_titulo_financeiro_por_nf_motorista(cur, nf_id, empresa_id, usuario_id, data_vencimento=None, forma_pagamento='PIX', conta_caixa_prevista_id=None):
     """
     Gera um título financeiro a pagar a partir de uma NF aprovada de motorista.
     Retorna (titulo_id, mensagem).
@@ -18245,7 +18276,7 @@ def gerar_titulo_financeiro_por_nf_motorista(cur, nf_id, empresa_id, usuario_id,
 
     hoje = date.today()
     if not data_vencimento:
-        data_vencimento = (hoje + timedelta(days=_dias_vencimento_pagamento_nf_motorista())).strftime('%Y-%m-%d')
+        data_vencimento = (hoje + timedelta(days=_dias_vencimento_pagamento_nf_motorista(empresa_id, cur=cur))).strftime('%Y-%m-%d')
 
     if isinstance(data_vencimento, date):
         data_vencimento = data_vencimento.strftime('%Y-%m-%d')
@@ -18286,7 +18317,7 @@ def gerar_titulo_financeiro_por_nf_motorista(cur, nf_id, empresa_id, usuario_id,
             (%s, 'PAGAR', %s, %s, %s, %s,
              %s, %s, %s, 0.00, 0.00,
              %s, CURDATE(), %s, %s,
-             %s, NULL, 'Solicitado', %s,
+             %s, %s, 'Solicitado', %s,
              %s)
     """, (
         empresa_id,
@@ -18301,6 +18332,7 @@ def gerar_titulo_financeiro_por_nf_motorista(cur, nf_id, empresa_id, usuario_id,
         nf.get('data_emissao') or hoje.strftime('%Y-%m-%d'),
         data_vencimento,
         forma_pagamento or 'PIX',
+        conta_caixa_prevista_id,
         observacao_geracao,
         usuario_id
     ))
@@ -18362,9 +18394,6 @@ def solicitar_pagamento_nf_motorista(id):
     usuario_id = session.get('usuario_id')
     is_super_admin = int(session.get('is_super_admin') or 0) == 1
 
-    data_vencimento = (request.form.get('data_vencimento') or '').strip()
-    forma_pagamento = (request.form.get('forma_pagamento') or 'PIX').strip()
-
     if not empresa_logada_id:
         flash("Empresa não identificada na sessão. Faça login novamente.", "danger")
         return redirect(url_for('logout'))
@@ -18393,14 +18422,65 @@ def solicitar_pagamento_nf_motorista(id):
             flash("Documento do motorista não encontrado ou não pertence à empresa logada.", "danger")
             return redirect(url_for('financeiro_nfs_motoristas'))
 
+        parametros = carregar_parametros_financeiros_empresa(nf['empresa_id'], cur=cur)
+        modo = str(
+            parametros.get('titulos.modo_geracao_documento', {}).get('valor')
+            or 'AUTOMATICO'
+        ).upper()
+        forma_padrao = (
+            parametros.get('caixa.forma_pagamento_padrao', {}).get('valor')
+            or 'PIX'
+        )
+        conta_padrao = str(
+            parametros.get('caixa.conta_padrao_id', {}).get('valor') or ''
+        ).strip()
+        conta_prevista_id = int(conta_padrao) if conta_padrao.isdigit() else None
+
+        if conta_prevista_id:
+            cur.execute("""
+                SELECT id
+                FROM contas_caixa
+                WHERE id = %s
+                  AND empresa_id = %s
+                  AND status_conta = 'Ativa'
+                LIMIT 1
+            """, (conta_prevista_id, nf['empresa_id']))
+            if not cur.fetchone():
+                conta_prevista_id = None
+
+        if modo == 'ASSISTIDO':
+            data_vencimento = (
+                request.form.get('data_vencimento') or ''
+            ).strip()
+            forma_pagamento = (
+                request.form.get('forma_pagamento') or forma_padrao
+            ).strip()
+
+            if not data_vencimento or not validar_data_iso(data_vencimento):
+                flash('Informe uma data de vencimento válida.', 'warning')
+                return redirect(url_for('detalhes_nf_motorista', id=id))
+
+            if forma_pagamento not in financeiro_base_formas_pagamento():
+                flash('Selecione uma forma de pagamento válida.', 'warning')
+                return redirect(url_for('detalhes_nf_motorista', id=id))
+        else:
+            data_vencimento = None
+            forma_pagamento = (
+                forma_padrao
+                if forma_padrao in financeiro_base_formas_pagamento()
+                else 'PIX'
+            )
+
         titulo_id, msg = gerar_titulo_financeiro_por_nf_motorista(
             cur,
             nf_id=id,
             empresa_id=nf['empresa_id'],
             usuario_id=usuario_id,
-            data_vencimento=data_vencimento or None,
-            forma_pagamento=forma_pagamento or 'PIX'
+            data_vencimento=data_vencimento,
+            forma_pagamento=forma_pagamento,
+            conta_caixa_prevista_id=conta_prevista_id,
         )
+
         registrar_auditoria_financeira(
             cur,
             empresa_id=nf['empresa_id'],
@@ -18414,7 +18494,15 @@ def solicitar_pagamento_nf_motorista(id):
             status_novo='Pagamento solicitado',
             motivo='Solicitação de pagamento de documento',
             observacao=msg,
-            dados_depois={'numero_nf': nf.get('numero_nf'), 'forma_pagamento': forma_pagamento or 'PIX', 'data_vencimento': data_vencimento}
+            dados_depois={
+                'numero_nf': nf.get('numero_nf'),
+                'modo_geracao': modo,
+                'forma_pagamento': forma_pagamento,
+                'data_vencimento': (
+                    data_vencimento or 'PADRAO_CONFIGURADO'
+                ),
+                'conta_caixa_prevista_id': conta_prevista_id,
+            },
         )
         con.commit()
 
@@ -18425,20 +18513,24 @@ def solicitar_pagamento_nf_motorista(id):
             status_anterior='Aprovada',
             status_novo=_status_nf_motorista_com_pagamento_solicitado(),
             motivo='Solicitação de pagamento',
-            observacao=f"{msg} O título entrou em Contas a Pagar como Solicitado."
+            observacao=(
+                f"{msg} O título entrou em Contas a Pagar como Solicitado."
+            ),
         )
 
         flash(f"Pagamento solicitado com sucesso. {msg}", "success")
-        return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=titulo_id))
+        return redirect(
+            url_for('financeiro.detalhes_titulo_financeiro', id=titulo_id)
+        )
 
     except Exception as e:
         con.rollback()
         print(f"Erro ao solicitar pagamento da NF motorista {id}: {e}")
         flash(f"Erro ao solicitar pagamento: {e}", "danger")
         return redirect(url_for('detalhes_nf_motorista', id=id))
-
     finally:
         fechar_cursor_conexao(cur, con)
+
 
 
 # ==========================================================
@@ -18495,96 +18587,48 @@ def financeiro_base_tipos_conta_caixa():
 # Bloco 6.0 — Parâmetros financeiros por empresa
 # ----------------------------------------------------------
 PARAMETROS_FINANCEIROS_PADRAO = {
-    # Baixa financeira
-    'baixa.exigir_conta_caixa': {
-        'grupo': 'baixa', 'tipo': 'boolean', 'valor': '1',
-        'descricao': 'Exigir seleção de conta caixa para baixar títulos.'
-    },
     'baixa.exigir_comprovante': {
         'grupo': 'baixa', 'tipo': 'boolean', 'valor': '0',
-        'descricao': 'Exigir upload de comprovante ao baixar títulos financeiros.'
-    },
-    'baixa.permitir_pagamento_parcial': {
-        'grupo': 'baixa', 'tipo': 'boolean', 'valor': '0',
-        'descricao': 'Permitir baixa com valor menor que o valor líquido do título.'
-    },
-    'baixa.permitir_valor_diferente': {
-        'grupo': 'baixa', 'tipo': 'boolean', 'valor': '0',
-        'descricao': 'Permitir baixa com valor diferente do valor líquido do título.'
+        'descricao': 'Exigir comprovante na baixa financeira.'
     },
     'baixa.permitir_data_retroativa': {
         'grupo': 'baixa', 'tipo': 'boolean', 'valor': '1',
-        'descricao': 'Permitir informar data de baixa anterior à data atual.'
+        'descricao': 'Permitir baixa com data anterior à data atual.'
     },
-
-    # Estorno
-    'estorno.permitir_estorno_baixa': {
-        'grupo': 'estorno', 'tipo': 'boolean', 'valor': '1',
-        'descricao': 'Permitir estornar baixas financeiras.'
+    'baixa.limite_dias_retroativo': {
+        'grupo': 'baixa', 'tipo': 'integer', 'valor': '30',
+        'descricao': 'Limite máximo, em dias, para baixa retroativa. Zero significa sem limite quando habilitada.'
     },
-    'estorno.exigir_motivo': {
-        'grupo': 'estorno', 'tipo': 'boolean', 'valor': '1',
-        'descricao': 'Exigir motivo para estornar uma baixa financeira.'
-    },
-    'estorno.permitir_reabrir_titulo': {
-        'grupo': 'estorno', 'tipo': 'boolean', 'valor': '1',
-        'descricao': 'Permitir que o estorno reabra o título para nova baixa.'
-    },
-    'estorno.permitir_encerrar_estornado': {
-        'grupo': 'estorno', 'tipo': 'boolean', 'valor': '1',
-        'descricao': 'Permitir encerrar o título como estornado.'
-    },
-    'estorno.permitir_tratativa_pos_estorno': {
-        'grupo': 'estorno', 'tipo': 'boolean', 'valor': '1',
-        'descricao': 'Permitir tratativa pós-estorno para documentos/rotas.'
-    },
-
-    # Caixa
     'caixa.permitir_saldo_negativo': {
         'grupo': 'caixa', 'tipo': 'boolean', 'valor': '0',
-        'descricao': 'Permitir baixa de contas a pagar mesmo sem saldo suficiente no caixa.'
+        'descricao': 'Permitir pagamento mesmo quando a conta caixa não possui saldo suficiente.'
     },
     'caixa.conta_padrao_id': {
         'grupo': 'caixa', 'tipo': 'integer', 'valor': '',
-        'descricao': 'Conta caixa padrão sugerida nas baixas financeiras.'
+        'descricao': 'Conta caixa padrão sugerida nas operações financeiras.'
     },
     'caixa.forma_pagamento_padrao': {
         'grupo': 'caixa', 'tipo': 'string', 'valor': 'PIX',
-        'descricao': 'Forma de pagamento padrão para títulos/documentos.'
+        'descricao': 'Forma de pagamento padrão para títulos e documentos.'
     },
-
-    # Documentos de motorista
     'documentos.permitir_sem_nf_pf': {
         'grupo': 'documentos', 'tipo': 'boolean', 'valor': '1',
-        'descricao': 'Permitir que motorista pessoa física solicite pagamento sem NF.'
-    },
-    'documentos.permitir_xml_nf': {
-        'grupo': 'documentos', 'tipo': 'boolean', 'valor': '1',
-        'descricao': 'Permitir envio de XML/NF por motoristas/prestadores.'
-    },
-    'documentos.permitir_reenvio_recusado': {
-        'grupo': 'documentos', 'tipo': 'boolean', 'valor': '1',
-        'descricao': 'Permitir reenvio de documento recusado.'
-    },
-    'documentos.exigir_xml_cnpj': {
-        'grupo': 'documentos', 'tipo': 'boolean', 'valor': '1',
-        'descricao': 'Exigir XML/NF para prestadores CNPJ.'
+        'descricao': 'Permitir solicitação de pagamento sem NF para prestador pessoa física.'
     },
     'documentos.permitir_reaproveitar_pos_estorno': {
         'grupo': 'documentos', 'tipo': 'boolean', 'valor': '1',
-        'descricao': 'Permitir reaproveitamento de documento após estorno quando fiscalmente correto.'
+        'descricao': 'Permitir reaproveitar documento fiscalmente válido após estorno.'
     },
-
-    # Títulos automáticos
-    'titulos.gerar_automatico_documento_aprovado': {
-        'grupo': 'titulos', 'tipo': 'boolean', 'valor': '1',
-        'descricao': 'Gerar título financeiro automaticamente ao solicitar pagamento de documento aprovado.'
+    'titulos.modo_geracao_documento': {
+        'grupo': 'titulos', 'tipo': 'string', 'valor': 'AUTOMATICO',
+        'descricao': 'Modo de geração do título ao solicitar pagamento de documento aprovado.'
     },
     'titulos.dias_padrao_vencimento_motorista': {
         'grupo': 'titulos', 'tipo': 'integer', 'valor': '5',
-        'descricao': 'Quantidade padrão de dias para vencimento de títulos de motorista.'
+        'descricao': 'Prazo padrão, em dias, para vencimento de títulos de prestadores/motoristas.'
     },
 }
+
 
 
 def normalizar_boolean_param(valor):
@@ -18919,117 +18963,6 @@ def semear_parametros_financeiros_empresa(cur, empresa_id, usuario_id=None):
         salvar_parametro_empresa(cur, empresa_id, chave, base.get('valor', ''), usuario_id=usuario_id)
 
 
-@app.route('/financeiro/configuracoes', methods=['GET', 'POST'])
-@login_required
-@perfis_permitidos('Administrador', 'Financeiro')
-def financeiro_configuracoes():
-    empresa_logada_id = session.get('empresa_id')
-    usuario_id = session.get('usuario_id')
-    is_super_admin = usuario_eh_super_admin_global()
-
-    if not empresa_logada_id:
-        flash('Empresa não identificada na sessão. Faça login novamente.', 'danger')
-        return redirect(url_for('logout'))
-
-    con = obter_conexao()
-    if con is None:
-        flash('Erro de conexão com o banco de dados.', 'danger')
-        return redirect(url_for('financeiro.financeiro_titulos'))
-
-    cur = con.cursor(dictionary=True)
-    try:
-        empresa_id_config = (request.values.get('empresa_id') or '').strip() if is_super_admin else str(empresa_logada_id)
-        if not empresa_id_config or not empresa_id_config.isdigit():
-            empresa_id_config = str(empresa_logada_id)
-        empresa_id_config = int(empresa_id_config)
-
-        if not is_super_admin and empresa_id_config != int(empresa_logada_id):
-            flash('Você não tem permissão para alterar configurações de outra empresa.', 'danger')
-            return redirect(url_for('financeiro_configuracoes'))
-
-        cur.execute("SELECT id, nome_fantasia, razao_social FROM empresas WHERE id = %s LIMIT 1", (empresa_id_config,))
-        empresa_config = cur.fetchone()
-        if not empresa_config:
-            flash('Empresa não encontrada para configuração.', 'danger')
-            return redirect(url_for('financeiro.financeiro_titulos'))
-
-        if request.method == 'POST':
-            for chave, base in PARAMETROS_FINANCEIROS_PADRAO.items():
-                tipo = base.get('tipo')
-                if tipo == 'boolean':
-                    valor = '1' if request.form.get(chave) == '1' else '0'
-                else:
-                    valor = request.form.get(chave) or ''
-                salvar_parametro_empresa(cur, empresa_id_config, chave, valor, usuario_id=usuario_id)
-
-            cur.execute("""
-                INSERT INTO historico_operacoes
-                    (empresa_id, tipo_operacao, usuario_id, status_anterior, status_novo, motivo, observacao)
-                VALUES
-                    (%s, 'CONFIGURACOES_FINANCEIRAS', %s, 'Parâmetros anteriores', 'Parâmetros atualizados',
-                     'Atualização de parâmetros financeiros', %s)
-            """, (empresa_id_config, usuario_id, f'Configurações financeiras atualizadas para a empresa #{empresa_id_config}.'))
-            registrar_auditoria_financeira(
-                cur,
-                empresa_id=empresa_id_config,
-                usuario_id=usuario_id,
-                acao='CONFIGURACAO_FINANCEIRA_ATUALIZADA',
-                modulo='CONFIGURACOES_FINANCEIRAS',
-                entidade_tipo='EMPRESA_PARAMETROS',
-                entidade_id=empresa_id_config,
-                status_anterior='Parâmetros anteriores',
-                status_novo='Parâmetros atualizados',
-                motivo='Atualização de parâmetros financeiros',
-                observacao=f'Configurações financeiras atualizadas para a empresa #{empresa_id_config}.',
-                dados_depois={chave: request.form.get(chave) for chave in PARAMETROS_FINANCEIROS_PADRAO.keys()}
-            )
-            con.commit()
-            flash('Configurações financeiras salvas com sucesso.', 'success')
-            return redirect(url_for('financeiro_configuracoes', empresa_id=empresa_id_config if is_super_admin else None))
-
-        # Garante defaults no banco para a primeira abertura da tela.
-        parametros_existentes = carregar_parametros_financeiros_empresa(empresa_id_config, cur=cur)
-        if not parametros_existentes:
-            semear_parametros_financeiros_empresa(cur, empresa_id_config, usuario_id=usuario_id)
-            con.commit()
-        parametros = carregar_parametros_financeiros_empresa(empresa_id_config, cur=cur)
-
-        empresas = []
-        if is_super_admin:
-            cur.execute("SELECT id, nome_fantasia, razao_social FROM empresas ORDER BY nome_fantasia ASC")
-            empresas = cur.fetchall()
-
-        contas_caixa = carregar_contas_caixa_financeiro(empresa_id_config, is_super_admin=True, somente_ativas=True)
-
-        grupos = {
-            'baixa': 'Baixa financeira',
-            'estorno': 'Estorno',
-            'caixa': 'Caixa',
-            'documentos': 'Documentos de motorista',
-            'titulos': 'Títulos automáticos',
-        }
-
-        return render_template(
-            'financeiro_configuracoes.html',
-            parametros=parametros,
-            grupos=grupos,
-            empresa_config=empresa_config,
-            empresas=empresas,
-            empresa_id_config=empresa_id_config,
-            is_super_admin=is_super_admin,
-            contas_caixa=contas_caixa,
-            formas_pagamento=financeiro_base_formas_pagamento()
-        )
-    except Exception as e:
-        try:
-            con.rollback()
-        except Exception:
-            pass
-        print(f'Erro ao carregar/salvar configurações financeiras: {e}')
-        flash('Erro técnico ao processar configurações financeiras.', 'danger')
-        return redirect(url_for('financeiro.financeiro_titulos'))
-    finally:
-        fechar_cursor_conexao(cur, con)
 
 
 @app.route('/configuracoes/operacional-motorista', methods=['GET', 'POST'])
@@ -20544,6 +20477,8 @@ financeiro_services = {
     "salvar_comprovante_baixa_titulo": salvar_comprovante_baixa_titulo,
     "aplicar_baixa_em_documento_motorista_e_rotas": aplicar_baixa_em_documento_motorista_e_rotas,
     "aplicar_estorno_em_documento_motorista_e_rotas": aplicar_estorno_em_documento_motorista_e_rotas,
+    "PARAMETROS_FINANCEIROS_PADRAO": PARAMETROS_FINANCEIROS_PADRAO,
+    "salvar_parametro_empresa": salvar_parametro_empresa,
 }
 
 app.extensions["financeiro_services"] = financeiro_services

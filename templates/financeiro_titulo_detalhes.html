@@ -1,9 +1,5 @@
 {% extends 'base.html' %}
 {% block conteudo %}
-{% set cfg_estorno_permitido = parametro_bool(parametros_financeiros.get('estorno.permitir_estorno_baixa', {}).get('valor')) %}
-{% set cfg_reabrir_estorno = parametro_bool(parametros_financeiros.get('estorno.permitir_reabrir_titulo', {}).get('valor')) %}
-{% set cfg_encerrar_estorno = parametro_bool(parametros_financeiros.get('estorno.permitir_encerrar_estornado', {}).get('valor')) %}
-{% set cfg_tratativa_estorno = parametro_bool(parametros_financeiros.get('estorno.permitir_tratativa_pos_estorno', {}).get('valor')) %}
 {% set cfg_reaproveitar_doc = parametro_bool(parametros_financeiros.get('documentos.permitir_reaproveitar_pos_estorno', {}).get('valor')) %}
 {% set cfg_exigir_comprovante = parametro_bool(parametros_financeiros.get('baixa.exigir_comprovante', {}).get('valor')) %}
 <div class="container-fluid py-3">
@@ -160,7 +156,7 @@
             </div>
 
 
-            {% if titulo.status_titulo in ['Pago', 'Recebido'] and cfg_estorno_permitido %}
+            {% if titulo.status_titulo in ['Pago', 'Recebido'] %}
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-header bg-white fw-semibold text-warning">Estornar baixa</div>
                 <div class="card-body">
@@ -173,8 +169,8 @@
 
                         <label class="form-label small">Destino após estorno *</label>
                         <select name="destino_estorno" class="form-select mb-2" required>
-                            {% if cfg_reabrir_estorno %}<option value="reabrir">Reabrir para nova baixa</option>{% endif %}
-                            {% if cfg_encerrar_estorno %}<option value="encerrar">Encerrar como estornado</option>{% endif %}
+                            <option value="reabrir">Reabrir para nova baixa</option>
+                            <option value="encerrar">Encerrar como estornado</option>
                         </select>
                         <div class="form-text mb-2">
                             Reabrir permite baixar novamente. Encerrar bloqueia nova baixa e mantém o título como estornado.
@@ -209,7 +205,7 @@
             </div>
             {% endif %}
 
-            {% if titulo.status_titulo == 'Estornado' and titulo.origem in ['NF_MOTORISTA', 'SEM_NF_MOTORISTA'] and cfg_tratativa_estorno %}
+            {% if titulo.status_titulo == 'Estornado' and titulo.origem in ['NF_MOTORISTA', 'SEM_NF_MOTORISTA'] %}
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-header bg-white fw-semibold text-primary">Tratativa pós-estorno</div>
                 <div class="card-body">
