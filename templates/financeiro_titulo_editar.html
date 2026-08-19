@@ -20,13 +20,19 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label">Pessoa responsável *</label>
-                    <select name="pessoa_id" class="form-select" required>
-                        {% for pessoa in pessoas %}
-                            <option value="{{ pessoa.id }}" {% if pessoa.id|string == titulo.pessoa_id|string %}selected{% endif %}>
-                                {{ pessoa.nome_completo }}{% if pessoa.cpf_cnpj %} — {{ pessoa.cpf_cnpj }}{% endif %}
-                            </option>
-                        {% endfor %}
-                    </select>
+                    <input type="hidden" name="pessoa_id" id="pessoa_id" value="{{ titulo.pessoa_id }}" required>
+                    <div class="position-relative sgr-busca-pessoa" data-uso="financeiro" data-hidden="pessoa_id">
+                        <input
+                            type="text"
+                            class="form-control sgr-busca-input"
+                            value="#{{ titulo.pessoa_id }} — {{ titulo.pessoa_nome }} — {{ titulo.pessoa_cpf_cnpj or 'sem documento' }}"
+                            placeholder="Digite nome, CPF/CNPJ ou ID..."
+                            autocomplete="off"
+                            required
+                        >
+                        <div class="list-group position-absolute w-100 shadow-sm sgr-busca-resultados d-none" style="z-index: 1050; max-height: 260px; overflow:auto;"></div>
+                    </div>
+                    <small class="text-muted">Busca inteligente por nome, CPF/CNPJ ou ID interno, igual ao lançamento de novo título.</small>
                 </div>
 
                 <div class="col-md-3">
@@ -109,4 +115,69 @@
         </div>
     </form>
 </div>
+
+<script>
+(function(){
+    function inicializarBuscaPessoa(wrapper){
+        const input = wrapper.querySelector('.sgr-busca-input');
+        const resultados = wrapper.querySelector('.sgr-busca-resultados');
+        const hidden = document.getElementById(wrapper.dataset.hidden);
+        const uso = wrapper.dataset.uso || 'todos';
+        let timer = null;
+
+        function limparSelecao(){
+            if(hidden) hidden.value = '';
+        }
+
+        input.addEventListener('input', function(){
+            limparSelecao();
+            const q = input.value.trim();
+            clearTimeout(timer);
+            if(q.length < 1){
+                resultados.classList.add('d-none');
+                resultados.innerHTML = '';
+                return;
+            }
+            timer = setTimeout(function(){
+                fetch(`{{ url_for('api_buscar_pessoas') }}?uso=${encodeURIComponent(uso)}&q=${encodeURIComponent(q)}`)
+                    .then(resp => resp.json())
+                    .then(data => {
+                        resultados.innerHTML = '';
+                        const lista = data.results || [];
+                        if(!lista.length){
+                            resultados.innerHTML = '<div class="list-group-item text-muted small">Nenhum cadastro encontrado.</div>';
+                            resultados.classList.remove('d-none');
+                            return;
+                        }
+                        lista.forEach(item => {
+                            const btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'list-group-item list-group-item-action';
+                            btn.innerHTML = `<strong>${item.nome || ''}</strong><br><small class="text-muted">#${item.id} — ${item.cpf_cnpj || 'sem documento'} — ${item.tipo_cadastro || ''}${item.tipo_prestador ? ' / ' + item.tipo_prestador : ''}</small>`;
+                            btn.addEventListener('click', function(){
+                                hidden.value = item.id;
+                                input.value = item.text;
+                                resultados.classList.add('d-none');
+                            });
+                            resultados.appendChild(btn);
+                        });
+                        resultados.classList.remove('d-none');
+                    })
+                    .catch(() => {
+                        resultados.innerHTML = '<div class="list-group-item text-danger small">Erro ao buscar cadastro.</div>';
+                        resultados.classList.remove('d-none');
+                    });
+            }, 250);
+        });
+
+        document.addEventListener('click', function(e){
+            if(!wrapper.contains(e.target)){
+                resultados.classList.add('d-none');
+            }
+        });
+    }
+
+    document.querySelectorAll('.sgr-busca-pessoa').forEach(inicializarBuscaPessoa);
+})();
+</script>
 {% endblock %}
