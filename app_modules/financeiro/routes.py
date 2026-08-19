@@ -2006,14 +2006,28 @@ def criar_financeiro_blueprint(services):
 
             parametros_financeiros = services["carregar_parametros_financeiros_empresa"](titulo['empresa_id'], cur=cur)
             exigir_comprovante_baixa = services["parametro_bool"](parametros_financeiros.get('baixa.exigir_comprovante', {}).get('valor'))
-            permitir_pagamento_parcial = services["parametro_bool"](parametros_financeiros.get('baixa.permitir_pagamento_parcial', {}).get('valor'))
-            permitir_valor_diferente = services["parametro_bool"](parametros_financeiros.get('baixa.permitir_valor_diferente', {}).get('valor'))
             permitir_saldo_negativo = services["parametro_bool"](parametros_financeiros.get('caixa.permitir_saldo_negativo', {}).get('valor'))
             permitir_data_retroativa = services["parametro_bool"](parametros_financeiros.get('baixa.permitir_data_retroativa', {}).get('valor'))
+            try:
+                limite_dias_retroativo = max(0, int(parametros_financeiros.get('baixa.limite_dias_retroativo', {}).get('valor') or 0))
+            except Exception:
+                limite_dias_retroativo = 0
 
-            if not permitir_data_retroativa and data_pagamento < date.today().strftime('%Y-%m-%d'):
-                flash('Baixa retroativa bloqueada pelas configurações financeiras da empresa.', 'warning')
+            data_pagamento_dt = datetime.strptime(data_pagamento, '%Y-%m-%d').date()
+            hoje = date.today()
+            if data_pagamento_dt > hoje:
+                flash('Baixa com data futura não é permitida. Use vencimento/agendamento para eventos futuros.', 'warning')
                 return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+            if data_pagamento_dt < hoje:
+                if not permitir_data_retroativa:
+                    flash('Baixa retroativa bloqueada pelas configurações financeiras da empresa.', 'warning')
+                    return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+                if limite_dias_retroativo > 0 and (hoje - data_pagamento_dt).days > limite_dias_retroativo:
+                    flash(
+                        f'Baixa retroativa limitada a {limite_dias_retroativo} dia(s) pelas configurações financeiras da empresa.',
+                        'warning'
+                    )
+                    return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
             if exigir_comprovante_baixa and (not comprovante or not getattr(comprovante, 'filename', '')):
                 flash('Comprovante obrigatório para baixa, conforme configuração financeira da empresa.', 'warning')
@@ -2046,15 +2060,11 @@ def criar_financeiro_blueprint(services):
                 return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
             if valor_pago != valor_liquido:
-                if valor_pago < valor_liquido and permitir_pagamento_parcial:
-                    flash('Pagamento parcial registrado como baixa total ainda não está disponível nesta etapa. A configuração já foi preparada, mas a conciliação parcial será liberada em bloco próprio.', 'warning')
-                    return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-                if not permitir_valor_diferente:
-                    flash(
-                        'O valor baixado precisa ser igual ao valor líquido do título, conforme configuração financeira da empresa.',
-                        'warning'
-                    )
-                    return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+                flash(
+                    'O valor da baixa precisa ser igual ao valor líquido do título. Diferenças devem ser tratadas por desconto, acréscimo ou futura baixa parcial formal.',
+                    'warning'
+                )
+                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
             cur.execute("""
                 SELECT id, nome_conta, status_conta
@@ -2262,16 +2272,6 @@ def criar_financeiro_blueprint(services):
                 flash("Título financeiro não encontrado ou não pertence à empresa logada.", "danger")
                 return redirect(url_for('financeiro.financeiro_titulos'))
 
-            parametros_financeiros = services["carregar_parametros_financeiros_empresa"](titulo['empresa_id'], cur=cur)
-            if not services["parametro_bool"](parametros_financeiros.get('estorno.permitir_estorno_baixa', {}).get('valor')):
-                flash('Estorno de baixa bloqueado pelas configurações financeiras da empresa.', 'warning')
-                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-            if destino == 'reabrir' and not services["parametro_bool"](parametros_financeiros.get('estorno.permitir_reabrir_titulo', {}).get('valor')):
-                flash('Reabrir título após estorno está bloqueado nas configurações financeiras da empresa.', 'warning')
-                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
-            if destino == 'encerrar' and not services["parametro_bool"](parametros_financeiros.get('estorno.permitir_encerrar_estornado', {}).get('valor')):
-                flash('Encerrar título como estornado está bloqueado nas configurações financeiras da empresa.', 'warning')
-                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
             status_atual = titulo.get('status_titulo') or ''
             if status_atual not in ['Pago', 'Recebido']:
                 flash(f"Somente títulos pagos ou recebidos podem ter a baixa estornada. Status atual: {status_atual}.", "warning")
@@ -2553,9 +2553,6 @@ def criar_financeiro_blueprint(services):
                 return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
 
             parametros_financeiros = services["carregar_parametros_financeiros_empresa"](titulo['empresa_id'], cur=cur)
-            if not services["parametro_bool"](parametros_financeiros.get('estorno.permitir_tratativa_pos_estorno', {}).get('valor')):
-                flash('Tratativa pós-estorno está bloqueada pelas configurações financeiras da empresa.', 'warning')
-                return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
             if tratativa == 'reabrir_mesmo_documento' and not services["parametro_bool"](parametros_financeiros.get('documentos.permitir_reaproveitar_pos_estorno', {}).get('valor')):
                 flash('Reaproveitar documento após estorno está bloqueado nas configurações financeiras da empresa.', 'warning')
                 return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
@@ -2645,6 +2642,173 @@ def criar_financeiro_blueprint(services):
             print(f"Erro na tratativa pós-estorno do título financeiro {id}: {e}")
             flash('Erro técnico ao aplicar tratativa pós-estorno.', 'danger')
             return redirect(url_for('financeiro.detalhes_titulo_financeiro', id=id))
+        finally:
+            services["fechar_cursor_conexao"](cur, con)
+
+    @financeiro_bp.route("/financeiro/configuracoes", methods=["GET", "POST"])
+    @login_required
+    @perfis_permitidos("Administrador", "Financeiro")
+    def financeiro_configuracoes():
+        empresa_logada_id = session.get("empresa_id")
+        usuario_id = session.get("usuario_id")
+        is_super_admin = services["usuario_eh_super_admin_global"]()
+
+        if not empresa_logada_id:
+            flash("Empresa não identificada na sessão. Faça login novamente.", "danger")
+            return redirect(url_for("logout"))
+
+        con = services["obter_conexao"]()
+        if con is None:
+            flash("Erro de conexão com o banco de dados.", "danger")
+            return redirect(url_for("financeiro.financeiro_titulos"))
+
+        cur = con.cursor(dictionary=True)
+        try:
+            defs = services["PARAMETROS_FINANCEIROS_PADRAO"]
+            empresa_id_config = (
+                (request.values.get("empresa_id") or "").strip()
+                if is_super_admin
+                else str(empresa_logada_id)
+            )
+            if not empresa_id_config or not empresa_id_config.isdigit():
+                empresa_id_config = str(empresa_logada_id)
+            empresa_id_config = int(empresa_id_config)
+
+            if not is_super_admin and empresa_id_config != int(empresa_logada_id):
+                flash("Você não tem permissão para alterar configurações de outra empresa.", "danger")
+                return redirect(url_for("financeiro.financeiro_configuracoes"))
+
+            cur.execute(
+                "SELECT id, nome_fantasia, razao_social FROM empresas WHERE id = %s LIMIT 1",
+                (empresa_id_config,),
+            )
+            empresa_config = cur.fetchone()
+            if not empresa_config:
+                flash("Empresa não encontrada para configuração.", "danger")
+                return redirect(url_for("financeiro.financeiro_titulos"))
+
+            parametros_carregados = services["carregar_parametros_financeiros_empresa"](
+                empresa_id_config, cur=cur
+            )
+
+            if request.method == "POST":
+                dados_antes = {
+                    chave: (parametros_carregados.get(chave, {}) or {}).get("valor", base.get("valor", ""))
+                    for chave, base in defs.items()
+                }
+                valores_normalizados = {}
+
+                for chave, base in defs.items():
+                    tipo = base.get("tipo")
+                    valor = "1" if tipo == "boolean" and request.form.get(chave) == "1" else (
+                        "0" if tipo == "boolean" else (request.form.get(chave) or "").strip()
+                    )
+
+                    if chave == "titulos.modo_geracao_documento":
+                        valor = valor.upper()
+                        if valor not in {"AUTOMATICO", "ASSISTIDO"}:
+                            valor = "AUTOMATICO"
+                    elif chave == "baixa.limite_dias_retroativo":
+                        try:
+                            valor = str(min(3650, max(0, int(valor or 0))))
+                        except Exception:
+                            valor = "30"
+                    elif chave == "titulos.dias_padrao_vencimento_motorista":
+                        try:
+                            valor = str(min(365, max(0, int(valor or 0))))
+                        except Exception:
+                            valor = "5"
+                    elif chave == "caixa.forma_pagamento_padrao":
+                        if valor not in services["financeiro_base_formas_pagamento"]():
+                            valor = "PIX"
+                    elif chave == "caixa.conta_padrao_id" and valor:
+                        if not valor.isdigit():
+                            valor = ""
+                        else:
+                            cur.execute(
+                                """SELECT id FROM contas_caixa
+                                   WHERE id = %s AND empresa_id = %s AND status_conta = 'Ativa'
+                                   LIMIT 1""",
+                                (int(valor), empresa_id_config),
+                            )
+                            if not cur.fetchone():
+                                valor = ""
+
+                    services["salvar_parametro_empresa"](
+                        cur, empresa_id_config, chave, valor, usuario_id=usuario_id
+                    )
+                    valores_normalizados[chave] = valor
+
+                cur.execute(
+                    """INSERT INTO historico_operacoes
+                       (empresa_id, tipo_operacao, usuario_id, status_anterior, status_novo, motivo, observacao)
+                       VALUES (%s, 'CONFIGURACOES_FINANCEIRAS', %s, 'Parâmetros anteriores',
+                               'Parâmetros atualizados', 'Atualização de parâmetros financeiros', %s)""",
+                    (empresa_id_config, usuario_id,
+                     f"Configurações financeiras essenciais atualizadas para a empresa #{empresa_id_config}."),
+                )
+                services["registrar_auditoria_financeira"](
+                    cur,
+                    empresa_id=empresa_id_config,
+                    usuario_id=usuario_id,
+                    acao="CONFIGURACAO_FINANCEIRA_ATUALIZADA",
+                    modulo="CONFIGURACOES_FINANCEIRAS",
+                    entidade_tipo="EMPRESA_PARAMETROS",
+                    entidade_id=empresa_id_config,
+                    status_anterior="Parâmetros anteriores",
+                    status_novo="Parâmetros atualizados",
+                    motivo="Atualização de parâmetros financeiros",
+                    observacao=f"Configurações financeiras essenciais atualizadas para a empresa #{empresa_id_config}.",
+                    dados_antes=dados_antes,
+                    dados_depois=valores_normalizados,
+                )
+                con.commit()
+                flash("Configurações financeiras salvas com sucesso.", "success")
+                return redirect(url_for(
+                    "financeiro.financeiro_configuracoes",
+                    empresa_id=empresa_id_config if is_super_admin else None,
+                ))
+
+            parametros = {}
+            for chave, base in defs.items():
+                atual = (parametros_carregados.get(chave, {}) or {}).get("valor")
+                item = dict(base)
+                item["valor"] = base.get("valor", "") if atual is None else atual
+                parametros[chave] = item
+
+            empresas = []
+            if is_super_admin:
+                cur.execute("SELECT id, nome_fantasia, razao_social FROM empresas ORDER BY nome_fantasia ASC")
+                empresas = cur.fetchall()
+
+            contas_caixa = services["carregar_contas_caixa_financeiro"](
+                empresa_id_config, True, somente_ativas=True
+            )
+            grupos = {
+                "baixa": "Baixas",
+                "caixa": "Caixa",
+                "documentos": "Documentos de prestadores",
+                "titulos": "Títulos automáticos",
+            }
+            return render_template(
+                "financeiro_configuracoes.html",
+                parametros=parametros,
+                grupos=grupos,
+                empresa_config=empresa_config,
+                empresas=empresas,
+                empresa_id_config=empresa_id_config,
+                is_super_admin=is_super_admin,
+                contas_caixa=contas_caixa,
+                formas_pagamento=services["financeiro_base_formas_pagamento"](),
+            )
+        except Exception as exc:
+            try:
+                con.rollback()
+            except Exception:
+                pass
+            print(f"Erro ao carregar/salvar configurações financeiras: {exc}")
+            flash("Erro técnico ao processar configurações financeiras.", "danger")
+            return redirect(url_for("financeiro.financeiro_titulos"))
         finally:
             services["fechar_cursor_conexao"](cur, con)
 

@@ -3,9 +3,7 @@
 {% block conteudo %}
 {% set tipo_doc = nf.tipo_documento_pagamento or 'XML' %}
 {% set eh_sem_nf = tipo_doc == 'SEM_NF' %}
-{% set cfg_gerar_titulo_auto = parametro_bool(parametros_financeiros.get('titulos.gerar_automatico_documento_aprovado', {}).get('valor')) %}
-{% set cfg_estorno_permitido = parametro_bool(parametros_financeiros.get('estorno.permitir_estorno_baixa', {}).get('valor')) %}
-{% set cfg_exigir_motivo_recusa = parametro_bool(parametros_financeiros.get('documentos.exigir_motivo_recusa', {}).get('valor')) %}
+{% set modo_geracao_titulo = parametros_financeiros.get('titulos.modo_geracao_documento', {}).get('valor', 'AUTOMATICO') %}
 
 <div class="container-fluid py-3">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
@@ -288,6 +286,7 @@
                             Ver título financeiro
                         </a>
                         {% else %}
+                        {% if modo_geracao_titulo == 'ASSISTIDO' %}
                         <button type="button"
                                 class="btn btn-success fw-bold"
                                 data-bs-toggle="modal"
@@ -295,10 +294,18 @@
                             <i class="fa-solid fa-money-check-dollar me-1"></i>
                             Solicitar pagamento
                         </button>
+                        {% else %}
+                        <form method="POST" action="{{ url_for('solicitar_pagamento_nf_motorista', id=nf.id) }}" class="d-inline">
+                            <button type="submit" class="btn btn-success fw-bold">
+                                <i class="fa-solid fa-bolt me-1"></i>
+                                Solicitar pagamento
+                            </button>
+                        </form>
+                        {% endif %}
                         {% endif %}
                         {% endif %}
 
-                        {% if nf.status_nf == 'Pagamento confirmado' and cfg_estorno_permitido %}
+                        {% if nf.status_nf == 'Pagamento confirmado' %}
                         <button type="button"
                                 class="btn btn-outline-danger fw-bold"
                                 data-bs-toggle="modal"
@@ -345,9 +352,9 @@
                 <textarea name="motivo_recusa"
                           class="form-control"
                           rows="4"
-                          minlength="{% if cfg_exigir_motivo_recusa %}3{% else %}0{% endif %}"
+                          minlength="3"
                           maxlength="255"
-                          {% if cfg_exigir_motivo_recusa %}required{% endif %}
+                          required
                           placeholder="Ex.: Valor divergente, documento ilegível, tomador incorreto..."></textarea>
 
                 <hr>
@@ -444,6 +451,7 @@
 </div>
 
 
+{% if modo_geracao_titulo == 'ASSISTIDO' %}
 <!-- MODAL SOLICITAR PAGAMENTO -->
 <div class="modal fade" id="modalSolicitarPagamento" tabindex="-1" aria-labelledby="modalSolicitarPagamentoLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -493,6 +501,7 @@
         </form>
     </div>
 </div>
+{% endif %}
 
 <!-- MODAL CONFIRMAR PAGAMENTO -->
 <div class="modal fade" id="modalConfirmarPagamento" tabindex="-1" aria-labelledby="modalConfirmarPagamentoLabel" aria-hidden="true">

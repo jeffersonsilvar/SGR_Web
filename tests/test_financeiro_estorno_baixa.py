@@ -21,10 +21,6 @@ def dados_estorno(destino="reabrir"):
 
 def parametros_estorno_liberado():
     return {
-        "estorno.permitir_estorno_baixa": {"valor": "1"},
-        "estorno.permitir_reabrir_titulo": {"valor": "1"},
-        "estorno.permitir_encerrar_estornado": {"valor": "1"},
-        "estorno.permitir_tratativa_pos_estorno": {"valor": "1"},
         "documentos.permitir_reaproveitar_pos_estorno": {"valor": "1"},
     }
 

@@ -162,10 +162,9 @@ def test_baixa_bloqueia_titulo_ja_pago(client, app, monkeypatch):
         "carregar_parametros_financeiros_empresa",
         lambda empresa_id, cur=None: {
             "baixa.exigir_comprovante": {"valor": "0"},
-            "baixa.permitir_pagamento_parcial": {"valor": "0"},
-            "baixa.permitir_valor_diferente": {"valor": "0"},
             "caixa.permitir_saldo_negativo": {"valor": "0"},
             "baixa.permitir_data_retroativa": {"valor": "1"},
+            "baixa.limite_dias_retroativo": {"valor": "30"},
         },
     )
     monkeypatch.setitem(services, "parametro_bool", lambda valor: str(valor) == "1")
@@ -236,10 +235,9 @@ def test_baixa_receber_insere_movimentacao_atualiza_audita_e_commita(
         "carregar_parametros_financeiros_empresa",
         lambda empresa_id, cur=None: {
             "baixa.exigir_comprovante": {"valor": "0"},
-            "baixa.permitir_pagamento_parcial": {"valor": "0"},
-            "baixa.permitir_valor_diferente": {"valor": "0"},
             "caixa.permitir_saldo_negativo": {"valor": "0"},
             "baixa.permitir_data_retroativa": {"valor": "1"},
+            "baixa.limite_dias_retroativo": {"valor": "30"},
         },
     )
     monkeypatch.setitem(services, "parametro_bool", lambda valor: str(valor) == "1")
