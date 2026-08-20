@@ -50,7 +50,14 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Saldo inicial</label>
-                    <input type="text" name="saldo_inicial" class="form-control" value="{{ conta.saldo_inicial if conta else '0,00' }}">
+                    <input type="text" name="saldo_inicial" class="form-control" value="{{ conta.saldo_inicial if conta else '0,00' }}" {% if conta and conta.tem_movimentacao %}readonly{% endif %}>
+                    {% if conta and conta.tem_movimentacao %}
+                    <div class="form-text text-warning">
+                        O saldo inicial não pode mais ser alterado porque esta conta já possui movimentações financeiras. Ajustes devem ser feitos por movimentação/conciliação, preservando o histórico do caixa.
+                    </div>
+                    {% else %}
+                    <div class="form-text">Após a primeira movimentação financeira, o saldo inicial ficará bloqueado para edição.</div>
+                    {% endif %}
                 </div>
                 {% if conta %}
                 <div class="col-md-4">
