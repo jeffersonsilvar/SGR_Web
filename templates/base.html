@@ -312,8 +312,8 @@
 'financeiro.detalhes_titulo_financeiro',
 'financeiro.cancelar_titulo_financeiro',
 'financeiro.financeiro_contas_caixa',
-'nova_conta_caixa',
-'editar_conta_caixa',
+'financeiro.nova_conta_caixa',
+'financeiro.editar_conta_caixa',
 'financeiro.financeiro_movimentacoes_caixa',
 'financeiro.financeiro_conciliacao_caixa',
 'financeiro.financeiro_conciliacao_caixa_acao',
@@ -631,7 +631,7 @@
                                     Títulos Financeiros
                                 </a>
 
-                                <a class="nav-link {% if endpoint == 'financeiro.financeiro_contas_caixa' or endpoint == 'nova_conta_caixa' or endpoint == 'editar_conta_caixa' %}active{% endif %}"
+                                <a class="nav-link {% if endpoint == 'financeiro.financeiro_contas_caixa' or endpoint == 'financeiro.nova_conta_caixa' or endpoint == 'financeiro.editar_conta_caixa' %}active{% endif %}"
                                    href="{{ url_for('financeiro.financeiro_contas_caixa') }}">
                                     <i class="fa-solid fa-building-columns me-2"></i>
                                     Contas Caixa
@@ -657,8 +657,8 @@
                                     Configurações Financeiras
                                 </a>
 
-                                <a class="nav-link {% if endpoint == 'financeiro_auditoria' %}active{% endif %}"
-                                   href="{{ url_for('financeiro_auditoria') }}">
+                                <a class="nav-link {% if endpoint == 'financeiro.financeiro_auditoria' %}active{% endif %}"
+                                   href="{{ url_for('financeiro.financeiro_auditoria') }}">
                                     <i class="fa-solid fa-shield-halved me-2"></i>
                                     Auditoria Financeira
                                 </a>
