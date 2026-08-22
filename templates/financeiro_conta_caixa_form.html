@@ -70,7 +70,7 @@
                 {% endif %}
                 <div class="col-md-12">
                     <label class="form-label">Observação</label>
-                    <textarea name="observacao" class="form-control" rows="3">{{ conta.observacao if conta else '' }}</textarea>
+                    <textarea name="observacao" class="form-control" rows="3">{{ (conta.observacao or '') if conta else '' }}</textarea>
                 </div>
             </div>
         </div>
