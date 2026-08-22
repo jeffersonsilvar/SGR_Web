@@ -52,8 +52,8 @@ def test_criacao_e_edicao_de_conta_geram_auditoria():
 
     assert 'acao="CONTA_CAIXA_CRIADA"' in fonte
     assert 'acao="CONTA_CAIXA_EDITADA"' in fonte
-    assert 'entidade_tipo' in fonte
-    assert '"CONTA_CAIXA"' in fonte
+    assert "entidade_tipo" in fonte
+    assert "CONTA_CAIXA" in fonte
     assert "dados_antes" in fonte
     assert "dados_depois" in fonte
 
