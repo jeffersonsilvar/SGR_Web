@@ -20151,5 +20151,21 @@ app.extensions["financeiro_services"] = financeiro_services
 app.register_blueprint(criar_financeiro_blueprint(financeiro_services))
 
 
+# ==========================================================
+# BLUEPRINT 16.1 — CENTRAL DE DOCUMENTOS FISCAIS
+# ==========================================================
+from app_modules.documentos import criar_documentos_blueprint
+
+documentos_services = {
+    "login_required": login_required,
+    "perfis_permitidos": perfis_permitidos,
+    "usuario_eh_super_admin_global": usuario_eh_super_admin_global,
+    "obter_conexao": obter_conexao,
+}
+
+app.extensions["documentos_services"] = documentos_services
+app.register_blueprint(criar_documentos_blueprint(documentos_services))
+
+
 if __name__ == '__main__':
     app.run(debug=False, port=8080)
