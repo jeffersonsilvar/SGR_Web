@@ -39,23 +39,30 @@ SET titulo = 'Documentos Fiscais',
     atualizado_em = CURRENT_TIMESTAMP
 WHERE codigo = 'documentos_fiscais';
 
--- Reaproveita as permissões de visualização do menu legado de NFs de motoristas.
+-- A Etapa 16.1 é somente consulta. Remove permissões de ação copiadas
+-- por versões preliminares da migration para não antecipar criar/editar.
+DELETE FROM perfil_permissoes
+WHERE menu_codigo = 'documentos_fiscais'
+  AND acao_codigo <> 'visualizar';
+
+-- Reaproveita apenas as permissões de visualização do menu legado.
 INSERT INTO perfil_permissoes (
     perfil_de_acesso, menu_codigo, acao_codigo, empresa_id, permitido
 )
 SELECT
     pp.perfil_de_acesso,
     'documentos_fiscais',
-    pp.acao_codigo,
+    'visualizar',
     pp.empresa_id,
     pp.permitido
 FROM perfil_permissoes pp
 WHERE pp.menu_codigo = 'financeiro_nfs_motoristas'
+  AND pp.acao_codigo = 'visualizar'
   AND NOT EXISTS (
       SELECT 1
       FROM perfil_permissoes atual
       WHERE atual.perfil_de_acesso = pp.perfil_de_acesso
         AND atual.menu_codigo = 'documentos_fiscais'
-        AND atual.acao_codigo = pp.acao_codigo
+        AND atual.acao_codigo = 'visualizar'
         AND atual.empresa_id = pp.empresa_id
   );
