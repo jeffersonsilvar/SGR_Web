@@ -4,6 +4,15 @@ from decimal import Decimal
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 
+STATUS_DOCUMENTAIS = ("Enviada", "Em análise", "Aprovada", "Recusada")
+STATUS_LEGADOS_APROVADOS = (
+    "Aprovada",
+    "Pagamento solicitado",
+    "Pagamento confirmado",
+    "Estornada",
+)
+
+
 def _data_iso(valor):
     if not valor:
         return False
@@ -32,6 +41,22 @@ def _decimal(valor):
         return Decimal(str(valor or 0)).quantize(Decimal("0.01"))
     except Exception:
         return Decimal("0.00")
+
+
+def _status_documental_compativel(status_legado):
+    """Projeta o status antigo da NF no novo domínio documental.
+
+    O modelo legado misturava aprovação do documento com estados financeiros
+    como pagamento solicitado/confirmado e estorno. Na Central de Documentos
+    Fiscais esses estados não mudam o fato de que o documento já foi aprovado;
+    o valor original continua disponível apenas como informação de compatibilidade.
+    """
+    status_legado = (status_legado or "").strip()
+    if status_legado in STATUS_LEGADOS_APROVADOS:
+        return "Aprovada"
+    if status_legado in STATUS_DOCUMENTAIS:
+        return status_legado
+    return status_legado or "Enviada"
 
 
 def criar_documentos_blueprint(services):
@@ -65,6 +90,8 @@ def criar_documentos_blueprint(services):
             data_inicio = (hoje - timedelta(days=90)).strftime("%Y-%m-%d")
         if not _data_iso(data_fim):
             data_fim = hoje.strftime("%Y-%m-%d")
+        if status not in STATUS_DOCUMENTAIS:
+            status = ""
 
         con = obter_conexao()
         if con is None:
@@ -84,7 +111,11 @@ def criar_documentos_blueprint(services):
                 where.append("nf.empresa_id = %s")
                 params.append(int(empresa_logada_id))
 
-            if status:
+            if status == "Aprovada":
+                placeholders = ", ".join(["%s"] * len(STATUS_LEGADOS_APROVADOS))
+                where.append(f"nf.status_nf IN ({placeholders})")
+                params.extend(STATUS_LEGADOS_APROVADOS)
+            elif status:
                 where.append("nf.status_nf = %s")
                 params.append(status)
 
@@ -119,7 +150,7 @@ def criar_documentos_blueprint(services):
                     nf.valor_liquido,
                     nf.prestador_cpf_cnpj,
                     nf.tomador_cpf_cnpj,
-                    nf.status_nf AS status_documento,
+                    nf.status_nf AS status_legado,
                     nf.nome_arquivo_xml,
                     nf.data_envio,
                     nf.data_aprovacao,
@@ -158,6 +189,7 @@ def criar_documentos_blueprint(services):
             for documento in documentos:
                 documento["tipo_documento"] = "NFS-e Prestador"
                 documento["origem_documento"] = "Portal do Prestador (legado Motorista)"
+                documento["status_documento"] = _status_documental_compativel(documento.get("status_legado"))
                 documento["valor_total"] = _decimal(documento.get("valor_total"))
                 documento["valor_rotas"] = _decimal(documento.get("valor_rotas"))
 
@@ -166,19 +198,11 @@ def criar_documentos_blueprint(services):
                 "valor_total": sum((_decimal(d.get("valor_total")) for d in documentos), Decimal("0.00")),
                 "enviadas": sum(1 for d in documentos if d.get("status_documento") == "Enviada"),
                 "em_analise": sum(1 for d in documentos if d.get("status_documento") == "Em análise"),
-                "aprovadas": sum(1 for d in documentos if d.get("status_documento") in ("Aprovada", "Pagamento solicitado", "Pagamento confirmado")),
+                "aprovadas": sum(1 for d in documentos if d.get("status_documento") == "Aprovada"),
                 "recusadas": sum(1 for d in documentos if d.get("status_documento") == "Recusada"),
             }
 
-            cur.execute(
-                """
-                SELECT DISTINCT status_nf
-                FROM motorista_notas_fiscais
-                WHERE status_nf IS NOT NULL AND status_nf <> ''
-                ORDER BY status_nf ASC
-                """
-            )
-            statuses = [row.get("status_nf") for row in (cur.fetchall() or [])]
+            statuses = list(STATUS_DOCUMENTAIS)
 
             empresas = []
             if is_super_admin:
