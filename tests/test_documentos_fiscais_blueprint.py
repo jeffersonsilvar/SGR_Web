@@ -114,10 +114,12 @@ def test_templates_16_2_expoem_cadastro_e_detalhes_sem_titulo():
     central = (ROOT / "templates" / "documentos_fiscais.html").read_text(encoding="utf-8")
     form = (ROOT / "templates" / "documento_fiscal_form.html").read_text(encoding="utf-8")
     detalhes = (ROOT / "templates" / "documento_fiscal_detalhes.html").read_text(encoding="utf-8")
+    fonte = (ROOT / "app_modules" / "documentos" / "routes.py").read_text(encoding="utf-8")
 
     assert "Novo documento" in central
-    assert "NFS-e Administrativa" in form
-    assert "NF-e Uso/Consumo" in form
+    assert '"NFSE_ADMIN": "NFS-e Administrativa"' in fonte
+    assert '"NFE_USO_CONSUMO": "NF-e Uso/Consumo"' in fonte
+    assert "tipos_documento.items()" in form
     assert "Arquivo XML" in form
     assert "Arquivo PDF" in form
     assert "Nenhum título financeiro gerado" in detalhes
