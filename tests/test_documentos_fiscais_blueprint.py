@@ -81,6 +81,15 @@ def test_migracao_preserva_menu_legado():
     assert "DROP" not in migration
 
 
+def test_migracao_16_1_limita_documentos_fiscais_a_visualizacao():
+    migration = (ROOT / "database" / "migrations" / "20260825_blueprint16_documentos_fiscais.sql").read_text(encoding="utf-8")
+
+    assert "DELETE FROM perfil_permissoes" in migration
+    assert "acao_codigo <> 'visualizar'" in migration
+    assert "pp.acao_codigo = 'visualizar'" in migration
+    assert "'documentos_fiscais',\n    'visualizar'" in migration
+
+
 def test_registrador_nao_remove_rotas_legadas():
     fonte = (ROOT / "scripts" / "aplicar_blueprint_documentos_fiscais.py").read_text(encoding="utf-8")
 
