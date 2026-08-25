@@ -40,6 +40,28 @@ def test_central_nao_cria_pagamento_direto():
     assert "INSERT INTO movimentacoes_caixa" not in fonte
 
 
+def test_status_financeiros_legados_sao_projetados_como_documento_aprovado():
+    fonte = (ROOT / "app_modules" / "documentos" / "routes.py").read_text(encoding="utf-8")
+
+    assert '"Pagamento solicitado"' in fonte
+    assert '"Pagamento confirmado"' in fonte
+    assert '"Estornada"' in fonte
+    assert "_status_documental_compativel" in fonte
+    assert 'return "Aprovada"' in fonte
+    assert 'documento["status_documento"]' in fonte
+
+
+def test_filtro_da_central_usa_status_documental_e_preserva_status_legado():
+    fonte = (ROOT / "app_modules" / "documentos" / "routes.py").read_text(encoding="utf-8")
+    template = (ROOT / "templates" / "documentos_fiscais.html").read_text(encoding="utf-8")
+
+    assert "STATUS_DOCUMENTAIS" in fonte
+    assert "STATUS_LEGADOS_APROVADOS" in fonte
+    assert "nf.status_nf IN" in fonte
+    assert "Status documental" in template
+    assert "Legado: {{ d.status_legado }}" in template
+
+
 def test_template_deixa_clara_transicao_documental():
     template = (ROOT / "templates" / "documentos_fiscais.html").read_text(encoding="utf-8")
 
