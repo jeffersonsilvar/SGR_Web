@@ -11,7 +11,32 @@
 
     <div class="alert alert-info border-0 shadow-sm">
         <div class="fw-semibold">Status documental: {{ documento.status_documento }}</div>
-        <div class="small">A Etapa 16.2 não gera título financeiro. A integração Documento aprovado → Título será adicionada na Etapa 16.3.</div>
+        <div class="small">Etapa 16.3 — o documento é analisado e aprovado antes de poder gerar um título financeiro. Pagamento continua sendo responsabilidade exclusiva do Financeiro.</div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+            <span class="text-muted me-2">Fluxo documental:</span>
+            {% if documento.status_documento == 'Recebido' %}
+            <form method="post" action="{{ url_for('documentos.marcar_documento_em_analise', id=documento.id) }}">
+                <button class="btn btn-warning"><i class="fa-solid fa-magnifying-glass me-1"></i>Marcar em análise</button>
+            </form>
+            <form method="post" action="{{ url_for('documentos.recusar_documento_fiscal', id=documento.id) }}">
+                <button class="btn btn-outline-danger">Recusar</button>
+            </form>
+            {% elif documento.status_documento == 'Em análise' %}
+            <form method="post" action="{{ url_for('documentos.aprovar_documento_fiscal', id=documento.id) }}">
+                <button class="btn btn-success"><i class="fa-solid fa-check me-1"></i>Aprovar</button>
+            </form>
+            <form method="post" action="{{ url_for('documentos.recusar_documento_fiscal', id=documento.id) }}">
+                <button class="btn btn-outline-danger">Recusar</button>
+            </form>
+            {% elif documento.status_documento == 'Aprovado' %}
+            <span class="badge text-bg-success p-2">Documento aprovado</span>
+            {% elif documento.status_documento == 'Recusado' %}
+            <span class="badge text-bg-danger p-2">Documento recusado</span>
+            {% endif %}
+        </div>
     </div>
 
     <div class="row g-4">
@@ -73,10 +98,24 @@
                     <h5 class="mb-3">Integração financeira</h5>
                     {% if documento.titulo_financeiro_id %}
                     <div class="small text-muted">Título vinculado</div>
-                    <strong>#{{ documento.titulo_financeiro_id }}</strong>
+                    <div class="d-flex align-items-center justify-content-between gap-2 mt-1">
+                        <strong>#{{ documento.titulo_financeiro_id }}</strong>
+                        <a href="{{ url_for('financeiro.financeiro_titulo_detalhes', id=documento.titulo_financeiro_id) }}" class="btn btn-sm btn-outline-primary">Abrir título</a>
+                    </div>
+                    {% elif documento.status_documento == 'Aprovado' %}
+                        {% if documento.pessoa_id %}
+                        <div class="small text-muted mb-3">Documento aprovado. Informe o vencimento para materializar a obrigação no Contas a Pagar.</div>
+                        <form method="post" action="{{ url_for('documentos.gerar_titulo_documento_fiscal', id=documento.id) }}">
+                            <label class="form-label">Vencimento *</label>
+                            <input type="date" name="data_vencimento" class="form-control mb-3" min="{{ documento.data_emissao }}" required>
+                            <button class="btn btn-primary w-100"><i class="fa-solid fa-file-invoice-dollar me-1"></i>Gerar título a pagar</button>
+                        </form>
+                        {% else %}
+                        <div class="alert alert-warning mb-0 small">O documento está aprovado, mas precisa estar vinculado a uma Pessoa/Fornecedor antes de gerar título.</div>
+                        {% endif %}
                     {% else %}
                     <div class="text-muted">Nenhum título financeiro gerado.</div>
-                    <div class="small text-muted mt-2">Esta é a regra esperada na Etapa 16.2.</div>
+                    <div class="small text-muted mt-2">O título só poderá ser criado após aprovação documental.</div>
                     {% endif %}
                 </div>
             </div>
