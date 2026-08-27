@@ -15,62 +15,57 @@ PREDICADO_NOVO = (
 )
 
 
-class SubstituirPredicado(ast.NodeTransformer):
-    def __init__(self):
-        self.funcoes = []
-        self.alteracoes = 0
-
-    def visit_FunctionDef(self, node):
-        if node.name not in ALVOS:
-            return node
-        self.funcoes.append(node.name)
-        self.generic_visit(node)
-        self.funcoes.pop()
-        return node
-
-    def visit_AsyncFunctionDef(self, node):
-        return self.visit_FunctionDef(node)
-
-    def visit_Constant(self, node):
-        if self.funcoes and isinstance(node.value, str) and PREDICADO_ANTIGO in node.value:
-            node.value = node.value.replace(PREDICADO_ANTIGO, PREDICADO_NOVO)
-            self.alteracoes += 1
-        return node
-
-
 def main():
     fonte = APP.read_text(encoding="utf-8")
     arvore = ast.parse(fonte)
+    linhas = fonte.splitlines(keepends=True)
 
-    presentes = {
-        node.name
+    alvos = [
+        node
         for node in arvore.body
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in ALVOS
-    }
+    ]
+    presentes = {node.name for node in alvos}
     faltantes = ALVOS - presentes
     if faltantes:
         raise SystemExit(f"[erro] Funções não localizadas no app.py: {', '.join(sorted(faltantes))}")
 
-    if PREDICADO_NOVO in fonte and PREDICADO_ANTIGO not in fonte:
-        print("[ok] Regra de reenvio de NFS-e já aplicada.")
-        return
+    alteracoes = 0
+    substituicoes = []
+    for node in alvos:
+        inicio = node.lineno - 1
+        fim = node.end_lineno
+        trecho = "".join(linhas[inicio:fim])
+        quantidade = trecho.count(PREDICADO_ANTIGO)
+        if quantidade:
+            novo_trecho = trecho.replace(PREDICADO_ANTIGO, PREDICADO_NOVO)
+            substituicoes.append((inicio, fim, novo_trecho))
+            alteracoes += quantidade
 
-    transformador = SubstituirPredicado()
-    arvore = transformador.visit(arvore)
-    ast.fix_missing_locations(arvore)
+    if not alteracoes:
+        if PREDICADO_NOVO in fonte:
+            print("[ok] Regra de reenvio de NFS-e já aplicada.")
+            return
+        raise SystemExit("[erro] Predicado legado não localizado nas funções esperadas. Nenhuma alteração gravada.")
 
-    if transformador.alteracoes < 2:
+    # Esperamos ao menos o helper central e a validação do POST do Portal.
+    if alteracoes < 2:
         raise SystemExit(
-            f"[erro] Esperadas ao menos 2 substituições seguras; encontradas {transformador.alteracoes}. Nenhuma alteração gravada."
+            f"[erro] Esperadas ao menos 2 substituições seguras; encontradas {alteracoes}. Nenhuma alteração gravada."
         )
 
     if not BACKUP.exists():
         BACKUP.write_text(fonte, encoding="utf-8")
 
-    novo = ast.unparse(arvore) + "\n"
+    # Substitui apenas os trechos delimitados pelo AST, de baixo para cima,
+    # preservando todo o restante do app.py exatamente como está.
+    for inicio, fim, novo_trecho in sorted(substituicoes, reverse=True):
+        linhas[inicio:fim] = [novo_trecho]
+
+    novo = "".join(linhas)
     ast.parse(novo)
     APP.write_text(novo, encoding="utf-8")
-    print(f"[ok] Regra de reenvio aplicada em {transformador.alteracoes} pontos do fluxo.")
+    print(f"[ok] Regra de reenvio aplicada em {alteracoes} pontos do fluxo.")
     print("[info] Somente NFs vigentes bloqueiam nova NFS-e; Recusada/Estornada deixam de bloquear a rota.")
     print(f"[info] Backup local: {BACKUP}")
 
