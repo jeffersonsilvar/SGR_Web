@@ -124,7 +124,7 @@ def test_templates_16_2_expoem_cadastro_e_detalhes_sem_titulo():
     assert "Arquivo XML" in form
     assert "Arquivo PDF" in form
     assert "Nenhum título financeiro gerado" in detalhes
-    assert "Etapa 16.3" in detalhes
+    assert "Pagamento continua sendo responsabilidade exclusiva do Financeiro" in detalhes
 
 
 def test_migracao_preserva_menu_legado():
