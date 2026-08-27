@@ -86,7 +86,6 @@ class StorageService:
     @staticmethod
     def _mensagem_segura(exc: Exception) -> str:
         texto = str(exc or "Falha desconhecida de armazenamento.")
-        # Evita propagar JSON/tokens muito longos ou detalhes sensíveis para a interface.
         if len(texto) > 350:
             texto = texto[:350] + "..."
         return texto
@@ -152,8 +151,6 @@ class StorageService:
                 criado_por_usuario_id=criado_por_usuario_id,
             )
 
-            # Colunas adicionadas pela migração 16.4B. Mantemos o update separado
-            # para reutilizar o registrador legado sem quebrar outros módulos.
             cur.execute(
                 """
                 UPDATE arquivos_sistema
@@ -170,7 +167,13 @@ class StorageService:
                 "sha256_hex": sha256_hex,
                 "url_interna": f"/arquivos/visualizar/{int(arquivo_id)}",
             }
-        except (GoogleDriveStorageError, StorageServiceError):
+        except StorageServiceError:
             raise
+        except GoogleDriveStorageError as exc:
+            raise StorageServiceError(
+                f"Google Drive indisponível: {self._mensagem_segura(exc)}"
+            ) from exc
         except Exception as exc:
-            raise StorageServiceError(f"Falha ao armazenar arquivo no Google Drive: {self._mensagem_segura(exc)}") from exc
+            raise StorageServiceError(
+                f"Falha ao armazenar arquivo no Google Drive: {self._mensagem_segura(exc)}"
+            ) from exc
