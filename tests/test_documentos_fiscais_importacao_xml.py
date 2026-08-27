@@ -51,7 +51,9 @@ def test_importacao_registra_rota_e_gate_de_pessoa():
 def test_importacao_preserva_xml_original_e_nao_gera_titulo():
     fonte = (ROOT / "app_modules" / "documentos" / "importacao_xml.py").read_text(encoding="utf-8")
     assert "_salvar_temporario" in fonte
-    assert "_mover_para_documento" in fonte
+    assert "StorageService" in fonte
+    assert "storage.armazenar_arquivo" in fonte
+    assert "_mover_para_documento" not in fonte
     assert "arquivo_xml" in fonte
     assert "INSERT INTO titulos_financeiros" not in fonte
     assert "INSERT INTO movimentacoes_caixa" not in fonte
