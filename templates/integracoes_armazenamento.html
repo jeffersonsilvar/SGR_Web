@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<div class="container-fluid py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="fa-solid fa-cloud me-2"></i>Integrações · Armazenamento</h2>
+            <div class="text-muted">Diagnóstico do provider de arquivos utilizado pelo SGR.</div>
+        </div>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">Voltar</a>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                <div class="d-flex align-items-center gap-3">
+                    <span id="status-dot" class="rounded-circle d-inline-block {% if status_storage.status == 'OPERACIONAL' %}bg-success{% elif status_storage.status == 'AUTENTICANDO' %}bg-warning{% elif status_storage.status == 'INDISPONIVEL' %}bg-danger{% else %}bg-secondary{% endif %}" style="width:18px;height:18px;"></span>
+                    <div>
+                        <div class="small text-muted">Provider atual</div>
+                        <div class="fw-bold fs-5" id="provider">{{ status_storage.provider }}</div>
+                    </div>
+                </div>
+                <button id="btn-testar" type="button" class="btn btn-primary">
+                    <i class="fa-solid fa-rotate me-1"></i> Testar conexão
+                </button>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="border rounded p-3 h-100">
+                        <small class="text-muted d-block">Status</small>
+                        <strong id="status-text">{{ status_storage.status }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3 h-100">
+                        <small class="text-muted d-block">Última verificação</small>
+                        <strong id="verificado-em">{{ status_storage.verificado_em|formatar_data_hora_br if status_storage.verificado_em else 'Nunca' }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3 h-100">
+                        <small class="text-muted d-block">Latência</small>
+                        <strong id="latencia">{% if status_storage.latencia_ms is not none %}{{ status_storage.latencia_ms }} ms{% else %}-{% endif %}</strong>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3 h-100">
+                        <small class="text-muted d-block">Política</small>
+                        <strong>Sem fallback local silencioso</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div id="mensagem-box" class="alert mt-4 mb-0 {% if status_storage.status == 'OPERACIONAL' %}alert-success{% elif status_storage.status == 'INDISPONIVEL' %}alert-danger{% elif status_storage.status == 'AUTENTICANDO' %}alert-warning{% else %}alert-secondary{% endif %}">
+                <strong>Diagnóstico:</strong> <span id="mensagem">{{ status_storage.mensagem }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const botao = document.getElementById('btn-testar');
+    const dot = document.getElementById('status-dot');
+    const texto = document.getElementById('status-text');
+    const mensagem = document.getElementById('mensagem');
+    const box = document.getElementById('mensagem-box');
+    const latencia = document.getElementById('latencia');
+    const verificado = document.getElementById('verificado-em');
+
+    function aplicar(status, msg, latency, checkedAt) {
+        dot.className = 'rounded-circle d-inline-block ' + (
+            status === 'OPERACIONAL' ? 'bg-success' :
+            status === 'AUTENTICANDO' ? 'bg-warning' :
+            status === 'INDISPONIVEL' ? 'bg-danger' : 'bg-secondary'
+        );
+        dot.style.width = '18px';
+        dot.style.height = '18px';
+        texto.textContent = status;
+        mensagem.textContent = msg || '-';
+        latencia.textContent = latency === null || latency === undefined ? '-' : latency + ' ms';
+        if (checkedAt) verificado.textContent = checkedAt;
+        box.className = 'alert mt-4 mb-0 ' + (
+            status === 'OPERACIONAL' ? 'alert-success' :
+            status === 'AUTENTICANDO' ? 'alert-warning' :
+            status === 'INDISPONIVEL' ? 'alert-danger' : 'alert-secondary'
+        );
+    }
+
+    botao.addEventListener('click', async function () {
+        botao.disabled = true;
+        aplicar('AUTENTICANDO', 'Validando credenciais, API e acesso ao armazenamento...', null, null);
+        try {
+            const resposta = await fetch("{{ url_for('integracoes.testar_armazenamento') }}", {
+                method: 'POST',
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            });
+            const dados = await resposta.json();
+            aplicar(dados.status, dados.mensagem, dados.latencia_ms, dados.verificado_em);
+        } catch (erro) {
+            aplicar('INDISPONIVEL', 'Não foi possível concluir o teste de conexão pelo SGR.', null, null);
+        } finally {
+            botao.disabled = false;
+        }
+    });
+})();
+</script>
+{% endblock %}
