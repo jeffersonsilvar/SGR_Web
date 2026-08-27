@@ -4,7 +4,6 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 import re
-import shutil
 import uuid
 import xml.etree.ElementTree as ET
 
@@ -12,6 +11,7 @@ from flask import current_app, flash, redirect, render_template, request, sessio
 from werkzeug.utils import secure_filename
 
 from danfse_parser import parse_nfse_xml
+from app_modules.storage import StorageService, StorageServiceError
 
 
 SESSAO_RASCUNHO = "documento_fiscal_importacao_xml"
@@ -202,6 +202,7 @@ def _buscar_pessoa_por_documento(cur, empresa_id, cpf_cnpj):
 
 
 def _salvar_temporario(arquivo, empresa_id, tipo):
+    """Salva apenas para processamento. Nunca é o armazenamento permanente."""
     if not arquivo or not arquivo.filename:
         return None
     nome = secure_filename(arquivo.filename)
@@ -216,18 +217,36 @@ def _salvar_temporario(arquivo, empresa_id, tipo):
     return relativo.as_posix()
 
 
-def _mover_para_documento(relativo, empresa_id, documento_id, tipo):
+def _remover_temporario(relativo):
     if not relativo:
-        return None
-    origem = Path(current_app.root_path) / relativo
-    if not origem.exists():
-        return None
-    ext = origem.suffix.lower()
-    destino_rel = Path("uploads") / "documentos_fiscais" / str(empresa_id) / str(documento_id) / f"{uuid.uuid4().hex}_{tipo.lower()}{ext}"
-    destino = Path(current_app.root_path) / destino_rel
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(origem), str(destino))
-    return destino_rel.as_posix()
+        return
+    try:
+        caminho = Path(current_app.root_path) / relativo
+        if caminho.exists():
+            caminho.unlink()
+    except Exception:
+        pass
+
+
+def _empresa_nome(cur, empresa_id):
+    cur.execute(
+        """
+        SELECT COALESCE(NULLIF(nome_fantasia, ''), NULLIF(razao_social, ''), CONCAT('Empresa_', id)) AS nome
+        FROM empresas
+        WHERE id = %s
+        LIMIT 1
+        """,
+        (empresa_id,),
+    )
+    row = cur.fetchone() or {}
+    return row.get("nome") or f"Empresa_{empresa_id}"
+
+
+def _subcategoria_storage(tipo_documento):
+    return {
+        "NFE_USO_CONSUMO": "NFe_Uso_Consumo",
+        "NFSE_ADMIN": "NFSe_Administrativa",
+    }.get(tipo_documento, "Outros_Documentos_Fiscais")
 
 
 def registrar_importacao_xml(documentos_bp, services):
@@ -284,9 +303,18 @@ def registrar_importacao_xml(documentos_bp, services):
                         return redirect(url_for("documentos.detalhes_documento_fiscal", id=duplicado["id"]))
 
                 pessoa = _buscar_pessoa_por_documento(cur, empresa_id, dados["cpf_cnpj_emitente"])
+                nome_xml_original = secure_filename(arquivo_xml.filename) or "documento.xml"
+                nome_pdf_original = secure_filename(arquivo_pdf.filename) if arquivo_pdf and arquivo_pdf.filename else None
                 temp_xml = _salvar_temporario(arquivo_xml, empresa_id, "XML")
                 temp_pdf = _salvar_temporario(arquivo_pdf, empresa_id, "PDF") if arquivo_pdf and arquivo_pdf.filename else None
-                rascunho = {**dados, "empresa_id": empresa_id, "temp_xml": temp_xml, "temp_pdf": temp_pdf}
+                rascunho = {
+                    **dados,
+                    "empresa_id": empresa_id,
+                    "temp_xml": temp_xml,
+                    "temp_pdf": temp_pdf,
+                    "nome_xml_original": nome_xml_original,
+                    "nome_pdf_original": nome_pdf_original,
+                }
                 session[SESSAO_RASCUNHO] = rascunho
                 session.modified = True
                 return render_template("documento_fiscal_importar.html", rascunho=rascunho, pessoa=pessoa, empresas=empresas, is_super_admin=is_super_admin, empresa_id_padrao=empresa_id)
@@ -329,15 +357,69 @@ def registrar_importacao_xml(documentos_bp, services):
                     session.get("usuario_id"), session.get("usuario_id"),
                 ),
             )
-            documento_id = cur.lastrowid
-            caminho_xml = _mover_para_documento(rascunho.get("temp_xml"), empresa_id, documento_id, "XML")
-            caminho_pdf = _mover_para_documento(rascunho.get("temp_pdf"), empresa_id, documento_id, "PDF")
-            cur.execute("UPDATE documentos_fiscais SET arquivo_xml = %s, arquivo_pdf = %s WHERE id = %s AND empresa_id = %s", (caminho_xml, caminho_pdf, documento_id, empresa_id))
+            documento_id = int(cur.lastrowid)
+
+            storage = StorageService()
+            empresa_nome = _empresa_nome(cur, empresa_id)
+            pasta_registro = f"documento_{documento_id}_{pessoa.get('nome_completo') or 'fornecedor'}"
+            data_referencia = datetime.strptime(rascunho["data_emissao"], "%Y-%m-%d")
+
+            temp_xml = rascunho.get("temp_xml")
+            if not temp_xml:
+                raise StorageServiceError("XML temporário não localizado. A importação não foi concluída.")
+            info_xml = storage.armazenar_arquivo(
+                cur,
+                caminho_local=str(Path(current_app.root_path) / temp_xml),
+                empresa_id=empresa_id,
+                empresa_nome=empresa_nome,
+                categoria="Documentos_Fiscais",
+                subcategoria=_subcategoria_storage(rascunho.get("tipo_documento")),
+                pasta_registro=pasta_registro,
+                origem="DOCUMENTO_FISCAL",
+                origem_id=documento_id,
+                tipo_arquivo="XML_FISCAL",
+                nome_original=rascunho.get("nome_xml_original") or "documento.xml",
+                pessoa_id=pessoa["id"],
+                criado_por_usuario_id=session.get("usuario_id"),
+                data_referencia=data_referencia,
+            )
+
+            info_pdf = None
+            temp_pdf = rascunho.get("temp_pdf")
+            if temp_pdf:
+                info_pdf = storage.armazenar_arquivo(
+                    cur,
+                    caminho_local=str(Path(current_app.root_path) / temp_pdf),
+                    empresa_id=empresa_id,
+                    empresa_nome=empresa_nome,
+                    categoria="Documentos_Fiscais",
+                    subcategoria=_subcategoria_storage(rascunho.get("tipo_documento")),
+                    pasta_registro=pasta_registro,
+                    origem="DOCUMENTO_FISCAL",
+                    origem_id=documento_id,
+                    tipo_arquivo="PDF_FISCAL",
+                    nome_original=rascunho.get("nome_pdf_original") or "documento.pdf",
+                    pessoa_id=pessoa["id"],
+                    criado_por_usuario_id=session.get("usuario_id"),
+                    data_referencia=data_referencia,
+                )
+
+            cur.execute(
+                "UPDATE documentos_fiscais SET arquivo_xml = %s, arquivo_pdf = %s WHERE id = %s AND empresa_id = %s",
+                (info_xml["url_interna"], info_pdf["url_interna"] if info_pdf else None, documento_id, empresa_id),
+            )
             con.commit()
+
+            _remover_temporario(temp_xml)
+            _remover_temporario(temp_pdf)
             session.pop(SESSAO_RASCUNHO, None)
-            flash(f"Documento Fiscal #{documento_id} importado e vinculado ao fornecedor {pessoa['nome_completo']}.", "success")
+            flash(f"Documento Fiscal #{documento_id} importado, armazenado no Google Drive e vinculado ao fornecedor {pessoa['nome_completo']}.", "success")
             return redirect(url_for("documentos.detalhes_documento_fiscal", id=documento_id))
-        except ValueError as exc:
+        except (ValueError, StorageServiceError) as exc:
+            try:
+                con.rollback()
+            except Exception:
+                pass
             flash(str(exc), "warning")
             return redirect(url_for("documentos.importar_documento_fiscal"))
         except Exception as exc:
