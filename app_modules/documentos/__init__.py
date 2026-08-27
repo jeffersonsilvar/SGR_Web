@@ -1,7 +1,12 @@
 from .routes import criar_documentos_blueprint as _criar_documentos_blueprint_base
 from .workflow import registrar_fluxo_documental
-from .importacao_xml import registrar_importacao_xml
+from . import importacao_xml as _importacao_xml
 from .visualizacao_fiscal import registrar_visualizacao_fiscal
+from .cte_importacao import instalar_suporte_cte
+
+
+instalar_suporte_cte(_importacao_xml)
+registrar_importacao_xml = _importacao_xml.registrar_importacao_xml
 
 
 def criar_documentos_blueprint(services):
