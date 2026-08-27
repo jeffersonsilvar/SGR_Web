@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, render_template, session
+from functools import wraps
+
+from flask import Blueprint, flash, jsonify, redirect, render_template, session, url_for
 
 from app_modules.storage import StorageService
 
@@ -30,14 +32,34 @@ def _persistir_status(cur, resultado):
 
 def criar_integracoes_blueprint(services):
     login_required = services["login_required"]
-    perfis_permitidos = services["perfis_permitidos"]
     obter_conexao = services["obter_conexao"]
+    usuario_eh_super_admin_global = services.get("usuario_eh_super_admin_global")
+
+    def administrador_required(func):
+        """Gate local e sem efeitos colaterais para o painel de infraestrutura."""
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            is_super_admin = False
+            if usuario_eh_super_admin_global:
+                try:
+                    is_super_admin = bool(usuario_eh_super_admin_global())
+                except Exception:
+                    is_super_admin = False
+            if not is_super_admin:
+                is_super_admin = bool(session.get("is_super_admin"))
+
+            perfil = str(session.get("perfil_de_acesso") or "").strip()
+            if not is_super_admin and perfil != "Administrador":
+                flash("Acesso restrito à Administração do sistema.", "warning")
+                return redirect(url_for("inicio"))
+            return func(*args, **kwargs)
+        return wrapper
 
     bp = Blueprint("integracoes", __name__)
 
     @bp.get("/administracao/integracoes/armazenamento")
     @login_required
-    @perfis_permitidos("Administrador")
+    @administrador_required
     def armazenamento():
         con = obter_conexao()
         status = None
@@ -87,7 +109,7 @@ def criar_integracoes_blueprint(services):
 
     @bp.post("/administracao/integracoes/armazenamento/api/testar")
     @login_required
-    @perfis_permitidos("Administrador")
+    @administrador_required
     def testar_armazenamento():
         resultado = StorageService().health_check()
         con = obter_conexao()
