@@ -3,11 +3,14 @@ from __future__ import annotations
 from datetime import datetime
 import hashlib
 import os
+import re
+import tempfile
 import time
 from typing import Any, Dict, Optional
 
 from google_drive_storage import (
     GoogleDriveStorageError,
+    baixar_arquivo_google_drive,
     google_drive_habilitado,
     obter_servico_drive,
     registrar_arquivo_sistema,
@@ -20,11 +23,11 @@ class StorageServiceError(Exception):
 
 
 class StorageService:
-    """Camada genérica de storage.
+    """Camada genérica de armazenamento de arquivos do SGR.
 
-    O restante da aplicação não deve depender diretamente de Google Drive, S3 etc.
-    O provider atual é definido por STORAGE_PROVIDER e, nesta fase, apenas
-    GOOGLE_DRIVE está implementado para produção.
+    Os módulos de negócio não devem depender diretamente de Google Drive, S3,
+    Azure etc. O provider é resolvido aqui. Nesta fase, GOOGLE_DRIVE é o adapter
+    implementado para produção e não existe fallback local silencioso.
     """
 
     def __init__(self, provider: Optional[str] = None):
@@ -86,9 +89,82 @@ class StorageService:
     @staticmethod
     def _mensagem_segura(exc: Exception) -> str:
         texto = str(exc or "Falha desconhecida de armazenamento.")
+        # Não exponha caminhos locais, tokens ou client secrets no painel administrativo.
+        texto = re.sub(r"[A-Za-z]:\\[^\r\n,;]+", "[caminho local ocultado]", texto)
+        texto = re.sub(r"/(?:home|Users)/[^\r\n,;]+", "[caminho local ocultado]", texto)
+        texto = re.sub(
+            r"(?i)(access_token|refresh_token|client_secret|authorization)\s*[:=]\s*[^\s,;]+",
+            r"\1=[ocultado]",
+            texto,
+        )
         if len(texto) > 350:
             texto = texto[:350] + "..."
         return texto
+
+    def armazenar_upload(self, cur, *, arquivo, **kwargs) -> Optional[Dict[str, Any]]:
+        """Entrada padrão para FileStorage/objetos de upload da aplicação.
+
+        O arquivo fica localmente apenas durante o processamento e é removido em
+        seguida. Este método é o contrato indicado para os demais módulos do SGR.
+        """
+        if not arquivo or not getattr(arquivo, "filename", None):
+            return None
+
+        nome_original = kwargs.pop("nome_original", None) or os.path.basename(str(arquivo.filename))
+        extensao = os.path.splitext(nome_original)[1]
+        caminho_temporario = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=extensao) as temporario:
+                caminho_temporario = temporario.name
+
+            if hasattr(arquivo, "save"):
+                arquivo.save(caminho_temporario)
+            else:
+                conteudo = arquivo.read()
+                with open(caminho_temporario, "wb") as destino:
+                    destino.write(conteudo)
+
+            return self.armazenar_arquivo(
+                cur,
+                caminho_local=caminho_temporario,
+                nome_original=nome_original,
+                **kwargs,
+            )
+        finally:
+            if caminho_temporario:
+                try:
+                    os.remove(caminho_temporario)
+                except OSError:
+                    pass
+
+    def baixar_arquivo(self, arquivo: Dict[str, Any]) -> bytes:
+        """Lê bytes de um arquivo privado através do provider configurado.
+
+        Recebe os metadados de ``arquivos_sistema``. Assim, consumidores como o
+        visualizador fiscal não conhecem detalhes do Google Drive.
+        """
+        if not arquivo:
+            raise StorageServiceError("Metadados do arquivo não informados.")
+
+        provider_arquivo = str(arquivo.get("storage_provider") or self.provider).strip().upper()
+        if provider_arquivo != self.provider:
+            raise StorageServiceError("Provider do arquivo difere do provider solicitado.")
+
+        self._validar_provider()
+        drive_file_id = arquivo.get("drive_file_id")
+        if not drive_file_id:
+            raise StorageServiceError("Arquivo sem identificador válido no armazenamento externo.")
+
+        try:
+            return baixar_arquivo_google_drive(str(drive_file_id))
+        except GoogleDriveStorageError as exc:
+            raise StorageServiceError(
+                f"Google Drive indisponível: {self._mensagem_segura(exc)}"
+            ) from exc
+        except Exception as exc:
+            raise StorageServiceError(
+                f"Falha ao ler arquivo no armazenamento: {self._mensagem_segura(exc)}"
+            ) from exc
 
     def armazenar_arquivo(
         self,
