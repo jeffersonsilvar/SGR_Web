@@ -1,9 +1,14 @@
 from pathlib import Path
+import sys
+
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from database import obter_conexao
 
 
-ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "database" / "migrations" / "20260827_blueprint16_4b_storage_service.sql"
 
 
