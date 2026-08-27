@@ -4,14 +4,14 @@
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
         <div>
             <h2 class="fw-bold mb-1"><i class="fa-solid fa-file-invoice me-2"></i>Documento Fiscal #{{ documento.id }}</h2>
-            <div class="text-muted">{{ documento.tipo_documento_descricao }} · origem interna</div>
+            <div class="text-muted">{{ documento.tipo_documento_descricao }} · {{ documento.origem_documento or 'Origem não informada' }}</div>
         </div>
         <a href="{{ url_for('documentos.central_documentos_fiscais') }}" class="btn btn-outline-secondary">Voltar</a>
     </div>
 
     <div class="alert alert-info border-0 shadow-sm">
         <div class="fw-semibold">Status documental: {{ documento.status_documento }}</div>
-        <div class="small">Etapa 16.3 — o documento é analisado e aprovado antes de poder gerar um título financeiro. Pagamento continua sendo responsabilidade exclusiva do Financeiro.</div>
+        <div class="small">O documento é analisado e aprovado antes de poder gerar um título financeiro. Pagamento continua sendo responsabilidade exclusiva do Financeiro.</div>
     </div>
 
     <div class="card border-0 shadow-sm mb-4">
@@ -81,13 +81,21 @@
                     <h5 class="mb-3">Arquivos</h5>
                     <div class="d-grid gap-2">
                         {% if documento.arquivo_xml %}
-                        <a href="{{ documento.arquivo_xml|arquivo_url }}" target="_blank" class="btn btn-outline-primary"><i class="fa-solid fa-code me-1"></i>Abrir XML</a>
+                        <a href="{{ url_for('documentos.visualizar_documento_fiscal', id=documento.id) }}" target="_blank" class="btn btn-primary">
+                            <i class="fa-solid fa-eye me-1"></i>Visualizar documento
+                        </a>
+                        <a href="{{ url_for('documentos.baixar_xml_original', id=documento.id) }}" class="btn btn-outline-primary">
+                            <i class="fa-solid fa-download me-1"></i>Baixar XML original
+                        </a>
                         {% endif %}
                         {% if documento.arquivo_pdf %}
-                        <a href="{{ documento.arquivo_pdf|arquivo_url }}" target="_blank" class="btn btn-outline-danger"><i class="fa-solid fa-file-pdf me-1"></i>Abrir PDF</a>
+                        <a href="{{ documento.arquivo_pdf|arquivo_url }}" target="_blank" class="btn btn-outline-danger"><i class="fa-solid fa-file-pdf me-1"></i>Abrir PDF original</a>
                         {% endif %}
                         {% if not documento.arquivo_xml and not documento.arquivo_pdf %}
                         <div class="text-muted small">Nenhum arquivo anexado.</div>
+                        {% endif %}
+                        {% if documento.arquivo_xml %}
+                        <div class="small text-muted mt-1">A visualização é gerada pelo SGR. O XML original permanece preservado no armazenamento.</div>
                         {% endif %}
                     </div>
                 </div>
