@@ -116,7 +116,8 @@ def test_templates_16_2_expoem_cadastro_e_detalhes_sem_titulo():
     detalhes = (ROOT / "templates" / "documento_fiscal_detalhes.html").read_text(encoding="utf-8")
     fonte = (ROOT / "app_modules" / "documentos" / "routes.py").read_text(encoding="utf-8")
 
-    assert "Novo documento" in central
+    assert "Importar XML" in central
+    assert "Cadastro manual" in central
     assert '"NFSE_ADMIN": "NFS-e Administrativa"' in fonte
     assert '"NFE_USO_CONSUMO": "NF-e Uso/Consumo"' in fonte
     assert "tipos_documento.items()" in form
