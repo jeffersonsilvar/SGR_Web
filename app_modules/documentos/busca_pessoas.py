@@ -75,7 +75,7 @@ def registrar_busca_pessoas_normalizada(documentos_bp, services):
                 WHERE empresa_id = %s
                   AND (
                     nome_completo LIKE %s
-                    OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(cpf_cnpj, '.', ''), '/', ''), '-', ''), ' ', ''), '\\', '') LIKE %s
+                    OR REPLACE(REPLACE(REPLACE(REPLACE(cpf_cnpj, '.', ''), '/', ''), '-', ''), ' ', '') LIKE %s
                     OR CAST(id AS CHAR) = %s
                   )
                 ORDER BY nome_completo
