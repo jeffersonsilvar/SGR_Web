@@ -17,13 +17,13 @@ app.register_blueprint(criar_documentos_blueprint(documentos_services))
 
 
 # ==========================================================
-# BLUEPRINT 16.4B — INTEGRAÇÕES / HEALTH CHECK DO STORAGE
+# BLUEPRINT 16.4B - INTEGRACOES / HEALTH CHECK DO STORAGE
 # ==========================================================
 from app_modules.integracoes import criar_integracoes_blueprint
 
 integracoes_services = {
     "login_required": login_required,
-    "perfis_permitidos": perfis_permitidos,
+    "usuario_eh_super_admin_global": usuario_eh_super_admin_global,
     "obter_conexao": obter_conexao,
 }
 
