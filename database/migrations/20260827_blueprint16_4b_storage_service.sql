@@ -15,7 +15,9 @@ SET @sql := (
         'ALTER TABLE arquivos_sistema ADD COLUMN sha256_hex CHAR(64) NULL AFTER tamanho_bytes'
     )
 );
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SET @sql := (
     SELECT IF(
@@ -29,7 +31,9 @@ SET @sql := (
         'ALTER TABLE arquivos_sistema ADD COLUMN versao INT NOT NULL DEFAULT 1 AFTER sha256_hex'
     )
 );
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SET @sql := (
     SELECT IF(
@@ -43,7 +47,9 @@ SET @sql := (
         'ALTER TABLE arquivos_sistema ADD COLUMN arquivo_anterior_id BIGINT NULL AFTER versao'
     )
 );
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SET @sql := (
     SELECT IF(
@@ -57,7 +63,9 @@ SET @sql := (
         'ALTER TABLE arquivos_sistema ADD INDEX idx_arquivos_sistema_sha256 (empresa_id, sha256_hex)'
     )
 );
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 CREATE TABLE IF NOT EXISTS storage_health_status (
     id INT NOT NULL AUTO_INCREMENT,
