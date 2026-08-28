@@ -35,8 +35,8 @@ def criar_integracoes_blueprint(services):
     obter_conexao = services["obter_conexao"]
     usuario_eh_super_admin_global = services.get("usuario_eh_super_admin_global")
 
-    def administrador_required(func):
-        """Gate local e sem efeitos colaterais para o painel de infraestrutura."""
+    def infraestrutura_required(func):
+        """Gate do painel técnico: somente Super Admin global ou Suporte."""
         @wraps(func)
         def wrapper(*args, **kwargs):
             is_super_admin = False
@@ -48,9 +48,11 @@ def criar_integracoes_blueprint(services):
             if not is_super_admin:
                 is_super_admin = bool(session.get("is_super_admin"))
 
-            perfil = str(session.get("perfil_de_acesso") or "").strip()
-            if not is_super_admin and perfil != "Administrador":
-                flash("Acesso restrito à Administração do sistema.", "warning")
+            perfil = str(session.get("perfil_de_acesso") or "").strip().casefold()
+            is_suporte = perfil == "suporte" or bool(session.get("is_suporte"))
+
+            if not is_super_admin and not is_suporte:
+                flash("Acesso restrito à Administração Técnica do sistema.", "warning")
                 return redirect(url_for("inicio"))
             return func(*args, **kwargs)
         return wrapper
@@ -59,7 +61,7 @@ def criar_integracoes_blueprint(services):
 
     @bp.get("/administracao/integracoes/armazenamento")
     @login_required
-    @administrador_required
+    @infraestrutura_required
     def armazenamento():
         con = obter_conexao()
         status = None
@@ -109,7 +111,7 @@ def criar_integracoes_blueprint(services):
 
     @bp.post("/administracao/integracoes/armazenamento/api/testar")
     @login_required
-    @administrador_required
+    @infraestrutura_required
     def testar_armazenamento():
         resultado = StorageService().health_check()
         con = obter_conexao()
