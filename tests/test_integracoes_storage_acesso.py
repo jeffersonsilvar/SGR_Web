@@ -2,6 +2,7 @@ from pathlib import Path
 
 from flask import Flask, session
 
+import app_modules.integracoes.routes as integracoes_routes
 from app_modules.integracoes import criar_integracoes_blueprint
 
 
@@ -29,7 +30,17 @@ def _app_teste():
     return app
 
 
-def test_super_admin_acessa_painel_armazenamento():
+def _isolar_renderizacao_template(monkeypatch):
+    """Mantém estes testes focados no gate de acesso, não no menu global do base.html."""
+    monkeypatch.setattr(
+        integracoes_routes,
+        "render_template",
+        lambda *args, **kwargs: "painel armazenamento",
+    )
+
+
+def test_super_admin_acessa_painel_armazenamento(monkeypatch):
+    _isolar_renderizacao_template(monkeypatch)
     app = _app_teste()
     client = app.test_client()
 
@@ -39,9 +50,11 @@ def test_super_admin_acessa_painel_armazenamento():
 
     resposta = client.get("/administracao/integracoes/armazenamento")
     assert resposta.status_code == 200
+    assert resposta.get_data(as_text=True) == "painel armazenamento"
 
 
-def test_suporte_acessa_painel_armazenamento():
+def test_suporte_acessa_painel_armazenamento(monkeypatch):
+    _isolar_renderizacao_template(monkeypatch)
     app = _app_teste()
     client = app.test_client()
 
@@ -51,6 +64,7 @@ def test_suporte_acessa_painel_armazenamento():
 
     resposta = client.get("/administracao/integracoes/armazenamento")
     assert resposta.status_code == 200
+    assert resposta.get_data(as_text=True) == "painel armazenamento"
 
 
 def test_administrador_empresa_nao_acessa_painel_tecnico_armazenamento():
