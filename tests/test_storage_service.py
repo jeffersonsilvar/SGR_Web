@@ -187,7 +187,7 @@ def test_falha_upload_real_atualiza_health_indisponivel(monkeypatch, tmp_path):
     monkeypatch.setattr(
         storage_mod,
         "upload_arquivo_path_google_drive",
-        lambda **kwargs: (_ for _ in ()).throw(GoogleDriveStorageError("provider fora")),
+        lambda **kwargs: (_ for _ in ()).throw(storage_mod.GoogleDriveStorageError("provider fora")),
     )
     monkeypatch.setattr(
         storage_mod,
@@ -249,7 +249,7 @@ def test_falha_download_real_atualiza_health_indisponivel(monkeypatch):
     monkeypatch.setattr(
         storage_mod,
         "baixar_arquivo_google_drive",
-        lambda file_id: (_ for _ in ()).throw(GoogleDriveStorageError("download indisponivel")),
+        lambda file_id: (_ for _ in ()).throw(storage_mod.GoogleDriveStorageError("download indisponivel")),
     )
     monkeypatch.setattr(
         storage_mod,
