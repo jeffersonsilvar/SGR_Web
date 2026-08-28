@@ -17,6 +17,8 @@ from google_drive_storage import (
     upload_arquivo_path_google_drive,
 )
 
+from .health_status import registrar_status_storage
+
 
 class StorageServiceError(Exception):
     """Erro controlado da camada genérica de armazenamento do SGR."""
@@ -44,6 +46,18 @@ class StorageService:
             for bloco in iter(lambda: arquivo.read(1024 * 1024), b""):
                 digest.update(bloco)
         return digest.hexdigest()
+
+    def _registrar_health(self, status: str, mensagem: str) -> None:
+        """Atualiza o painel por eventos operacionais sem afetar o fluxo principal."""
+        try:
+            registrar_status_storage(
+                provider=self.provider,
+                status=status,
+                mensagem=mensagem,
+                verificado_em=datetime.now(),
+            )
+        except Exception:
+            pass
 
     def health_check(self) -> Dict[str, Any]:
         inicio = time.perf_counter()
@@ -183,13 +197,13 @@ class StorageService:
         try:
             return baixar_arquivo_google_drive(str(drive_file_id))
         except GoogleDriveStorageError as exc:
-            raise StorageServiceError(
-                f"Google Drive indisponível: {self._mensagem_segura(exc)}"
-            ) from exc
+            mensagem = f"Google Drive indisponível: {self._mensagem_segura(exc)}"
+            self._registrar_health("INDISPONIVEL", mensagem)
+            raise StorageServiceError(mensagem) from exc
         except Exception as exc:
-            raise StorageServiceError(
-                f"Falha ao ler arquivo no armazenamento: {self._mensagem_segura(exc)}"
-            ) from exc
+            mensagem = f"Falha ao ler arquivo no armazenamento: {self._mensagem_segura(exc)}"
+            self._registrar_health("INDISPONIVEL", mensagem)
+            raise StorageServiceError(mensagem) from exc
 
     def armazenar_arquivo(
         self,
@@ -218,14 +232,18 @@ class StorageService:
         """
         self._validar_provider()
         if not google_drive_habilitado():
-            raise StorageServiceError(
-                "Google Drive não está configurado ou habilitado. A operação foi interrompida sem persistir o documento."
+            mensagem = (
+                "Google Drive não está configurado ou habilitado. "
+                "A operação foi interrompida sem persistir o documento."
             )
+            self._registrar_health("NAO_CONFIGURADO", mensagem)
+            raise StorageServiceError(mensagem)
         if not caminho_local or not os.path.exists(caminho_local):
             raise StorageServiceError("Arquivo temporário não encontrado para envio ao armazenamento.")
 
         sha256_hex = self.calcular_sha256(caminho_local)
         upload_info = None
+        upload_concluido = False
         try:
             upload_info = upload_arquivo_path_google_drive(
                 caminho_local=caminho_local,
@@ -241,6 +259,7 @@ class StorageService:
                 nome_original=nome_original,
                 data_referencia=data_referencia,
             )
+            upload_concluido = True
             arquivo_id = registrar_arquivo_sistema(
                 cur,
                 empresa_id=empresa_id,
@@ -278,12 +297,13 @@ class StorageService:
         except GoogleDriveStorageError as exc:
             if upload_info:
                 self.desfazer_armazenamento(upload_info)
-            raise StorageServiceError(
-                f"Google Drive indisponível: {self._mensagem_segura(exc)}"
-            ) from exc
+            mensagem = f"Google Drive indisponível: {self._mensagem_segura(exc)}"
+            self._registrar_health("INDISPONIVEL", mensagem)
+            raise StorageServiceError(mensagem) from exc
         except Exception as exc:
             if upload_info:
                 self.desfazer_armazenamento(upload_info)
-            raise StorageServiceError(
-                f"Falha ao armazenar arquivo no Google Drive: {self._mensagem_segura(exc)}"
-            ) from exc
+            mensagem = f"Falha ao armazenar arquivo no Google Drive: {self._mensagem_segura(exc)}"
+            if not upload_concluido:
+                self._registrar_health("INDISPONIVEL", mensagem)
+            raise StorageServiceError(mensagem) from exc
