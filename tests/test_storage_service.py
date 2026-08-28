@@ -123,6 +123,61 @@ def test_mensagem_segura_oculta_token_e_caminho():
     assert "token_google_drive.json" not in mensagem
 
 
+def test_compensa_upload_se_registro_no_banco_falhar(monkeypatch, tmp_path):
+    arquivo = tmp_path / "nota.xml"
+    arquivo.write_text("<xml/>", encoding="utf-8")
+    removidos = []
+
+    monkeypatch.setattr(storage_mod, "google_drive_habilitado", lambda: True)
+    monkeypatch.setattr(
+        storage_mod,
+        "upload_arquivo_path_google_drive",
+        lambda **kwargs: {"drive_file_id": "drive-orphan", "id": "drive-orphan"},
+    )
+    monkeypatch.setattr(
+        storage_mod,
+        "registrar_arquivo_sistema",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("falha banco")),
+    )
+
+    storage = StorageService("GOOGLE_DRIVE")
+    monkeypatch.setattr(
+        storage,
+        "_excluir_objeto_provider_silenciosamente",
+        lambda drive_file_id: removidos.append(drive_file_id) or True,
+    )
+
+    with pytest.raises(StorageServiceError):
+        storage.armazenar_arquivo(
+            object(),
+            caminho_local=str(arquivo),
+            empresa_id=2,
+            empresa_nome="Empresa Teste",
+            categoria="Documentos_Fiscais",
+            subcategoria="NFSe_Prestador",
+            pasta_registro="nf_10",
+            origem="DOCUMENTO_FISCAL",
+            origem_id=10,
+            tipo_arquivo="XML_FISCAL",
+            nome_original="nota.xml",
+        )
+
+    assert removidos == ["drive-orphan"]
+
+
+def test_desfazer_armazenamento_disponivel_para_rollback_do_chamador(monkeypatch):
+    storage = StorageService("GOOGLE_DRIVE")
+    removidos = []
+    monkeypatch.setattr(
+        storage,
+        "_excluir_objeto_provider_silenciosamente",
+        lambda drive_file_id: removidos.append(drive_file_id) or True,
+    )
+
+    assert storage.desfazer_armazenamento({"drive_file_id": "drive-rollback"}) is True
+    assert removidos == ["drive-rollback"]
+
+
 def test_importacao_documental_usa_storage_service_sem_persistencia_local():
     fonte = (ROOT / "app_modules" / "documentos" / "importacao_xml.py").read_text(encoding="utf-8")
     assert "StorageService" in fonte
