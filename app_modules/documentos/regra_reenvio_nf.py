@@ -24,6 +24,16 @@ def status_nf_bloqueia_reenvio(status_nf: str | None) -> bool:
     return status in STATUS_NF_BLOQUEIAM_REENVIO
 
 
+def status_nf_exige_novo_documento(status_nf: str | None) -> bool:
+    """Indica quando um reenvio deve criar outro registro e preservar o histórico.
+
+    Documentos encerrados, recusados ou substituídos nunca são reativados nem
+    sobrescritos pelo novo XML. Eles continuam disponíveis para auditoria.
+    """
+    status = str(status_nf or "").strip()
+    return status in STATUS_NF_LIBERAM_REENVIO
+
+
 def clausula_sql_status_bloqueante(alias: str = "nf") -> str:
     """Cláusula SQL compatível com MySQL 5.6 para a regra de documento vigente."""
     valores = ", ".join(f"'{status}'" for status in STATUS_NF_BLOQUEIAM_REENVIO)
