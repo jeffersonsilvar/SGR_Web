@@ -178,6 +178,95 @@ def test_desfazer_armazenamento_disponivel_para_rollback_do_chamador(monkeypatch
     assert removidos == ["drive-rollback"]
 
 
+def test_falha_upload_real_atualiza_health_indisponivel(monkeypatch, tmp_path):
+    arquivo = tmp_path / "nota.xml"
+    arquivo.write_text("<xml/>", encoding="utf-8")
+    health = []
+
+    monkeypatch.setattr(storage_mod, "google_drive_habilitado", lambda: True)
+    monkeypatch.setattr(
+        storage_mod,
+        "upload_arquivo_path_google_drive",
+        lambda **kwargs: (_ for _ in ()).throw(GoogleDriveStorageError("provider fora")),
+    )
+    monkeypatch.setattr(
+        storage_mod,
+        "registrar_status_storage",
+        lambda **kwargs: health.append(kwargs) or True,
+    )
+
+    with pytest.raises(StorageServiceError):
+        StorageService("GOOGLE_DRIVE").armazenar_arquivo(
+            object(),
+            caminho_local=str(arquivo),
+            empresa_id=2,
+            empresa_nome="Empresa Teste",
+            categoria="Documentos_Fiscais",
+            subcategoria="NFSe_Prestador",
+            pasta_registro="nf_20",
+            origem="DOCUMENTO_FISCAL",
+            origem_id=20,
+            tipo_arquivo="XML_FISCAL",
+            nome_original="nota.xml",
+        )
+
+    assert health[-1]["status"] == "INDISPONIVEL"
+    assert health[-1]["provider"] == "GOOGLE_DRIVE"
+
+
+def test_storage_desabilitado_atualiza_health_nao_configurado(monkeypatch, tmp_path):
+    arquivo = tmp_path / "nota.xml"
+    arquivo.write_text("<xml/>", encoding="utf-8")
+    health = []
+
+    monkeypatch.setattr(storage_mod, "google_drive_habilitado", lambda: False)
+    monkeypatch.setattr(
+        storage_mod,
+        "registrar_status_storage",
+        lambda **kwargs: health.append(kwargs) or True,
+    )
+
+    with pytest.raises(StorageServiceError):
+        StorageService("GOOGLE_DRIVE").armazenar_arquivo(
+            object(),
+            caminho_local=str(arquivo),
+            empresa_id=2,
+            empresa_nome="Empresa Teste",
+            categoria="Documentos_Fiscais",
+            subcategoria="NFSe_Prestador",
+            pasta_registro="nf_21",
+            origem="DOCUMENTO_FISCAL",
+            origem_id=21,
+            tipo_arquivo="XML_FISCAL",
+            nome_original="nota.xml",
+        )
+
+    assert health[-1]["status"] == "NAO_CONFIGURADO"
+
+
+def test_falha_download_real_atualiza_health_indisponivel(monkeypatch):
+    health = []
+    monkeypatch.setattr(
+        storage_mod,
+        "baixar_arquivo_google_drive",
+        lambda file_id: (_ for _ in ()).throw(GoogleDriveStorageError("download indisponivel")),
+    )
+    monkeypatch.setattr(
+        storage_mod,
+        "registrar_status_storage",
+        lambda **kwargs: health.append(kwargs) or True,
+    )
+
+    with pytest.raises(StorageServiceError):
+        StorageService("GOOGLE_DRIVE").baixar_arquivo({
+            "storage_provider": "GOOGLE_DRIVE",
+            "drive_file_id": "drive-erro",
+        })
+
+    assert health[-1]["status"] == "INDISPONIVEL"
+    assert "download indisponivel" in health[-1]["mensagem"]
+
+
 def test_importacao_documental_usa_storage_service_sem_persistencia_local():
     fonte = (ROOT / "app_modules" / "documentos" / "importacao_xml.py").read_text(encoding="utf-8")
     assert "StorageService" in fonte
