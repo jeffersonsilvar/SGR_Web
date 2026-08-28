@@ -89,7 +89,6 @@ class StorageService:
     @staticmethod
     def _mensagem_segura(exc: Exception) -> str:
         texto = str(exc or "Falha desconhecida de armazenamento.")
-        # Não exponha caminhos locais, tokens ou client secrets no painel administrativo.
         texto = re.sub(r"[A-Za-z]:\\[^\r\n,;]+", "[caminho local ocultado]", texto)
         texto = re.sub(r"/(?:home|Users)/[^\r\n,;]+", "[caminho local ocultado]", texto)
         texto = re.sub(
@@ -100,6 +99,36 @@ class StorageService:
         if len(texto) > 350:
             texto = texto[:350] + "..."
         return texto
+
+    def _excluir_objeto_provider_silenciosamente(self, drive_file_id: Optional[str]) -> bool:
+        """Compensa um upload externo quando a persistência local falha.
+
+        Esta rotina é deliberadamente best-effort: nunca mascara a exceção
+        original do fluxo. Retorna True apenas quando a exclusão foi confirmada.
+        """
+        if not drive_file_id:
+            return False
+        try:
+            self._validar_provider()
+            service = obter_servico_drive()
+            service.files().delete(
+                fileId=str(drive_file_id),
+                supportsAllDrives=True,
+            ).execute()
+            return True
+        except Exception:
+            return False
+
+    def desfazer_armazenamento(self, arquivo: Optional[Dict[str, Any]]) -> bool:
+        """Remove do provider um arquivo recém-enviado após rollback do chamador.
+
+        O método permite que fluxos transacionais maiores compensem o objeto
+        externo caso uma etapa posterior ao StorageService falhe antes do commit.
+        """
+        if not arquivo:
+            return False
+        drive_file_id = arquivo.get("drive_file_id") or arquivo.get("id")
+        return self._excluir_objeto_provider_silenciosamente(drive_file_id)
 
     def armazenar_upload(self, cur, *, arquivo, **kwargs) -> Optional[Dict[str, Any]]:
         """Entrada padrão para FileStorage/objetos de upload da aplicação.
@@ -138,11 +167,7 @@ class StorageService:
                     pass
 
     def baixar_arquivo(self, arquivo: Dict[str, Any]) -> bytes:
-        """Lê bytes de um arquivo privado através do provider configurado.
-
-        Recebe os metadados de ``arquivos_sistema``. Assim, consumidores como o
-        visualizador fiscal não conhecem detalhes do Google Drive.
-        """
+        """Lê bytes de um arquivo privado através do provider configurado."""
         if not arquivo:
             raise StorageServiceError("Metadados do arquivo não informados.")
 
@@ -188,6 +213,8 @@ class StorageService:
 
         Não existe fallback local silencioso. Se o provider falhar, uma exceção é
         lançada para que o fluxo chamador faça rollback da operação documental.
+        Se o upload externo já tiver ocorrido e a persistência em arquivos_sistema
+        falhar, o objeto recém-criado é removido do provider como compensação.
         """
         self._validar_provider()
         if not google_drive_habilitado():
@@ -198,6 +225,7 @@ class StorageService:
             raise StorageServiceError("Arquivo temporário não encontrado para envio ao armazenamento.")
 
         sha256_hex = self.calcular_sha256(caminho_local)
+        upload_info = None
         try:
             upload_info = upload_arquivo_path_google_drive(
                 caminho_local=caminho_local,
@@ -244,12 +272,18 @@ class StorageService:
                 "url_interna": f"/arquivos/visualizar/{int(arquivo_id)}",
             }
         except StorageServiceError:
+            if upload_info:
+                self.desfazer_armazenamento(upload_info)
             raise
         except GoogleDriveStorageError as exc:
+            if upload_info:
+                self.desfazer_armazenamento(upload_info)
             raise StorageServiceError(
                 f"Google Drive indisponível: {self._mensagem_segura(exc)}"
             ) from exc
         except Exception as exc:
+            if upload_info:
+                self.desfazer_armazenamento(upload_info)
             raise StorageServiceError(
                 f"Falha ao armazenar arquivo no Google Drive: {self._mensagem_segura(exc)}"
             ) from exc
