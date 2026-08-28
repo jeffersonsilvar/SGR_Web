@@ -16,6 +16,10 @@ def _app_teste():
     def inicio():
         return "inicio"
 
+    @app.get("/dashboard")
+    def dashboard():
+        return "dashboard"
+
     services = {
         "login_required": lambda func: func,
         "obter_conexao": lambda: None,
