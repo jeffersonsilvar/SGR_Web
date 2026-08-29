@@ -49,21 +49,15 @@ def test_clausula_sql_eh_explicita_e_nao_usa_diferente_de_recusada():
     assert "<>" not in clausula
 
 
-def test_aplicador_usa_ast_e_preserva_restante_do_app():
-    fonte = (ROOT / "scripts" / "aplicar_regra_reenvio_nf.py").read_text(encoding="utf-8")
-    assert "ast.parse" in fonte
-    assert 'ALVOS = {"rota_tem_documento_ativo", "enviar_nf_motorista"}' in fonte
-    assert "ast.unparse" not in fonte
-    assert "splitlines(keepends=True)" in fonte
-    assert "PREDICADO_ANTIGO" in fonte
-    assert "PREDICADO_NOVO" in fonte
+def test_app_consolidado_usa_predicado_explicito_de_nf_vigente():
+    fonte = (ROOT / "app.py").read_text(encoding="utf-8")
+    predicado = "nf.status_nf IN ('Enviada', 'Em análise', 'Aprovada', 'Pagamento solicitado', 'Pagamento confirmado')"
+    assert fonte.count(predicado) >= 2
+    assert "nf.status_nf <> 'Recusada'" not in fonte
 
 
-def test_aplicador_historico_imutavel_altera_somente_funcao_de_envio():
-    fonte = (ROOT / "scripts" / "aplicar_historico_imutavel_nf.py").read_text(encoding="utf-8")
-    assert "ast.parse" in fonte
-    assert 'NOME_FUNCAO = "enviar_nf_motorista"' in fonte
-    assert "splitlines(keepends=True)" in fonte
-    assert "ast.unparse" not in fonte
-    assert "nf_reenvio_recusada_id = nf_existente.get('id')" in fonte
+def test_app_consolidado_preserva_nf_recusada_como_historico():
+    fonte = (ROOT / "app.py").read_text(encoding="utf-8")
+    assert "if status_xml_existente == 'Recusada':" in fonte
     assert "nf_reenvio_recusada_id = None" in fonte
+    assert "nf_reenvio_recusada_id = nf_existente.get('id')" not in fonte
