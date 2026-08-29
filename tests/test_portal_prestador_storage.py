@@ -34,12 +34,12 @@ def test_motorista_id_permanece_apenas_alias_legado_no_adapter():
     assert "motorista_id=None" in storage
 
 
-def test_aplicador_substitui_helper_por_ast_sem_regex_destrutiva():
-    fonte = (ROOT / "scripts" / "aplicar_storage_portal_prestador.py").read_text(encoding="utf-8")
-    assert "ast.parse" in fonte
-    assert 'NOME_FUNCAO = "tentar_enviar_arquivo_google_drive"' in fonte
-    assert "armazenar_xml_portal_prestador" in fonte
-    assert "re.sub" not in fonte
+def test_app_consolidado_encaminha_xml_motorista_para_storage_service():
+    fonte = (ROOT / "app.py").read_text(encoding="utf-8")
+    assert 'if origem != \'XML_MOTORISTA\':' in fonte
+    assert "from app_modules.storage.portal_prestador import armazenar_xml_portal_prestador" in fonte
+    assert "return armazenar_xml_portal_prestador(" in fonte
+    assert "Usando fallback local" not in fonte
 
 
 def test_portal_legado_continua_com_mesma_rota_e_tabela():
