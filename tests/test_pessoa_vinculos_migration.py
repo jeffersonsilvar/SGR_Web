@@ -62,8 +62,8 @@ def test_outros_e_acesso_portal_nao_viram_vinculo_automatico():
 def test_migration_preserva_campos_legados_motorista_e_ajudante():
     migration = _migration()
 
-    assert "motorista_id" in migration.splitlines()[2]
-    assert "ajudante_id" in migration.splitlines()[2]
+    # A migration declara explicitamente que os aliases legados permanecem intactos.
+    assert "como motorista_id/ajudante_id" in migration
     assert "RENAME COLUMN" not in migration
     assert "CHANGE COLUMN motorista_id" not in migration
     assert "CHANGE COLUMN ajudante_id" not in migration
