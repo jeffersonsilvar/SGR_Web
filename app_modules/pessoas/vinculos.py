@@ -16,6 +16,31 @@ def normalizar_tipo_vinculo(tipo_vinculo):
     return valor
 
 
+def condicao_sql_vinculo_pessoa(*, alias_pessoa="p", tipo_vinculo, alias_vinculo="pv"):
+    """Retorna uma condição SQL EXISTS para filtrar Pessoas por vínculo ativo.
+
+    A função retorna apenas SQL estrutural. ``tipo_vinculo`` é validado contra o
+    catálogo fechado de papéis do domínio antes de ser incorporado à expressão.
+    Os aliases também são validados para evitar composição arbitrária de SQL.
+    """
+    tipo = normalizar_tipo_vinculo(tipo_vinculo)
+
+    for alias in (alias_pessoa, alias_vinculo):
+        if not alias or not str(alias).replace("_", "").isalnum():
+            raise ValueError("Alias SQL inválido.")
+
+    return f"""
+        EXISTS (
+            SELECT 1
+            FROM pessoa_vinculos {alias_vinculo}
+            WHERE {alias_vinculo}.empresa_id = {alias_pessoa}.empresa_id
+              AND {alias_vinculo}.pessoa_id = {alias_pessoa}.id
+              AND {alias_vinculo}.tipo_vinculo = '{tipo}'
+              AND {alias_vinculo}.status_vinculo = 'Ativo'
+        )
+    """.strip()
+
+
 def listar_vinculos_pessoa(cur, *, empresa_id, pessoa_id, somente_ativos=True):
     if not empresa_id or not pessoa_id:
         return []
