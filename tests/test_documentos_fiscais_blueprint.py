@@ -164,10 +164,11 @@ def test_migracao_16_2_habilita_criacao_sem_edicao():
     assert "'editar'" not in migration
 
 
-def test_registrador_nao_remove_rotas_legadas():
-    fonte = (ROOT / "scripts" / "aplicar_blueprint_documentos_fiscais.py").read_text(encoding="utf-8")
+def test_registro_blueprint_documentos_esta_consolidado_sem_aplicador_local():
+    fonte_app = (ROOT / "app.py").read_text(encoding="utf-8")
 
-    assert 'app.extensions["documentos_services"]' in fonte
-    assert "app.register_blueprint" in fonte
-    assert "ast.parse" not in fonte
-    assert "blueprint16-backup" in fonte
+    assert 'from app_modules.documentos import criar_documentos_blueprint' in fonte_app
+    assert 'app.extensions["documentos_services"] = documentos_services' in fonte_app
+    assert 'app.register_blueprint(criar_documentos_blueprint(documentos_services))' in fonte_app
+    assert "@app.route('/portal-motorista/enviar-nf', methods=['GET', 'POST'])" in fonte_app
+    assert not (ROOT / "scripts" / "aplicar_blueprint_documentos_fiscais.py").exists()
