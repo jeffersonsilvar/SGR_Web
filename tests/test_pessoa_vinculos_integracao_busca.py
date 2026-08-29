@@ -14,8 +14,17 @@ def test_busca_uso_motorista_consulta_vinculo_ativo():
     assert "query += f\" AND {condicao_sql_motorista_prestador('p')}\"" not in source
 
 
-def test_migracao_da_busca_nao_remove_legado_de_ajudante():
+def test_busca_uso_ajudante_consulta_vinculo_ativo():
     source = APP.read_text(encoding="utf-8")
 
     assert "elif uso == 'ajudante':" in source
-    assert "condicao_sql_ajudante_prestador('p')" in source
+    assert "tipo_vinculo='AJUDANTE'" in source
+    assert "alias_vinculo='pv_ajudante'" in source
+    assert "query += f\" AND {condicao_sql_ajudante_prestador('p')}\"" not in source
+
+
+def test_buscas_motorista_e_ajudante_usam_aliases_independentes():
+    source = APP.read_text(encoding="utf-8")
+
+    assert "alias_vinculo='pv_motorista'" in source
+    assert "alias_vinculo='pv_ajudante'" in source
