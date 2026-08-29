@@ -5060,7 +5060,13 @@ def api_buscar_pessoas():
             params.append(empresa_id)
 
         if uso == 'motorista':
-            query += f" AND {condicao_sql_motorista_prestador('p')}"
+            from app_modules.pessoas.vinculos import condicao_sql_vinculo_pessoa
+
+            query += " AND " + condicao_sql_vinculo_pessoa(
+                alias_pessoa='p',
+                tipo_vinculo='MOTORISTA',
+                alias_vinculo='pv_motorista',
+            )
         elif uso == 'ajudante':
             query += f" AND {condicao_sql_ajudante_prestador('p')}"
         elif uso == 'prestador':
