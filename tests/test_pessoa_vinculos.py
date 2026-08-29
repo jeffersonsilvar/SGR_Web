@@ -2,6 +2,7 @@ import pytest
 
 from app_modules.pessoas.vinculos import (
     TIPOS_VINCULO,
+    condicao_sql_vinculo_pessoa,
     listar_vinculos_pessoa,
     normalizar_tipo_vinculo,
     pessoa_possui_vinculo,
@@ -42,6 +43,21 @@ def test_normalizacao_nao_aceita_papel_desconhecido():
 
     with pytest.raises(ValueError):
         normalizar_tipo_vinculo("portal")
+
+
+def test_condicao_sql_vinculo_filtra_mesma_empresa_pessoa_e_status_ativo():
+    sql = condicao_sql_vinculo_pessoa(alias_pessoa="p", tipo_vinculo="motorista", alias_vinculo="pvm")
+
+    assert "FROM pessoa_vinculos pvm" in sql
+    assert "pvm.empresa_id = p.empresa_id" in sql
+    assert "pvm.pessoa_id = p.id" in sql
+    assert "pvm.tipo_vinculo = 'MOTORISTA'" in sql
+    assert "pvm.status_vinculo = 'Ativo'" in sql
+
+
+def test_condicao_sql_vinculo_rejeita_alias_arbitrario():
+    with pytest.raises(ValueError):
+        condicao_sql_vinculo_pessoa(alias_pessoa="p; DROP TABLE pessoas", tipo_vinculo="MOTORISTA")
 
 
 def test_listagem_filtra_empresa_pessoa_e_status_ativo():
