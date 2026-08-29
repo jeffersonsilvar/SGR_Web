@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<div class="container-fluid py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="fa-solid fa-file-circle-plus me-2"></i>Novo Documento Fiscal</h2>
+            <div class="text-muted">Cadastro interno de NFS-e administrativa, NF-e de uso/consumo e outros documentos fiscais.</div>
+        </div>
+        <a href="{{ url_for('documentos.central_documentos_fiscais') }}" class="btn btn-outline-secondary">Voltar</a>
+    </div>
+
+    <div class="alert alert-warning border-0 shadow-sm">
+        <div class="fw-semibold">Etapa 16.2</div>
+        <div class="small">O cadastro cria somente o documento fiscal. Nenhum título financeiro ou movimentação de caixa será gerado nesta etapa.</div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="row g-3">
+                {% if is_super_admin %}
+                <div class="col-md-4">
+                    <label class="form-label">Empresa *</label>
+                    <select name="empresa_id" id="empresa_id" class="form-select" required>
+                        <option value="">Selecione</option>
+                        {% for e in empresas %}
+                        <option value="{{ e.id }}" {% if (form and form.get('empresa_id')|string == e.id|string) or (not form and empresa_id_padrao|string == e.id|string) %}selected{% endif %}>{{ e.nome_fantasia or e.razao_social }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% else %}
+                <input type="hidden" name="empresa_id" id="empresa_id" value="{{ empresa_id_padrao }}">
+                {% endif %}
+
+                <div class="col-md-4">
+                    <label class="form-label">Tipo de documento *</label>
+                    <select name="tipo_documento" class="form-select" required>
+                        <option value="">Selecione</option>
+                        {% for codigo, descricao in tipos_documento.items() %}
+                        <option value="{{ codigo }}" {% if form and form.get('tipo_documento') == codigo %}selected{% endif %}>{{ descricao }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Número do documento *</label>
+                    <input name="numero_documento" class="form-control" maxlength="60" value="{{ form.get('numero_documento','') if form else '' }}" required>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Série</label>
+                    <input name="serie" class="form-control" maxlength="30" value="{{ form.get('serie','') if form else '' }}">
+                </div>
+
+                <div class="col-md-5">
+                    <label class="form-label">Chave de acesso</label>
+                    <input name="chave_acesso" class="form-control" maxlength="120" value="{{ form.get('chave_acesso','') if form else '' }}">
+                    <div class="form-text">Quando informada, deve ser única dentro da empresa.</div>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Emissão *</label>
+                    <input type="date" name="data_emissao" class="form-control" value="{{ form.get('data_emissao','') if form else '' }}" required>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Competência</label>
+                    <input type="date" name="data_competencia" class="form-control" value="{{ form.get('data_competencia','') if form else '' }}">
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Valor total *</label>
+                    <input name="valor_total" class="form-control" placeholder="0,00" value="{{ form.get('valor_total','') if form else '' }}" required>
+                </div>
+
+                <div class="col-12"><hr><h5 class="mb-0">Emitente / Fornecedor</h5></div>
+
+                <div class="col-md-7">
+                    <label class="form-label">Buscar Pessoa cadastrada</label>
+                    <div class="position-relative">
+                        <input type="text" id="pessoa_busca" class="form-control" autocomplete="off" placeholder="Digite nome, CPF/CNPJ ou ID">
+                        <div id="pessoa_resultados" class="list-group position-absolute w-100 shadow" style="z-index: 1050; display:none; max-height:260px; overflow:auto;"></div>
+                    </div>
+                    <input type="hidden" name="pessoa_id" id="pessoa_id" value="{{ form.get('pessoa_id','') if form else '' }}">
+                    <div id="pessoa_selecionada" class="form-text"></div>
+                </div>
+
+                <div class="col-md-5">
+                    <label class="form-label">Nome do emitente *</label>
+                    <input name="nome_emitente" id="nome_emitente" class="form-control" maxlength="180" value="{{ form.get('nome_emitente','') if form else '' }}">
+                    <div class="form-text">Obrigatório quando nenhuma Pessoa for selecionada.</div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">CPF/CNPJ do emitente</label>
+                    <input name="cpf_cnpj_emitente" id="cpf_cnpj_emitente" class="form-control" maxlength="20" value="{{ form.get('cpf_cnpj_emitente','') if form else '' }}">
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">CPF/CNPJ do destinatário</label>
+                    <input name="cpf_cnpj_destinatario" class="form-control" maxlength="20" value="{{ form.get('cpf_cnpj_destinatario','') if form else '' }}">
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Descrição</label>
+                    <input name="descricao" class="form-control" maxlength="255" placeholder="Ex.: Internet da base, material de escritório" value="{{ form.get('descricao','') if form else '' }}">
+                </div>
+
+                <div class="col-12"><hr><h5 class="mb-0">Arquivos</h5></div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Arquivo XML</label>
+                    <input type="file" name="arquivo_xml" class="form-control" accept=".xml,text/xml,application/xml">
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Arquivo PDF</label>
+                    <input type="file" name="arquivo_pdf" class="form-control" accept=".pdf,application/pdf">
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">Observação</label>
+                    <textarea name="observacao" class="form-control" rows="3">{{ form.get('observacao','') if form else '' }}</textarea>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer bg-white d-flex justify-content-end gap-2 py-3">
+            <a href="{{ url_for('documentos.central_documentos_fiscais') }}" class="btn btn-outline-secondary">Cancelar</a>
+            <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Salvar documento</button>
+        </div>
+    </form>
+</div>
+
+<script>
+(function () {
+    const busca = document.getElementById('pessoa_busca');
+    const resultados = document.getElementById('pessoa_resultados');
+    const pessoaId = document.getElementById('pessoa_id');
+    const selecionada = document.getElementById('pessoa_selecionada');
+    const nome = document.getElementById('nome_emitente');
+    const documento = document.getElementById('cpf_cnpj_emitente');
+    const empresa = document.getElementById('empresa_id');
+    let timer = null;
+
+    function limparResultados() {
+        resultados.innerHTML = '';
+        resultados.style.display = 'none';
+    }
+
+    busca.addEventListener('input', function () {
+        clearTimeout(timer);
+        const q = busca.value.trim();
+        if (q.length < 2) {
+            limparResultados();
+            return;
+        }
+        timer = setTimeout(async function () {
+            const params = new URLSearchParams({q: q});
+            if (empresa && empresa.value) params.set('empresa_id', empresa.value);
+            try {
+                const response = await fetch('{{ url_for("documentos.api_pessoas_documento_fiscal") }}?' + params.toString());
+                const itens = await response.json();
+                resultados.innerHTML = '';
+                itens.forEach(function (item) {
+                    const botao = document.createElement('button');
+                    botao.type = 'button';
+                    botao.className = 'list-group-item list-group-item-action';
+                    botao.textContent = item.label + ' — ' + item.categoria;
+                    botao.addEventListener('click', function () {
+                        pessoaId.value = item.id;
+                        selecionada.textContent = 'Selecionado: ' + item.label;
+                        nome.value = item.nome || '';
+                        documento.value = item.documento || '';
+                        busca.value = item.nome || '';
+                        limparResultados();
+                    });
+                    resultados.appendChild(botao);
+                });
+                resultados.style.display = itens.length ? 'block' : 'none';
+            } catch (e) {
+                limparResultados();
+            }
+        }, 250);
+    });
+
+    if (empresa) {
+        empresa.addEventListener('change', function () {
+            pessoaId.value = '';
+            selecionada.textContent = '';
+            busca.value = '';
+            limparResultados();
+        });
+    }
+
+    document.addEventListener('click', function (event) {
+        if (!resultados.contains(event.target) && event.target !== busca) limparResultados();
+    });
+})();
+</script>
+{% endblock %}

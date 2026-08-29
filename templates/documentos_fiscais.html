@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<div class="container-fluid py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="fa-solid fa-file-invoice me-2"></i>Documentos Fiscais</h2>
+            <div class="text-muted">Central documental para conferência de NFS-e, NF-e e demais documentos fiscais que originam obrigações financeiras.</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('documentos.importar_documento_fiscal') }}" class="btn btn-success">
+                <i class="fa-solid fa-file-import me-1"></i> Importar XML
+            </a>
+            <a href="{{ url_for('documentos.novo_documento_fiscal') }}" class="btn btn-primary">
+                <i class="fa-solid fa-plus me-1"></i> Cadastro manual
+            </a>
+            <a href="{{ url_for('financeiro.financeiro_dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-arrow-left me-1"></i> Dashboard Financeiro
+            </a>
+        </div>
+    </div>
+
+    <div class="alert alert-info border-0 shadow-sm">
+        <div class="fw-semibold mb-1">Etapa 16.4 — importação inteligente e integridade cadastral</div>
+        <div class="small">XML de NF-e/NFS-e administrativa é lido automaticamente. O arquivo original é preservado e a importação só é concluída quando o emitente estiver vinculado ao cadastro mestre de Pessoas. O cadastro manual permanece como contingência.</div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted">Documentos</small><h4 class="mb-0">{{ resumo.total or 0 }}</h4></div></div></div>
+        <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted">Recebidos</small><h4 class="mb-0">{{ resumo.recebidos or 0 }}</h4></div></div></div>
+        <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted">Em análise</small><h4 class="mb-0">{{ resumo.em_analise or 0 }}</h4></div></div></div>
+        <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted">Aprovados</small><h4 class="mb-0">{{ resumo.aprovados or 0 }}</h4></div></div></div>
+        <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted">Recusados</small><h4 class="mb-0">{{ resumo.recusados or 0 }}</h4></div></div></div>
+        <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted">Valor</small><h5 class="mb-0">{{ resumo.valor_total|moeda_br }}</h5></div></div></div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                {% if is_super_admin %}
+                <div class="col-md-3">
+                    <label class="form-label">Empresa</label>
+                    <select name="empresa_id" class="form-select">
+                        <option value="">Todas</option>
+                        {% for e in empresas %}
+                        <option value="{{ e.id }}" {% if filtros.empresa_id|string == e.id|string %}selected{% endif %}>{{ e.nome_fantasia or e.razao_social }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="col-md-3">
+                    <label class="form-label">Tipo</label>
+                    <select name="tipo" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="NFSE_PRESTADOR" {% if filtros.tipo == 'NFSE_PRESTADOR' %}selected{% endif %}>NFS-e Prestador</option>
+                        {% for codigo, descricao in tipos_documento.items() %}
+                        <option value="{{ codigo }}" {% if filtros.tipo == codigo %}selected{% endif %}>{{ descricao }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2"><label class="form-label">Data início</label><input type="date" name="data_inicio" value="{{ filtros.data_inicio }}" class="form-control"></div>
+                <div class="col-md-2"><label class="form-label">Data fim</label><input type="date" name="data_fim" value="{{ filtros.data_fim }}" class="form-control"></div>
+                <div class="col-md-2"><label class="form-label">Status documental</label><select name="status" class="form-select"><option value="">Todos</option>{% for item in statuses %}<option value="{{ item }}" {% if filtros.status == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+                <div class="col-md-4"><label class="form-label">Pesquisa</label><input type="text" name="pesquisa" class="form-control" value="{{ filtros.pesquisa }}" placeholder="Emitente, CPF/CNPJ, número ou chave"></div>
+                <div class="col-md-2 d-grid"><button class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Filtrar</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light"><tr><th>Tipo</th><th>Emitente / Pessoa</th><th>Documento</th><th>Emissão / Entrada</th><th class="text-end">Valor</th><th class="text-center">Rotas</th><th>Status documental</th><th>Origem</th><th class="text-end">Ações</th></tr></thead>
+                <tbody>
+                    {% for d in documentos %}
+                    <tr>
+                        <td><span class="badge {% if d.fonte == 'LEGADO' %}bg-primary-subtle text-primary{% else %}bg-info-subtle text-info-emphasis{% endif %}">{{ d.tipo_documento }}</span></td>
+                        <td><div class="fw-semibold">{{ d.prestador_nome or '-' }}</div><small class="text-muted">{{ d.prestador_cpf_cnpj or d.prestador_documento_cadastro or '-' }}</small>{% if is_super_admin %}<div class="small text-muted">{{ d.empresa_nome or d.empresa_razao_social }}</div>{% endif %}</td>
+                        <td><div class="fw-semibold">{{ d.numero_documento }}</div><small class="text-muted text-break">{{ d.chave_acesso or '-' }}</small></td>
+                        <td><div>{{ d.data_emissao|formatar_data_br }}</div><small class="text-muted">Entrada: {{ d.data_envio|formatar_data_hora_br }}</small></td>
+                        <td class="text-end fw-semibold">{{ d.valor_total|moeda_br }}</td>
+                        <td class="text-center"><span class="badge text-bg-light border">{{ d.qtd_rotas or 0 }}</span></td>
+                        <td>{% set st = d.status_documento or '' %}<span class="badge {% if st == 'Recusado' %}bg-danger{% elif st == 'Aprovado' %}bg-success{% elif st == 'Em análise' %}bg-warning text-dark{% elif st == 'Cancelado' %}bg-dark{% else %}bg-secondary{% endif %}">{{ st or '-' }}</span>{% if d.status_legado and d.status_legado != st %}<div class="small text-muted mt-1">Legado: {{ d.status_legado }}</div>{% endif %}</td>
+                        <td><small class="text-muted">{{ d.origem_documento }}</small></td>
+                        <td class="text-end">{% if d.fonte == 'LEGADO' %}<a href="{{ url_for('detalhes_nf_motorista', id=d.id) }}" class="btn btn-sm btn-outline-secondary">Abrir legado</a>{% else %}<a href="{{ url_for('documentos.detalhes_documento_fiscal', id=d.id) }}" class="btn btn-sm btn-outline-primary">Abrir</a>{% endif %}</td>
+                    </tr>
+                    {% else %}<tr><td colspan="9" class="text-center text-muted py-5">Nenhum documento fiscal encontrado para os filtros informados.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

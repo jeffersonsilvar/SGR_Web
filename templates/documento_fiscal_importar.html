@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<div class="container-fluid py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="fa-solid fa-file-import me-2"></i>Importar XML Fiscal</h2>
+            <div class="text-muted">Leitura automática de NF-e e NFS-e administrativa, com conferência e vínculo obrigatório ao cadastro de Pessoas.</div>
+        </div>
+        <a href="{{ url_for('documentos.central_documentos_fiscais') }}" class="btn btn-outline-secondary">Voltar</a>
+    </div>
+
+    {% if not rascunho %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="alert alert-info border-0">
+                <strong>Etapa 16.4.</strong> O XML é a fonte estruturada. O SGR lê os dados automaticamente e preserva o arquivo original para auditoria. O PDF é opcional e serve como apoio visual.
+            </div>
+            <form method="post" enctype="multipart/form-data" class="row g-3">
+                <input type="hidden" name="acao" value="analisar">
+                {% if is_super_admin %}
+                <div class="col-md-6">
+                    <label class="form-label">Empresa *</label>
+                    <select name="empresa_id" class="form-select" required>
+                        {% for e in empresas %}<option value="{{ e.id }}" {% if empresa_id_padrao|string == e.id|string %}selected{% endif %}>{{ e.nome_fantasia or e.razao_social }}</option>{% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="col-md-6">
+                    <label class="form-label">XML fiscal *</label>
+                    <input type="file" name="arquivo_xml" accept=".xml,text/xml,application/xml" class="form-control" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">PDF / DANFE / DANFSe</label>
+                    <input type="file" name="arquivo_pdf" accept=".pdf,application/pdf" class="form-control">
+                    <div class="form-text">Opcional. Não é usado como fonte principal dos dados quando o XML está disponível.</div>
+                </div>
+                <div class="col-12 d-flex justify-content-end">
+                    <button class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Ler XML</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert {% if pessoa %}alert-success{% else %}alert-warning{% endif %} border-0 shadow-sm">
+        {% if pessoa %}
+        <strong>Fornecedor localizado.</strong> O CNPJ/CPF do XML foi vinculado a <strong>{{ pessoa.nome_completo }}</strong>.
+        {% else %}
+        <strong>Fornecedor não localizado.</strong> O XML foi lido, mas a importação está bloqueada até existir uma Pessoa com o CNPJ/CPF <strong>{{ rascunho.cpf_cnpj_emitente }}</strong> nesta empresa. Cadastre o fornecedor em <strong>Cadastros → Pessoas</strong> e depois clique em “Verificar cadastro e concluir”.
+        {% endif %}
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="mb-3">Dados extraídos automaticamente</h5>
+                    <div class="row g-3">
+                        <div class="col-md-4"><small class="text-muted d-block">Modelo</small><strong>{{ rascunho.modelo_detectado }}</strong></div>
+                        <div class="col-md-4"><small class="text-muted d-block">Número</small><strong>{{ rascunho.numero_documento }}</strong></div>
+                        <div class="col-md-4"><small class="text-muted d-block">Série</small><strong>{{ rascunho.serie or '-' }}</strong></div>
+                        <div class="col-md-8"><small class="text-muted d-block">Chave</small><span class="text-break">{{ rascunho.chave_acesso or '-' }}</span></div>
+                        <div class="col-md-4"><small class="text-muted d-block">Emissão</small><strong>{{ rascunho.data_emissao }}</strong></div>
+                        <div class="col-md-6"><small class="text-muted d-block">Emitente original do XML</small><span>{{ rascunho.nome_emitente_original }}</span></div>
+                        <div class="col-md-6"><small class="text-muted d-block">Apresentação normalizada</small><strong>{{ rascunho.nome_emitente }}</strong></div>
+                        <div class="col-md-6"><small class="text-muted d-block">CPF/CNPJ emitente</small><strong>{{ rascunho.cpf_cnpj_emitente }}</strong></div>
+                        <div class="col-md-6"><small class="text-muted d-block">CPF/CNPJ destinatário</small><span>{{ rascunho.cpf_cnpj_destinatario or '-' }}</span></div>
+                        <div class="col-md-4"><small class="text-muted d-block">Valor</small><strong>R$ {{ rascunho.valor_total }}</strong></div>
+                        <div class="col-md-8"><small class="text-muted d-block">Descrição</small><span>{{ rascunho.descricao or '-' }}</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="mb-3">Integridade cadastral</h5>
+                    <div class="small text-muted mb-3">Nenhum documento fiscal importado ficará sem emissor vinculado ao cadastro mestre de Pessoas.</div>
+                    <form method="post">
+                        <input type="hidden" name="acao" value="concluir">
+                        <button class="btn {% if pessoa %}btn-success{% else %}btn-warning{% endif %} w-100">
+                            {% if pessoa %}<i class="fa-solid fa-check me-1"></i>Confirmar importação{% else %}<i class="fa-solid fa-rotate me-1"></i>Verificar cadastro e concluir{% endif %}
+                        </button>
+                    </form>
+                    <a href="{{ url_for('documentos.importar_documento_fiscal') }}" class="btn btn-outline-secondary w-100 mt-2">Cancelar / Ler outro XML</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

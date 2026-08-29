@@ -315,55 +315,23 @@ def tentar_enviar_arquivo_google_drive(
     mime_type=None,
     criado_por_usuario_id=None,
 ):
-    """
-    Envia arquivo para o Google Drive quando habilitado.
-    Se falhar, mantém o caminho local para não interromper o fluxo operacional.
-    """
-    if not google_drive_habilitado():
-        print(f"[Google Drive] Upload não realizado para {origem}/{origem_id}: Google Drive desabilitado ou credenciais não localizadas. Usando fallback local: {caminho_relativo}")
-        return caminho_relativo
+    """Compatibilidade do Portal do Prestador com o StorageService obrigatório."""
+    if origem != 'XML_MOTORISTA':
+        raise RuntimeError(f"Origem de upload legado não migrada para StorageService: {origem}")
 
-    try:
-        empresa_nome, motorista_nome = _buscar_contexto_drive_upload(cur, empresa_id, motorista_id)
-        upload_info = upload_arquivo_path_google_drive(
-            caminho_local=caminho_absoluto,
-            empresa_id=empresa_id,
-            empresa_nome=empresa_nome,
-            categoria=categoria_por_origem(origem),
-            origem=origem,
-            origem_id=origem_id,
-            motorista_id=motorista_id,
-            motorista_nome=motorista_nome,
-            nome_original=nome_original or os.path.basename(caminho_absoluto),
-            mime_type=mime_type,
-        )
-        arquivo_id = registrar_arquivo_sistema(
-            cur,
-            empresa_id=empresa_id,
-            pessoa_id=motorista_id,
-            motorista_id=motorista_id,
-            origem=origem,
-            origem_id=origem_id,
-            tipo_arquivo=tipo_arquivo,
-            upload_info=upload_info,
-            caminho_local=caminho_relativo,
-            status_arquivo='ATIVO',
-            criado_por_usuario_id=criado_por_usuario_id or session.get('usuario_id'),
-        )
+    from app_modules.storage.portal_prestador import armazenar_xml_portal_prestador
 
-        # Retornamos uma rota interna protegida do SGR, não o link direto do Drive.
-        # Assim o arquivo continua privado no Google Drive e só usuários logados,
-        # com permissão na empresa/motorista, conseguem visualizar.
-        if arquivo_id:
-            try:
-                return url_for('visualizar_arquivo_sistema', arquivo_id=arquivo_id)
-            except Exception:
-                return f"/arquivos/visualizar/{arquivo_id}"
+    return armazenar_xml_portal_prestador(
+        cur,
+        caminho_absoluto,
+        empresa_id=empresa_id,
+        motorista_id=motorista_id,
+        origem_id=origem_id,
+        nome_original=nome_original,
+        criado_por_usuario_id=criado_por_usuario_id,
+    )
 
-        return caminho_relativo
-    except Exception as exc:
-        print(f"[Google Drive] Falha no upload de {origem}/{origem_id}: {exc}")
-        return caminho_relativo
+
 
 
 
@@ -890,7 +858,7 @@ def rota_tem_documento_ativo(cur, rota_id, empresa_id):
                                         AND nf.empresa_id = v.empresa_id
                 WHERE v.rota_id = %s
                   AND v.empresa_id = %s
-                  AND nf.status_nf <> 'Recusada'
+                  AND nf.status_nf IN ('Enviada', 'Em análise', 'Aprovada', 'Pagamento solicitado', 'Pagamento confirmado')
                 """, (rota_id, empresa_id))
 
     resultado = cur.fetchone() or {}
@@ -3418,7 +3386,7 @@ def enviar_nf_motorista():
                     ON nf.id = v.motorista_nf_id
                    AND nf.empresa_id = v.empresa_id
                 WHERE v.rota_id IN ({placeholders})
-                  AND nf.status_nf <> 'Recusada'
+                  AND nf.status_nf IN ('Enviada', 'Em análise', 'Aprovada', 'Pagamento solicitado', 'Pagamento confirmado')
             """, rota_ids)
 
             ja_vinculadas = cur.fetchall()
@@ -3517,7 +3485,7 @@ def enviar_nf_motorista():
 
                 if status_xml_existente == 'Recusada':
                     # Documento recusado pode ser reativado para reenvio/correção.
-                    nf_reenvio_recusada_id = nf_existente.get('id')
+                    nf_reenvio_recusada_id = None
 
                 elif status_xml_existente == 'Estornada':
                     # Documento estornado faz parte de processo encerrado/cancelado.
@@ -20149,6 +20117,37 @@ financeiro_services = {
 
 app.extensions["financeiro_services"] = financeiro_services
 app.register_blueprint(criar_financeiro_blueprint(financeiro_services))
+
+
+# ==========================================================
+# BLUEPRINT 16.1 — CENTRAL DE DOCUMENTOS FISCAIS
+# ==========================================================
+from app_modules.documentos import criar_documentos_blueprint
+
+documentos_services = {
+    "login_required": login_required,
+    "perfis_permitidos": perfis_permitidos,
+    "usuario_eh_super_admin_global": usuario_eh_super_admin_global,
+    "obter_conexao": obter_conexao,
+}
+
+app.extensions["documentos_services"] = documentos_services
+app.register_blueprint(criar_documentos_blueprint(documentos_services))
+
+
+# ==========================================================
+# BLUEPRINT 16.4B - INTEGRACOES / HEALTH CHECK DO STORAGE
+# ==========================================================
+from app_modules.integracoes import criar_integracoes_blueprint
+
+integracoes_services = {
+    "login_required": login_required,
+    "usuario_eh_super_admin_global": usuario_eh_super_admin_global,
+    "obter_conexao": obter_conexao,
+}
+
+app.extensions["integracoes_services"] = integracoes_services
+app.register_blueprint(criar_integracoes_blueprint(integracoes_services))
 
 
 if __name__ == '__main__':

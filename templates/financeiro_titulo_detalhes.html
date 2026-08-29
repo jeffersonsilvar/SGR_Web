@@ -89,7 +89,20 @@
                                     <td class="text-end">{{ vinculo.valor_vinculo|moeda_br }}</td>
                                 </tr>
                                 {% else %}
+                                {% if titulo.origem == 'DOCUMENTO_FISCAL' %}
+                                <tr>
+                                    <td>Documento fiscal</td>
+                                    <td>
+                                        <a href="{{ url_for('documentos.detalhes_documento_fiscal', id=titulo.origem_id) }}">
+                                            Documento Fiscal #{{ titulo.origem_id }}
+                                        </a>
+                                    </td>
+                                    <td>{{ titulo.descricao }}</td>
+                                    <td class="text-end">{{ titulo.valor_liquido|moeda_br }}</td>
+                                </tr>
+                                {% else %}
                                 <tr><td colspan="4" class="text-center text-muted py-3">Título lançado manualmente, sem vínculo automático com NF, rota ou documento.</td></tr>
+                                {% endif %}
                                 {% endfor %}
                             </tbody>
                         </table>

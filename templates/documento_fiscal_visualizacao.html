@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<style>
+    .fiscal-sheet { max-width: 1180px; margin: 0 auto; }
+    .fiscal-box { border: 1px solid #d9dee5; border-radius: .65rem; }
+    .fiscal-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: #6c757d; }
+    .fiscal-value { font-weight: 600; word-break: break-word; }
+    .fiscal-key { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88rem; word-break: break-all; }
+    @media print {
+        .no-print, aside, nav, .sidebar { display: none !important; }
+        main, .content-wrapper { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+        .fiscal-sheet { max-width: none; }
+        .card, .fiscal-box { box-shadow: none !important; break-inside: avoid; }
+    }
+</style>
+
+<div class="container-fluid py-3 fiscal-sheet">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3 no-print">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="fa-solid fa-file-invoice me-2"></i>Visualização {{ dados.titulo }}</h2>
+            <div class="text-muted">{{ dados.subtitulo }} · Documento Fiscal #{{ documento.id }}</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('documentos.baixar_xml_original', id=documento.id) }}" class="btn btn-outline-primary">
+                <i class="fa-solid fa-download me-1"></i>Baixar XML original
+            </a>
+            <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+                <i class="fa-solid fa-print me-1"></i>Imprimir
+            </button>
+            <a href="{{ url_for('documentos.detalhes_documento_fiscal', id=documento.id) }}" class="btn btn-secondary">Voltar</a>
+        </div>
+    </div>
+
+    <div class="alert alert-light border shadow-sm mb-3">
+        <i class="fa-solid fa-circle-info me-1"></i>
+        <strong>Representação auxiliar gerada pelo SGR a partir do XML original.</strong>
+        O XML armazenado permanece inalterado e é a fonte primária deste documento.
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <div class="row g-3 align-items-start">
+                <div class="col-lg-5">
+                    <div class="display-6 fw-bold">{{ dados.titulo }}</div>
+                    <div class="text-muted">{{ dados.subtitulo }}</div>
+                </div>
+                <div class="col-lg-7">
+                    <div class="row g-3">
+                        <div class="col-sm-4"><div class="fiscal-label">Número</div><div class="fiscal-value">{{ dados.numero or '-' }}</div></div>
+                        <div class="col-sm-4"><div class="fiscal-label">Série</div><div class="fiscal-value">{{ dados.serie or '-' }}</div></div>
+                        <div class="col-sm-4"><div class="fiscal-label">Emissão</div><div class="fiscal-value">{{ dados.emissao or '-' }}</div></div>
+                        <div class="col-12"><div class="fiscal-label">Chave de acesso</div><div class="fiscal-key">{{ dados.chave or '-' }}</div></div>
+                        {% if dados.protocolo %}
+                        <div class="col-md-4"><div class="fiscal-label">Protocolo</div><div class="fiscal-value">{{ dados.protocolo }}</div></div>
+                        <div class="col-md-8"><div class="fiscal-label">Situação / protocolo</div><div>{{ dados.status_protocolo or '-' }}</div></div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="mb-3">Emitente / Prestador</h5>
+                    <div class="fiscal-label">Nome</div><div class="fiscal-value mb-2">{{ dados.emitente.nome or '-' }}</div>
+                    <div class="row g-2">
+                        <div class="col-md-6"><div class="fiscal-label">CPF/CNPJ</div><div>{{ dados.emitente.documento or '-' }}</div></div>
+                        <div class="col-md-6"><div class="fiscal-label">Inscrição</div><div>{{ dados.emitente.ie or '-' }}</div></div>
+                        <div class="col-12"><div class="fiscal-label">Endereço</div><div>{{ dados.emitente.endereco or '-' }}</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="mb-3">Destinatário / Tomador</h5>
+                    <div class="fiscal-label">Nome</div><div class="fiscal-value mb-2">{{ dados.destinatario.nome or '-' }}</div>
+                    <div class="row g-2">
+                        <div class="col-md-6"><div class="fiscal-label">CPF/CNPJ</div><div>{{ dados.destinatario.documento or '-' }}</div></div>
+                        <div class="col-md-6"><div class="fiscal-label">Inscrição</div><div>{{ dados.destinatario.ie or '-' }}</div></div>
+                        <div class="col-12"><div class="fiscal-label">Endereço</div><div>{{ dados.destinatario.endereco or '-' }}</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if dados.modelo == 'NFE' %}
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h5 class="mb-3">Produtos / Itens</h5>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Código</th><th>Descrição</th><th>NCM</th><th>CFOP</th><th>Un.</th><th class="text-end">Qtd.</th><th class="text-end">Unitário</th><th class="text-end">Total</th></tr></thead>
+                    <tbody>
+                    {% for item in dados.itens %}
+                        <tr>
+                            <td>{{ item.codigo or '-' }}</td><td>{{ item.descricao or '-' }}</td><td>{{ item.ncm or '-' }}</td><td>{{ item.cfop or '-' }}</td><td>{{ item.unidade or '-' }}</td>
+                            <td class="text-end">{{ item.quantidade or '-' }}</td><td class="text-end">{{ item.valor_unitario|moeda_br }}</td><td class="text-end fw-semibold">{{ item.valor_total|moeda_br }}</td>
+                        </tr>
+                    {% else %}<tr><td colspan="8" class="text-muted">Nenhum item identificado no XML.</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% elif dados.modelo == 'NFSE' and dados.servico %}
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h5 class="mb-3">Serviço</h5>
+            <div class="row g-3">
+                <div class="col-md-3"><div class="fiscal-label">Código</div><div>{{ dados.servico.codigo or '-' }}</div></div>
+                <div class="col-md-9"><div class="fiscal-label">Município de incidência</div><div>{{ dados.servico.municipio or '-' }}</div></div>
+                <div class="col-12"><div class="fiscal-label">Descrição</div><div style="white-space: pre-wrap">{{ dados.servico.descricao or '-' }}</div></div>
+            </div>
+        </div>
+    </div>
+    {% elif dados.modelo == 'CTE' and dados.transporte %}
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h5 class="mb-3">Dados do transporte</h5>
+            <div class="row g-3">
+                <div class="col-md-6"><div class="fiscal-label">Remetente</div><div class="fiscal-value">{{ dados.transporte.remetente_nome or '-' }}</div><div>{{ dados.transporte.remetente_documento or '-' }}</div></div>
+                <div class="col-md-3"><div class="fiscal-label">Origem</div><div>{{ dados.transporte.municipio_inicio or '-' }}{% if dados.transporte.uf_inicio %}/{{ dados.transporte.uf_inicio }}{% endif %}</div></div>
+                <div class="col-md-3"><div class="fiscal-label">Destino</div><div>{{ dados.transporte.municipio_fim or '-' }}{% if dados.transporte.uf_fim %}/{{ dados.transporte.uf_fim }}{% endif %}</div></div>
+            </div>
+            {% if dados.transporte.componentes %}
+            <hr><div class="row g-2">
+                {% for comp in dados.transporte.componentes %}<div class="col-md-4"><div class="fiscal-label">{{ comp.nome or 'Componente' }}</div><div>{{ comp.valor|moeda_br }}</div></div>{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="mb-3">Totais</h5>
+            <div class="row g-3">
+                {% for chave, valor in dados.totais.items() %}
+                <div class="col-6 col-md-3">
+                    <div class="fiscal-label">{{ chave|replace('_', ' ') }}</div>
+                    <div class="fs-5 fw-semibold">{{ valor|moeda_br }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
