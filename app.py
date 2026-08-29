@@ -4483,6 +4483,18 @@ def cadastro_pessoa():
                             observacao or None
                         ))
 
+            pessoa_id = cur.lastrowid
+            from app_modules.pessoas.vinculos import sincronizar_vinculos_por_cadastro
+
+            sincronizar_vinculos_por_cadastro(
+                cur,
+                empresa_id=empresa_id_destino,
+                pessoa_id=pessoa_id,
+                tipo_cadastro=tipo_cadastro,
+                tipo_prestador=tipo_prestador,
+                status_cadastro=status_cadastro,
+            )
+
             con.commit()
 
             flash("Cadastro realizado com sucesso!", "success")
@@ -4893,9 +4905,25 @@ def editar_pessoa(id):
                 flash("Nenhuma alteração realizada ou cadastro não pertence à empresa logada.", "warning")
                 return redirect(url_for('visualizar_pessoas'))
 
-            # Se a troca de empresa foi permitida por não haver movimentação, sincroniza usuário vinculado.
+            # Se a Pessoa mudou de empresa e a troca foi permitida, os vínculos acompanham
+            # a identidade mestre antes da sincronização dos papéis atuais.
             if empresa_original != empresa_id_destino:
+                cur.execute(
+                    "UPDATE pessoa_vinculos SET empresa_id = %s WHERE pessoa_id = %s AND empresa_id = %s",
+                    (empresa_id_destino, id, empresa_original),
+                )
                 cur.execute("UPDATE usuarios SET empresa_id = %s WHERE pessoa_id = %s", (empresa_id_destino, id))
+
+            from app_modules.pessoas.vinculos import sincronizar_vinculos_por_cadastro
+
+            sincronizar_vinculos_por_cadastro(
+                cur,
+                empresa_id=empresa_id_destino,
+                pessoa_id=id,
+                tipo_cadastro=tipo_cadastro,
+                tipo_prestador=tipo_prestador,
+                status_cadastro=status_cadastro,
+            )
 
             con.commit()
 
