@@ -5241,13 +5241,21 @@ def lancar_rota():
                     flash("Transportadora inválida ou não pertence à empresa logada.", "danger")
                     return redirect(url_for('lancar_rota'))
 
-            cur.execute("""
-                        SELECT id, nome_completo
-                        FROM pessoas
-                        WHERE id = %s
-                          AND empresa_id = %s
-                          AND status_cadastro = 'Ativo'
-                          AND (tipo_cadastro = 'Motorista' OR (tipo_cadastro = 'Prestador de Serviço' AND COALESCE(tipo_prestador, '') IN ('Motorista', 'Motorista e Ajudante'))) LIMIT 1
+            from app_modules.pessoas.vinculos import condicao_sql_vinculo_pessoa
+
+            condicao_motorista = condicao_sql_vinculo_pessoa(
+                alias_pessoa='p',
+                tipo_vinculo='MOTORISTA',
+                alias_vinculo='pv_motorista_rota',
+            )
+            cur.execute(f"""
+                        SELECT p.id, p.nome_completo
+                        FROM pessoas p
+                        WHERE p.id = %s
+                          AND p.empresa_id = %s
+                          AND p.status_cadastro = 'Ativo'
+                          AND {condicao_motorista}
+                        LIMIT 1
                         """, (motorista_id, empresa_id))
 
             motorista = cur.fetchone()
