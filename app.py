@@ -6452,13 +6452,20 @@ def editar_rota(id):
             return redirect(url_for('visualizar_rotas'))
 
 
-        cur.execute("""
-                    SELECT id, nome_completo
-                    FROM pessoas
-                    WHERE empresa_id = %s
-                      AND tipo_cadastro = 'Motorista'
-                      AND status_cadastro = 'Ativo'
-                    ORDER BY nome_completo ASC
+        from app_modules.pessoas.vinculos import condicao_sql_vinculo_pessoa
+
+        condicao_motorista_lista = condicao_sql_vinculo_pessoa(
+            alias_pessoa='p',
+            tipo_vinculo='MOTORISTA',
+            alias_vinculo='pv_motorista_lista_edicao_rota',
+        )
+        cur.execute(f"""
+                    SELECT p.id, p.nome_completo
+                    FROM pessoas p
+                    WHERE p.empresa_id = %s
+                      AND p.status_cadastro = 'Ativo'
+                      AND {condicao_motorista_lista}
+                    ORDER BY p.nome_completo ASC
                     """, (empresa_id,))
         motoristas = cur.fetchall()
 
