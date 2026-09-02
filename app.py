@@ -6631,13 +6631,21 @@ def lancamento_ajudante():
             valor_total += valor_ajudante
 
         try:
-            cur.execute("""
-                        SELECT id, nome_completo
-                        FROM pessoas
-                        WHERE id = %s
-                          AND empresa_id = %s
-                          AND status_cadastro = 'Ativo'
-                          AND (tipo_cadastro = 'Ajudante' OR (tipo_cadastro = 'Prestador de Serviço' AND COALESCE(tipo_prestador, '') IN ('Ajudante', 'Motorista e Ajudante'))) LIMIT 1
+            from app_modules.pessoas.vinculos import condicao_sql_vinculo_pessoa
+
+            condicao_ajudante = condicao_sql_vinculo_pessoa(
+                alias_pessoa='p',
+                tipo_vinculo='AJUDANTE',
+                alias_vinculo='pv_ajudante_lancamento',
+            )
+            cur.execute(f"""
+                        SELECT p.id, p.nome_completo
+                        FROM pessoas p
+                        WHERE p.id = %s
+                          AND p.empresa_id = %s
+                          AND p.status_cadastro = 'Ativo'
+                          AND {condicao_ajudante}
+                        LIMIT 1
                         """, (ajudante_id, empresa_id))
 
             ajudante = cur.fetchone()
@@ -6731,13 +6739,20 @@ def lancamento_ajudante():
             fechar_cursor_conexao(cur, con)
 
     try:
-        cur.execute("""
-                    SELECT id, nome_completo
-                    FROM pessoas
-                    WHERE empresa_id = %s
-                      AND tipo_cadastro = 'Ajudante'
-                      AND status_cadastro = 'Ativo'
-                    ORDER BY nome_completo ASC
+        from app_modules.pessoas.vinculos import condicao_sql_vinculo_pessoa
+
+        condicao_ajudante_lista = condicao_sql_vinculo_pessoa(
+            alias_pessoa='p',
+            tipo_vinculo='AJUDANTE',
+            alias_vinculo='pv_ajudante_lista_lancamento',
+        )
+        cur.execute(f"""
+                    SELECT p.id, p.nome_completo
+                    FROM pessoas p
+                    WHERE p.empresa_id = %s
+                      AND p.status_cadastro = 'Ativo'
+                      AND {condicao_ajudante_lista}
+                    ORDER BY p.nome_completo ASC
                     """, (empresa_id,))
 
         ajudantes = cur.fetchall()
