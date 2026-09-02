@@ -5551,13 +5551,21 @@ def visualizar_rotas():
             filtro_empresa_lista = " AND empresa_id = %s"
             lista_params.append(empresa_logada_id)
 
+        from app_modules.pessoas.vinculos import condicao_sql_vinculo_pessoa
+
+        condicao_motorista_filtro = condicao_sql_vinculo_pessoa(
+            alias_pessoa='p',
+            tipo_vinculo='MOTORISTA',
+            alias_vinculo='pv_motorista_filtro_rotas',
+        )
+        filtro_empresa_motorista = filtro_empresa_lista.replace('empresa_id', 'p.empresa_id')
         cur.execute(f"""
-            SELECT id, nome_completo
-            FROM pessoas
-            WHERE tipo_cadastro = 'Motorista'
-              AND status_cadastro = 'Ativo'
-              {filtro_empresa_lista}
-            ORDER BY nome_completo ASC
+            SELECT p.id, p.nome_completo
+            FROM pessoas p
+            WHERE p.status_cadastro = 'Ativo'
+              AND {condicao_motorista_filtro}
+              {filtro_empresa_motorista}
+            ORDER BY p.nome_completo ASC
         """, lista_params)
 
         motoristas = cur.fetchall()
