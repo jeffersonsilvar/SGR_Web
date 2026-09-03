@@ -10556,23 +10556,30 @@ def financeiro_nfs_motoristas():
         cur.execute(query_resumo, params_resumo)
         resumo = cur.fetchone() or {}
 
-        query_motoristas = '''
-                           SELECT id, nome_completo
-                           FROM pessoas
-                           WHERE tipo_cadastro = 'Motorista'
-                             AND status_cadastro = 'Ativo' \
+        from app_modules.pessoas.vinculos import condicao_sql_vinculo_pessoa
+
+        condicao_motorista_financeiro = condicao_sql_vinculo_pessoa(
+            alias_pessoa='p',
+            tipo_vinculo='MOTORISTA',
+            alias_vinculo='pv_motorista_financeiro_nf',
+        )
+        query_motoristas = f'''
+                           SELECT p.id, p.nome_completo
+                           FROM pessoas p
+                           WHERE p.status_cadastro = 'Ativo'
+                             AND {condicao_motorista_financeiro} \
                            '''
         params_motoristas = []
 
         if is_super_admin:
             if empresa_id_filtro and empresa_id_filtro.isdigit():
-                query_motoristas += ' AND empresa_id = %s'
+                query_motoristas += ' AND p.empresa_id = %s'
                 params_motoristas.append(int(empresa_id_filtro))
         else:
-            query_motoristas += ' AND empresa_id = %s'
+            query_motoristas += ' AND p.empresa_id = %s'
             params_motoristas.append(empresa_logada_id)
 
-        query_motoristas += ' ORDER BY nome_completo ASC'
+        query_motoristas += ' ORDER BY p.nome_completo ASC'
         cur.execute(query_motoristas, params_motoristas)
         motoristas = cur.fetchall()
 
