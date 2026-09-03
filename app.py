@@ -5312,13 +5312,20 @@ def lancar_rota():
 
     try:
 
-        cur.execute("""
-                    SELECT id, nome_completo
-                    FROM pessoas
-                    WHERE empresa_id = %s
-                      AND status_cadastro = 'Ativo'
-                      AND (tipo_cadastro = 'Motorista' OR (tipo_cadastro = 'Prestador de Serviço' AND COALESCE(tipo_prestador, '') IN ('Motorista', 'Motorista e Ajudante')))
-                    ORDER BY nome_completo ASC
+        from app_modules.pessoas.vinculos import condicao_sql_vinculo_pessoa
+
+        condicao_motorista_lista = condicao_sql_vinculo_pessoa(
+            alias_pessoa='p',
+            tipo_vinculo='MOTORISTA',
+            alias_vinculo='pv_motorista_lista_lancar_rota',
+        )
+        cur.execute(f"""
+                    SELECT p.id, p.nome_completo
+                    FROM pessoas p
+                    WHERE p.empresa_id = %s
+                      AND p.status_cadastro = 'Ativo'
+                      AND {condicao_motorista_lista}
+                    ORDER BY p.nome_completo ASC
                     """, (empresa_id,))
         motoristas = cur.fetchall()
 
